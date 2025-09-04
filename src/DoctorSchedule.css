@@ -1,0 +1,146 @@
+/* Container for the entire agenda */
+.agenda-container {
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+  width: 90%;
+}
+
+/* Each doctor's row */
+.doctor-schedule-row {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+/* Doctor's name */
+.doctor-name {
+  width: 100%;
+  margin-right: 10px;
+  text-align: center;
+  font-weight: bold;
+}
+
+/* Header row for the days of the week */
+.header-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+  text-align: center;
+  font-weight: bold;
+  background-color: #f08c85;
+  padding: 10px;
+  color: white;
+  border-radius: 4px;
+}
+
+/* Individual day headers */
+.day-header {
+  display: flex;
+  flex-direction: column;
+}
+
+.am-pm-header {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 5px;
+}
+
+/* Container for all months */
+.calendarDoc-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin: 0;
+}
+
+/* Each month section */
+.month-section {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #ccc;
+  padding: 5px;
+  margin-bottom: 20px;
+  background-color: #f9f9f9;
+}
+
+/* Heading for month and week */
+.month-section h3,
+.week-section h4 {
+  margin: 5px 0;
+  text-align: center;
+  font-weight: bold;
+}
+
+/* Container for weeks within a month */
+.weeks-container {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Each week section */
+.week-section {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #ddd;
+  padding: 10px;
+  margin: 5px 0;
+  background-color: #fff;
+  border-radius: 4px;
+}
+
+/* Container for days within a week */
+.schedule-columns {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+/* Each day's column */
+.day-column {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #eee;
+  padding: 5px;
+  border-radius: 4px;
+  background-color: #f5f5f5;
+}
+
+/* AM/PM container with horizontal layout */
+.am-pm-container-horizontal {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+}
+
+/* AM and PM schedules aligned horizontally */
+.am-schedule,
+.pm-schedule {
+  display: flex;
+  flex-direction: column;
+  width: 48%; /* Make both AM and PM schedules take up equal width */
+  padding: 5px;
+  /* background-color: #f0f0f0; */
+  border-radius: 4px;
+}
+
+/* Activity block */
+.activity-block {
+  width: 100%;
+  border-radius: 4px;
+  margin: 5px 0;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* No schedule text */
+.no-schedule {
+  color: #999;
+  text-align: center;
+}

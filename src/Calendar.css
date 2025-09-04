@@ -1,0 +1,169 @@
+.calendar-container {
+  margin: 0 40px; /* Adds a 20px margin to both sides of the calendar */
+}
+
+.calendar {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.calendar th {
+  padding-top: 0px;
+  border: 1px solid #ccc;
+}
+
+/* .calendar th, */
+.calendar td {
+  border: 1px solid #ccc;
+  padding: 5px;
+  text-align: center;
+  vertical-align: top;
+}
+
+.calendar td.activities {
+  /* display: flex;
+  flex-direction: column; */
+  justify-content: space-around;
+  /* height: 100px;  */
+  /* Adjust height to ensure it doesn't stretch too much */
+}
+
+.calendar .activity {
+  margin: 2px 0;
+  padding: 5px;
+  border-radius: 4px;
+  color: white;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* .calendar {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+  margin-top: 20px;
+}
+
+.calendar th,
+.calendar td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}*/
+
+.calendar th {
+  background-color: #f08c85;
+  color: white;
+  padding-top: 0px;
+}
+
+.calendar td {
+  background-color: #f2f2f2;
+  width: 14.285%; /* Equal width for 7 columns (100% / 7) 
+}
+
+.calendar tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.calendar tr:hover {
+  background-color: #ddd;
+}
+
+.calendar th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.calendar th.AM_PM {
+  /* background-color: #f76e64; */
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+.check-mark {
+  color: rgb(62, 64, 155);
+  font-size: 1.5em;
+}
+
+.cross-mark {
+  color: rgb(0, 217, 255);
+  font-size: 1.5em;
+}
+
+.missing-assignments {
+  margin-top: 20px;
+}
+
+.missing-assignments h3 {
+  color: red;
+}
+
+.missing-assignments ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.missing-assignments li {
+  background-color: #ffcccc;
+  margin: 5px 0;
+  padding: 10px;
+  border: 1px solid red;
+}
+
+.testColor {
+  /* background-color: aquamarine, aqua, wheat, darkcyan, rgb(63, 144, 219), lightgreen; */
+  background-color: rgb(216, 247, 216);
+}
+
+.chart-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100vh; /* Ensure it takes the full viewport height */
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.chart-wrapper {
+  width: 100%;
+  max-width: 1200px; /* Maximum width for the chart */
+  height: 100%;
+}
+
+.chart-wrapper canvas {
+  width: 100% !important;
+  height: auto !important;
+}
+
+/* Dropdown list styling */
+select.activity-dropdown,
+select.astreinte-dropdown {
+  padding: 5px;
+  border-radius: 5px;
+  border: 1px solid #007bff;
+  background-color: #f8f9fa;
+  color: #495057;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+select.activity-dropdown:focus,
+select.astreinte-dropdown:focus {
+  border-color: #0056b3;
+  outline: none;
+}
+
+/* Selected doctor name styling */
+.activity .selected-doctor {
+  font-weight: bold;
+  color: #007bff;
+  font-size: 15px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  background-color: #e9ecef;
+  display: inline-block;
+}
