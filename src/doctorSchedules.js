@@ -62,356 +62,419 @@ export const docActivities = {
   },
 };
 
-export const docChunks = {
-  ///YC
-  // YC_HTC: {
-  //   Monday: {
-  //     '9am-1pm': ['HTC1', 'TeleCs'],
-  //     '2pm-6pm': ['HTC1', 'TeleCs', 'AMI'],
-  //   },
-  //   Tuesday: { '9am-1pm': ['HTC1_visite'], '2pm-6pm': ['HTC1', 'Cs'] },
-  //   Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-  //   Thursday: { '9am-1pm': ['HTC1'], '2pm-6pm': ['HTC1', 'Cs'] },
-  //   Friday: { '9am-1pm': ['HTC1_visite'], '2pm-6pm': ['HTC1'] },
-  // },
-
-  YC_ambu: {
-    Monday: {
-      '9am-1pm': ['TP'],
-      '2pm-6pm': ['TP'],
-    },
-    Tuesday: {
-      '9am-1pm': ['TeleCs'],
-      '2pm-6pm': ['Cs'],
-    },
-    Wednesday: {
-      '9am-1pm': ['TP'],
-      '2pm-6pm': ['TP'],
-    },
-    Thursday: {
-      '9am-1pm': ['TeleCs'],
-      '2pm-6pm': ['Cs'],
-    },
-    // Friday: {
-    //   '9am-1pm': ['AMI_Cs_U'],
-    //   '2pm-6pm': ['AMI'],
-    // },
-    Friday: {
-      '9am-1pm': ['Chefferie'],
-      '2pm-6pm': ['Chefferie'],
-    },
+// Standard rotation templates - complete weekly schedules  
+export const rotationTemplates = {
+  HTC1: {
+    Monday: { '9am-1pm': ['HTC1'], '2pm-6pm': ['HTC1'] },
+    Tuesday: { '9am-1pm': ['HTC1_visite'], '2pm-6pm': ['HTC1'] },
+    Wednesday: { '9am-1pm': ['HTC1'], '2pm-6pm': ['HTC1'] },
+    Thursday: { '9am-1pm': ['HTC1'], '2pm-6pm': ['HTC1'] },
+    Friday: { '9am-1pm': ['HTC1_visite'], '2pm-6pm': ['HTC1'] }
   },
-  YC_ambu_remplaHTC_Jeudi: {
-    Monday: {
-      '9am-1pm': ['TP'],
-      '2pm-6pm': ['TP'],
-    },
-    Tuesday: {
-      '9am-1pm': ['TeleCs'],
-      '2pm-6pm': ['Cs'],
-    },
-    Wednesday: {
-      '9am-1pm': ['TP'],
-      '2pm-6pm': ['TP'],
-    },
-    Thursday: {
-      '9am-1pm': ['HTC1', 'TeleCs'],
-      '2pm-6pm': ['HTC1', 'Cs'],
-    },
-    // Friday: {
-    //   '9am-1pm': ['AMI'],
-    //   '2pm-6pm': ['AMI'],
-    // },
-    Friday: {
-      '9am-1pm': ['Chefferie'],
-      '2pm-6pm': ['Chefferie'],
-    },
+  
+  HTC2: {
+    Monday: { '9am-1pm': ['HTC2'], '2pm-6pm': ['HTC2'] },
+    Tuesday: { '9am-1pm': ['HTC2_visite'], '2pm-6pm': ['HTC2'] },
+    Wednesday: { '9am-1pm': ['HTC2'], '2pm-6pm': ['HTC2'] },
+    Thursday: { '9am-1pm': ['HTC2'], '2pm-6pm': ['HTC2'] },
+    Friday: { '9am-1pm': ['HTC2_visite'], '2pm-6pm': ['HTC2'] }
   },
-  YC_ambu_remplaHTC_Lundi: {
-    Monday: {
-      '9am-1pm': ['HTC1'],
-      '2pm-6pm': ['HTC1', 'AMI'],
-    },
-    Tuesday: {
-      '9am-1pm': ['TeleCs', 'AMI'],
-      '2pm-6pm': ['Cs'],
-    },
-    Wednesday: {
-      '9am-1pm': ['TP'],
-      '2pm-6pm': ['TP'],
-    },
-    Thursday: {
-      '9am-1pm': ['TeleCs'],
-      '2pm-6pm': ['Cs'],
-    },
-    Friday: {
-      '9am-1pm': ['TP'],
-      '2pm-6pm': ['TP'],
-    },
-  },
-  YC_off: {
-    Monday: {
-      '9am-1pm': ['TP'],
-      '2pm-6pm': ['TP'],
-    },
-    Tuesday: {
-      '9am-1pm': ['TP'],
-      '2pm-6pm': ['TP'],
-    },
-    Wednesday: {
-      '9am-1pm': ['TP'],
-      '2pm-6pm': ['TP'],
-    },
-    Thursday: {
-      '9am-1pm': ['TP'],
-      '2pm-6pm': ['TP'],
-    },
-    Friday: {
-      '9am-1pm': ['TP'],
-      '2pm-6pm': ['TP'],
-    },
-  },
-  ///FL
-  FL_HTC: {
-    Monday: { '9am-1pm': ['HTC1'], '2pm-6pm': ['HTC1', 'AMI'] },
-    Tuesday: { '9am-1pm': ['HTC1_visite'], '2pm-6pm': ['HTC1', 'Cs_Prison'] },
-    Wednesday: { '9am-1pm': ['HTC1', 'Cs'], '2pm-6pm': ['HTC1'] },
-    Thursday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Friday: { '9am-1pm': ['HTC1_visite'], '2pm-6pm': ['HTC1'] },
-  },
-  FL_HDJ_Vendredi: {
-    Monday: { '9am-1pm': ['AMI_Cs_U', 'Cs'], '2pm-6pm': ['TeleCs'] },
-    Tuesday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs_Prison'] },
-    Wednesday: { '9am-1pm': ['Cs'], '2pm-6pm': ['TeleCs'] },
-    Thursday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Friday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] },
-  },
-  FL_HDJ_Ven_remplaHTC_Lundi: {
-    Monday: { '9am-1pm': ['HTC1', 'Cs'], '2pm-6pm': ['HTC1', 'TeleCs', 'AMI'] },
-    Tuesday: { '9am-1pm': ['TeleCs', 'AMI'], '2pm-6pm': ['Cs_Prison'] },
-    Wednesday: { '9am-1pm': ['Cs'], '2pm-6pm': ['TeleCs'] },
-    Thursday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Friday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] },
-  },
-  FL_HDJ_Full: {
-    Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Tuesday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['Cs_Prison'] },
-    Wednesday: { '9am-1pm': ['Cs'], '2pm-6pm': ['TeleCs'] },
-    Thursday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] },
-    Friday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] },
-  },
-  FL_Ambu_remplaHTC_Mercredi: {
-    //Mois Ambulatoire
-    Monday: { '9am-1pm': ['Cs'], '2pm-6pm': ['TeleCs'] },
-    Tuesday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs_Prison'] },
-    Wednesday: { '9am-1pm': ['HTC1', 'Cs'], '2pm-6pm': ['HTC1', 'TeleCs'] },
-    Thursday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Friday: { '9am-1pm': ['Cs'], '2pm-6pm': ['TeleCs'] },
-  },
-  ///CL
-  CL_HTC: {
-    // mois HTC
-    Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Tuesday: { '9am-1pm': ['HTC1_visite'], '2pm-6pm': ['HTC1', 'TeleCs'] },
-    Wednesday: { '9am-1pm': ['HTC1', 'AMI'], '2pm-6pm': ['HTC1', 'Cs'] },
-    Thursday: { '9am-1pm': ['HTC1'], '2pm-6pm': ['HTC1', 'Cs'] },
-    Friday: { '9am-1pm': ['HTC1_visite'], '2pm-6pm': ['HTC1'] },
-  },
-
-  CL_HDJ_full: {
-    //DL -
-    Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+  
+  HDJ: {
+    Monday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
     Tuesday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] },
-    Wednesday: { '9am-1pm': ['TeleCs', 'AMI'], '2pm-6pm': ['Cs'] },
-    Thursday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['Cs'] },
-    Friday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] },
-  },
-  CL_HDJ_Vendredi: {
-    //DL +
-    Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Tuesday: { '9am-1pm': ['AMI'], '2pm-6pm': ['TeleCs'] },
-    Wednesday: { '9am-1pm': ['AMI'], '2pm-6pm': ['Cs'] },
-    Thursday: { '9am-1pm': ['AMI'], '2pm-6pm': ['Cs'] },
-    Friday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] },
-  },
-  CL_HDJ_Ven_remplaHTC_Jeudi: {
-    Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Tuesday: { '9am-1pm': ['AMI'], '2pm-6pm': ['TeleCs'] },
-    Wednesday: { '9am-1pm': ['AMI'], '2pm-6pm': ['Cs'] },
-    Thursday: { '9am-1pm': ['HTC1'], '2pm-6pm': ['HTC1', 'Cs'] },
-    Friday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] },
-  },
-  CL_ambu_remplaHTC_Mercredi: {
-    //mois Ambu
-    Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Tuesday: { '9am-1pm': ['AMI'], '2pm-6pm': ['TeleCs'] },
-    Wednesday: { '9am-1pm': ['HTC1', 'AMI'], '2pm-6pm': ['HTC1', 'Cs'] },
-    Thursday: { '9am-1pm': ['AMI'], '2pm-6pm': ['Cs'] },
-    Friday: { '9am-1pm': ['AMI_Cs_U'], '2pm-6pm': ['TeleCs'] },
-  },
-  ///DL
-  DL_HDJ: {
-    //DL HDJ
-    Monday: { '9am-1pm': ['Cs'], '2pm-6pm': ['Cs'] },
-    Tuesday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] },
-    Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+    Wednesday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
     Thursday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] },
-    Friday: { '9am-1pm': ['Cs'], '2pm-6pm': ['TeleCs'] },
+    Friday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] }
   },
-  DL_MPO: {
-    //DL MPO
-    Monday: { '9am-1pm': ['MPO'], '2pm-6pm': ['MPO'] },
-    Tuesday: { '9am-1pm': ['MPO'], '2pm-6pm': ['MPO'] },
-    Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Thursday: { '9am-1pm': ['MPO'], '2pm-6pm': ['MPO'] },
-    Friday: { '9am-1pm': ['MPO'], '2pm-6pm': ['MPO'] },
-  },
-  ///GC
-  GC_HTC: {
-    //HTC2
-    Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Tuesday: { '9am-1pm': ['HTC2_visite'], '2pm-6pm': ['HTC2', 'Cs'] },
-    Wednesday: { '9am-1pm': ['HTC2', 'Cs'], '2pm-6pm': ['HTC2', 'EMIT'] },
-    Thursday: { '9am-1pm': ['HTC2'], '2pm-6pm': ['HTC2', 'TeleCs'] },
-    Friday: { '9am-1pm': ['HTC2_visite'], '2pm-6pm': ['HTC2'] },
-  },
-  GC_EMATIT_remplaHTC_Jeudi: {
-    //EMATIT
-    Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Tuesday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
-    Wednesday: { '9am-1pm': ['Cs'], '2pm-6pm': ['EMIT'] },
-    Thursday: { '9am-1pm': ['HTC2', 'EMATIT'], '2pm-6pm': ['HTC2', 'EMATIT'] },
-    Friday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['EMATIT'] },
-  },
-  GC_EMIT: {
-    //EMIT
-    Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Tuesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['Cs'] },
-    Wednesday: { '9am-1pm': ['Cs'], '2pm-6pm': ['EMIT'] },
+  
+  EMIT: {
+    Monday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
+    Tuesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
+    Wednesday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['EMIT'] },
     Thursday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['EMIT'] },
-    Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
+    Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] }
   },
-  GC_EMIT_remplaHTC_Mercredi: {
-    //EMIT
-    Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Tuesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['Cs'] },
-    Wednesday: { '9am-1pm': ['HTC2', 'Cs'], '2pm-6pm': ['HTC2', 'EMIT'] },
-    Thursday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['EMIT'] },
-    Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
-  },
-  GC_EMIT_remplaHTC_Mercredi: {
-    //EMIT
-    Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Tuesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['Cs'] },
-    Wednesday: { '9am-1pm': ['HTC2', 'Cs'], '2pm-6pm': ['HTC2', 'EMIT'] },
-    Thursday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['EMIT'] },
-    Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
-  },
-
-  ///
-  MG_HTC: {
-    //HTC2
-    Monday: { '9am-1pm': ['HTC1', 'TeleCs'], '2pm-6pm': ['HTC1'] },
-    Tuesday: { '9am-1pm': ['HTC1_visite'], '2pm-6pm': ['HTC1', 'Cs'] },
-    Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Thursday: { '9am-1pm': ['HTC1', 'TeleCs'], '2pm-6pm': ['HTC1', 'Cs'] },
-    Friday: { '9am-1pm': ['HTC1_visite'], '2pm-6pm': ['HTC1'] },
-  },
-  MG_EMATIT_remplaHTC_Lundi: {
-    //EMATIT
-    Monday: { '9am-1pm': ['HTC1', 'EMATIT'], '2pm-6pm': ['HTC1', 'EMATIT'] },
-    Tuesday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
-    Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Thursday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['Cs'] },
-    // Friday: { '9am-1pm': ['AMI'], '2pm-6pm': ['EMATIT'] },
-    Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
-  },
-  MG_EMATIT: {
-    //EMATIT
-    Monday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['EMATIT'] },
-    Tuesday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
-    Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Thursday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['Cs'] },
-    // Friday: { '9am-1pm': ['AMI'], '2pm-6pm': ['EMATIT'] },
-    Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
-  },
-  MG_EMATIT_AMI: {
-    //EMATIT + AMI
-    Monday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['TeleCs'] },
-    Tuesday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['Cs'] },
-    Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Thursday: { '9am-1pm': ['AMI', 'TeleCs'], '2pm-6pm': ['Cs'] },
-    Friday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['EMATIT'] },
-  },
-  RNV_HTC: {
-    //HTC2
-    Monday: { '9am-1pm': ['HTC2'], '2pm-6pm': ['HTC2', 'Cs'] },
-    Tuesday: { '9am-1pm': ['HTC2_visite'], '2pm-6pm': ['HTC2', 'TeleCs'] },
-    Wednesday: {
-      '9am-1pm': ['HTC2', 'EMIT'],
-      '2pm-6pm': ['HTC2', 'Cs'],
-    },
-    Thursday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Friday: { '9am-1pm': ['HTC2_visite'], '2pm-6pm': ['HTC2'] },
-  },
-  RNV_EMATIT: {
-    //EMATIT
+  
+  EMATIT: {
     Monday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
     Tuesday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['EMIT'] },
-    Wednesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['Cs'] },
-    Thursday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Friday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['EMATIT'] },
+    Wednesday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
+    Thursday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['EMATIT'] },
+    Friday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['EMATIT'] }
   },
-  RNV_EMATIT_remplaHTC_Mercredi: {
-    //EMATIT
-    Monday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['Cs'] },
-    Tuesday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['EMATIT'] },
-    Wednesday: {
-      '9am-1pm': ['HTC2', 'EMIT'],
-      '2pm-6pm': ['HTC2', 'Cs'],
-    },
-    Thursday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Friday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['EMIT'] },
+  
+  MPO: {
+    Monday: { '9am-1pm': ['MPO'], '2pm-6pm': ['MPO'] },
+    Tuesday: { '9am-1pm': ['MPO'], '2pm-6pm': ['MPO'] },
+    Wednesday: { '9am-1pm': ['MPO'], '2pm-6pm': ['MPO'] },
+    Thursday: { '9am-1pm': ['MPO'], '2pm-6pm': ['MPO'] },
+    Friday: { '9am-1pm': ['MPO'], '2pm-6pm': ['MPO'] }
   },
-  MDLC_HTC: {
-    //HTC2
-    Monday: { '9am-1pm': ['HTC2', 'TeleCs'], '2pm-6pm': ['HTC2', 'Cs'] },
-    Tuesday: { '9am-1pm': ['HTC2_visite'], '2pm-6pm': ['HTC2', 'EMIT'] },
-    Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Thursday: { '9am-1pm': ['HTC2'], '2pm-6pm': ['HTC2', 'Cs'] },
-    Friday: { '9am-1pm': ['HTC2_visite'], '2pm-6pm': ['HTC2'] },
-  },
-  MDLC_EMIT: {
-    //EMIT
+  
+  Ambulatory: {
     Monday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
-    Tuesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
-    Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+    Tuesday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
+    Wednesday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
     Thursday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
-    Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
-  },
-  MDLC_EMIT_AMI: {
-    //EMIT+AMI
-    Monday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
-    Tuesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
-    Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Thursday: { '9am-1pm': ['AMI'], '2pm-6pm': ['Cs'] },
-    Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['AMI'] },
-  },
-  MDLC_EMIT_remplaHTC_Jeudi: {
-    Monday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
-    Tuesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
-    Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Thursday: { '9am-1pm': ['HTC2'], '2pm-6pm': ['HTC2', 'Cs'] },
-    Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
-  },
-  MDLC_EMIT_remplaHTC_Lundi: {
-    Monday: { '9am-1pm': ['HTC2', 'TeleCs'], '2pm-6pm': ['HTC2', 'Cs'] },
-    Tuesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
-    Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
-    Thursday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
-    Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
-  },
+    Friday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] }
+  }
 };
+
+// Helper function to deep clone objects
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+// Doctor profiles with backbone constraints, skills, and rotations
+export const doctorProfiles = {
+  YC: {
+    backbone: {
+      Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+      Tuesday: { '9am-1pm': [], '2pm-6pm': ['Cs'] },
+      Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+      Thursday: { '9am-1pm': [], '2pm-6pm': ['Cs'] },
+      Friday: { '9am-1pm': ['Chefferie'], '2pm-6pm': ['Chefferie'] }
+    },
+    skills: ['TeleCs', 'AMI', 'HTC1', 'Chefferie'],
+    rotations: {
+      ambu: {
+        Tuesday: { '9am-1pm': ['TeleCs'] },
+        Thursday: { '9am-1pm': ['TeleCs'] }
+      },
+      ambu_remplaHTC_Jeudi: {
+        Tuesday: { '9am-1pm': ['TeleCs'] },
+        Thursday: { '9am-1pm': ['HTC1', 'TeleCs'], '2pm-6pm': ['HTC1', 'Cs'] }
+      },
+      ambu_remplaHTC_Lundi: {
+        Monday: { '9am-1pm': ['HTC1'], '2pm-6pm': ['HTC1', 'AMI'] },
+        Tuesday: { '9am-1pm': ['TeleCs', 'AMI'] },
+        Thursday: { '9am-1pm': ['TeleCs'] },
+        Friday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] }
+      },
+      off: {
+        Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+        Tuesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+        Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+        Thursday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+        Friday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] }
+      }
+    }
+  },
+
+  FL: {
+    backbone: {
+      Monday: { '9am-1pm': [], '2pm-6pm': [] },
+      Tuesday: { '9am-1pm': [], '2pm-6pm': [] },
+      Wednesday: { '9am-1pm': [], '2pm-6pm': [] },
+      Thursday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+      Friday: { '9am-1pm': [], '2pm-6pm': [] }
+    },
+    skills: ['HTC1', 'HTC1_visite', 'HDJ', 'Cs_Prison', 'TeleCs', 'AMI_Cs_U', 'AMI'],
+    rotations: {
+      HTC: {
+        Monday: { '9am-1pm': ['HTC1'], '2pm-6pm': ['HTC1', 'AMI'] },
+        Tuesday: { '9am-1pm': ['HTC1_visite'], '2pm-6pm': ['HTC1', 'Cs_Prison'] },
+        Wednesday: { '9am-1pm': ['HTC1', 'Cs'], '2pm-6pm': ['HTC1'] },
+        Friday: { '9am-1pm': ['HTC1_visite'], '2pm-6pm': ['HTC1'] }
+      },
+      HDJ_Vendredi: {
+        Monday: { '9am-1pm': ['AMI_Cs_U', 'Cs'], '2pm-6pm': ['TeleCs'] },
+        Tuesday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs_Prison'] },
+        Wednesday: { '9am-1pm': ['Cs'], '2pm-6pm': ['TeleCs'] },
+        Friday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] }
+      },
+      HDJ_Ven_remplaHTC_Lundi: {
+        Monday: { '9am-1pm': ['HTC1', 'Cs'], '2pm-6pm': ['HTC1', 'TeleCs', 'AMI'] },
+        Tuesday: { '9am-1pm': ['TeleCs', 'AMI'], '2pm-6pm': ['Cs_Prison'] },
+        Wednesday: { '9am-1pm': ['Cs'], '2pm-6pm': ['TeleCs'] },
+        Friday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] }
+      },
+      HDJ_Full: {
+        Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+        Tuesday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['Cs_Prison'] },
+        Wednesday: { '9am-1pm': ['Cs'], '2pm-6pm': ['TeleCs'] },
+        Friday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] }
+      },
+      Ambu_remplaHTC_Mercredi: {
+        Monday: { '9am-1pm': ['Cs'], '2pm-6pm': ['TeleCs'] },
+        Tuesday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs_Prison'] },
+        Wednesday: { '9am-1pm': ['HTC1', 'Cs'], '2pm-6pm': ['HTC1', 'TeleCs'] },
+        Friday: { '9am-1pm': ['Cs'], '2pm-6pm': ['TeleCs'] }
+      }
+    }
+  },
+
+  GC: {
+    backbone: {
+      Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+      Tuesday: { '9am-1pm': [], '2pm-6pm': ['Cs'] },
+      Wednesday: { '9am-1pm': [], '2pm-6pm': [] },
+      Thursday: { '9am-1pm': [], '2pm-6pm': [] },
+      Friday: { '9am-1pm': [], '2pm-6pm': [] }
+    },
+    skills: ['HTC2', 'HTC2_visite', 'EMIT', 'EMATIT', 'TeleCs'],
+    rotations: {
+      HTC: 'HTC2',  // Use HTC2 template
+      EMATIT_remplaHTC_Jeudi: {
+        Tuesday: { '9am-1pm': ['TeleCs'] },
+        Wednesday: { '9am-1pm': ['Cs'], '2pm-6pm': ['EMIT'] },
+        Thursday: { '9am-1pm': ['HTC2', 'EMATIT'], '2pm-6pm': ['HTC2', 'EMATIT'] },
+        Friday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['EMATIT'] }
+      },
+      EMIT: 'EMIT',  // Use EMIT template
+      EMIT_remplaHTC_Mercredi: {
+        Tuesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['Cs'] },
+        Wednesday: { '9am-1pm': ['HTC2', 'Cs'], '2pm-6pm': ['HTC2', 'EMIT'] },
+        Thursday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['EMIT'] },
+        Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] }
+      }
+    }
+  },
+
+  CL: {
+    backbone: {
+      Monday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+      Tuesday: { '9am-1pm': [], '2pm-6pm': [] },
+      Wednesday: { '9am-1pm': [], '2pm-6pm': [] },
+      Thursday: { '9am-1pm': [], '2pm-6pm': [] },
+      Friday: { '9am-1pm': [], '2pm-6pm': [] }
+    },
+    skills: ['HTC1', 'HTC1_visite', 'HDJ', 'TeleCs', 'AMI'],
+    rotations: {
+      HTC: 'HTC1',  // Use HTC1 template
+      HDJ_full: {
+        Tuesday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] },
+        Wednesday: { '9am-1pm': ['TeleCs', 'AMI'], '2pm-6pm': ['Cs'] },
+        Thursday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['Cs'] },
+        Friday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] }
+      },
+      HDJ_Vendredi: {
+        Tuesday: { '9am-1pm': ['AMI'], '2pm-6pm': ['TeleCs'] },
+        Wednesday: { '9am-1pm': ['AMI'], '2pm-6pm': ['Cs'] },
+        Thursday: { '9am-1pm': ['AMI'], '2pm-6pm': ['Cs'] },
+        Friday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] }
+      },
+      HDJ_Ven_remplaHTC_Jeudi: {
+        Tuesday: { '9am-1pm': ['AMI'], '2pm-6pm': ['TeleCs'] },
+        Wednesday: { '9am-1pm': ['AMI'], '2pm-6pm': ['Cs'] },
+        Thursday: { '9am-1pm': ['HTC1'], '2pm-6pm': ['HTC1', 'Cs'] },
+        Friday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] }
+      },
+      ambu_remplaHTC_Mercredi: {
+        Tuesday: { '9am-1pm': ['AMI'], '2pm-6pm': ['TeleCs'] },
+        Wednesday: { '9am-1pm': ['HTC1', 'AMI'], '2pm-6pm': ['HTC1', 'Cs'] },
+        Thursday: { '9am-1pm': ['AMI'], '2pm-6pm': ['Cs'] },
+        Friday: { '9am-1pm': ['AMI_Cs_U'], '2pm-6pm': ['TeleCs'] }
+      }
+    }
+  },
+
+  DL: {
+    backbone: {
+      Monday: { '9am-1pm': [], '2pm-6pm': [] },
+      Tuesday: { '9am-1pm': [], '2pm-6pm': [] },
+      Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+      Thursday: { '9am-1pm': [], '2pm-6pm': [] },
+      Friday: { '9am-1pm': [], '2pm-6pm': [] }
+    },
+    skills: ['HDJ', 'MPO', 'Cs', 'TeleCs'],
+    rotations: {
+      HDJ: {
+        Monday: { '9am-1pm': ['Cs'], '2pm-6pm': ['Cs'] },
+        Tuesday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] },
+        Thursday: { '9am-1pm': ['HDJ'], '2pm-6pm': ['HDJ'] },
+        Friday: { '9am-1pm': ['Cs'], '2pm-6pm': ['TeleCs'] }
+      },
+      MPO: 'MPO'  // Use MPO template
+    }
+  },
+
+  MG: {
+    backbone: {
+      Monday: { '9am-1pm': [], '2pm-6pm': [] },
+      Tuesday: { '9am-1pm': [], '2pm-6pm': ['Cs'] },
+      Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+      Thursday: { '9am-1pm': [], '2pm-6pm': [] },
+      Friday: { '9am-1pm': [], '2pm-6pm': [] }
+    },
+    skills: ['HTC1', 'HTC1_visite', 'EMATIT', 'EMIT', 'TeleCs', 'AMI'],
+    rotations: {
+      HTC: {
+        Monday: { '9am-1pm': ['HTC1', 'TeleCs'], '2pm-6pm': ['HTC1'] },
+        Tuesday: { '9am-1pm': ['HTC1_visite'] },
+        Thursday: { '9am-1pm': ['HTC1', 'TeleCs'], '2pm-6pm': ['HTC1', 'Cs'] },
+        Friday: { '9am-1pm': ['HTC1_visite'], '2pm-6pm': ['HTC1'] }
+      },
+      EMATIT_remplaHTC_Lundi: {
+        Monday: { '9am-1pm': ['HTC1', 'EMATIT'], '2pm-6pm': ['HTC1', 'EMATIT'] },
+        Tuesday: { '9am-1pm': ['TeleCs'] },
+        Thursday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['Cs'] },
+        Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] }
+      },
+      EMATIT: 'EMATIT',
+      EMATIT_AMI: {
+        Monday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['TeleCs'] },
+        Tuesday: { '9am-1pm': ['EMATIT'] },
+        Thursday: { '9am-1pm': ['AMI', 'TeleCs'], '2pm-6pm': ['Cs'] },
+        Friday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['EMATIT'] }
+      }
+    }
+  },
+
+  RNV: {
+    backbone: {
+      Monday: { '9am-1pm': [], '2pm-6pm': [] },
+      Tuesday: { '9am-1pm': [], '2pm-6pm': [] },
+      Wednesday: { '9am-1pm': [], '2pm-6pm': [] },
+      Thursday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+      Friday: { '9am-1pm': [], '2pm-6pm': [] }
+    },
+    skills: ['HTC2', 'HTC2_visite', 'EMATIT', 'EMIT', 'TeleCs'],
+    rotations: {
+      HTC: {
+        Monday: { '9am-1pm': ['HTC2'], '2pm-6pm': ['HTC2', 'Cs'] },
+        Tuesday: { '9am-1pm': ['HTC2_visite'], '2pm-6pm': ['HTC2', 'TeleCs'] },
+        Wednesday: { '9am-1pm': ['HTC2', 'EMIT'], '2pm-6pm': ['HTC2', 'Cs'] },
+        Friday: { '9am-1pm': ['HTC2_visite'], '2pm-6pm': ['HTC2'] }
+      },
+      EMATIT: {
+        Monday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
+        Tuesday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['EMIT'] },
+        Wednesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['Cs'] },
+        Friday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['EMATIT'] }
+      },
+      EMATIT_remplaHTC_Mercredi: {
+        Monday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['Cs'] },
+        Tuesday: { '9am-1pm': ['EMATIT'], '2pm-6pm': ['EMATIT'] },
+        Wednesday: { '9am-1pm': ['HTC2', 'EMIT'], '2pm-6pm': ['HTC2', 'Cs'] },
+        Friday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['EMIT'] }
+      }
+    }
+  },
+
+  MDLC: {
+    backbone: {
+      Monday: { '9am-1pm': [], '2pm-6pm': [] },
+      Tuesday: { '9am-1pm': [], '2pm-6pm': [] },
+      Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+      Thursday: { '9am-1pm': [], '2pm-6pm': [] },
+      Friday: { '9am-1pm': [], '2pm-6pm': [] }
+    },
+    skills: ['HTC2', 'HTC2_visite', 'EMIT', 'TeleCs', 'AMI'],
+    rotations: {
+      HTC: {
+        Monday: { '9am-1pm': ['HTC2', 'TeleCs'], '2pm-6pm': ['HTC2', 'Cs'] },
+        Tuesday: { '9am-1pm': ['HTC2_visite'], '2pm-6pm': ['HTC2', 'EMIT'] },
+        Thursday: { '9am-1pm': ['HTC2'], '2pm-6pm': ['HTC2', 'Cs'] },
+        Friday: { '9am-1pm': ['HTC2_visite'], '2pm-6pm': ['HTC2'] }
+      },
+      EMIT: {
+        Monday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
+        Tuesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
+        Thursday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
+        Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] }
+      },
+      EMIT_AMI: {
+        Monday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
+        Tuesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
+        Thursday: { '9am-1pm': ['AMI'], '2pm-6pm': ['Cs'] },
+        Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['AMI'] }
+      },
+      EMIT_remplaHTC_Jeudi: {
+        Monday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
+        Tuesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
+        Thursday: { '9am-1pm': ['HTC2'], '2pm-6pm': ['HTC2', 'Cs'] },
+        Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] }
+      },
+      EMIT_remplaHTC_Lundi: {
+        Monday: { '9am-1pm': ['HTC2', 'TeleCs'], '2pm-6pm': ['HTC2', 'Cs'] },
+        Tuesday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
+        Thursday: { '9am-1pm': ['TeleCs'], '2pm-6pm': ['Cs'] },
+        Friday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] }
+      }
+    }
+  },
+
+  BM: {
+    backbone: {
+      Monday: { '9am-1pm': [], '2pm-6pm': [] },
+      Tuesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+      Wednesday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] },
+      Thursday: { '9am-1pm': [], '2pm-6pm': [] },
+      Friday: { '9am-1pm': ['TP'], '2pm-6pm': ['TP'] }
+    },
+    skills: ['EMIT'],
+    rotations: {
+      EMIT: {
+        Monday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] },
+        Thursday: { '9am-1pm': ['EMIT'], '2pm-6pm': ['EMIT'] }
+      }
+    }
+  }
+};
+
+// Build doctor schedule by merging backbone with rotation (template or custom)
+export function buildDoctorSchedule(doctorCode, rotationName) {
+  const doctor = doctorProfiles[doctorCode];
+  if (!doctor) {
+    throw new Error(`Doctor ${doctorCode} not found`);
+  }
+  
+  const rotation = doctor.rotations[rotationName];
+  if (!rotation) {
+    throw new Error(`Rotation ${rotationName} not found for doctor ${doctorCode}`);
+  }
+  
+  // Start with doctor's backbone constraints
+  const schedule = deepClone(doctor.backbone);
+  
+  if (typeof rotation === 'string') {
+    // It's a template reference - merge template with backbone
+    const template = rotationTemplates[rotation];
+    if (!template) {
+      throw new Error(`Rotation template ${rotation} not found`);
+    }
+    
+    Object.entries(template).forEach(([day, slots]) => {
+      Object.entries(slots).forEach(([timeSlot, activities]) => {
+        // Only fill if backbone slot is empty
+        if (schedule[day][timeSlot].length === 0) {
+          schedule[day][timeSlot] = activities;
+        }
+        // Backbone constraints (TP, Cs, Chefferie) take precedence
+      });
+    });
+    
+  } else {
+    // It's a custom rotation - merge directly with backbone
+    Object.entries(rotation).forEach(([day, slots]) => {
+      Object.entries(slots).forEach(([timeSlot, activities]) => {
+        // Custom rotations can override backbone constraints
+        schedule[day][timeSlot] = activities;
+      });
+    });
+  }
+  
+  return schedule;
+}
+
+// Generate docChunks using the new system
+export const docChunks = {};
+
+// Generate all doctor schedule combinations
+Object.entries(doctorProfiles).forEach(([doctorCode, doctor]) => {
+  Object.keys(doctor.rotations).forEach((rotationName) => {
+    const chunkName = `${doctorCode}_${rotationName}`;
+    try {
+      docChunks[chunkName] = buildDoctorSchedule(doctorCode, rotationName);
+    } catch (error) {
+      console.error(`Error building schedule for ${chunkName}:`, error);
+    }
+  });
+});
+
+// docChunks is now automatically generated from doctorProfiles
 
 export const doc = {
   // emploi du temps  théorique hebdomadaire de chaque médecin pour chaque rotation (sur 3 ou 4 temps selon internistes ou infectiologues)
