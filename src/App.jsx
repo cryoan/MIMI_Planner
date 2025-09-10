@@ -4,6 +4,7 @@ import Workload from './Workload';
 import './Calendar.css';
 import { ScheduleProvider } from './ScheduleContext';
 import { DocAgendaSetting } from './DocAgendaSetting';
+import DoctorSettings from './DoctorSettings';
 import ExcelExport from './ExcelExport';
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
         <ExcelExport />
         <Workload />
         <DocAgendaSetting />
+        <DoctorSettings />
         <Calendar year="2024" />
         <Calendar year="2025" />
       </div>
