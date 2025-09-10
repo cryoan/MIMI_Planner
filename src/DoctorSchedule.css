@@ -152,37 +152,33 @@
   padding: 20px;
 }
 
-.add-doctor-section {
-  background: #f5f5f5;
+/* Add Doctor Form - Match Template Form Style */
+.add-doctor-form {
+  background: #f8f9fa;
   padding: 20px;
   border-radius: 8px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
 }
 
-.add-doctor-form {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
+.add-doctor-form h4 {
+  margin: 0 0 15px 0;
+  color: #495057;
 }
 
 .add-doctor-form input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
+  width: 100%;
+  padding: 10px 12px;
+  margin: 8px 0;
+  border: 1px solid #ced4da;
   border-radius: 4px;
+  font-size: 14px;
 }
 
-.add-doctor-form button {
-  padding: 8px 16px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.add-doctor-form button:hover {
-  background: #0056b3;
+.add-doctor-form input:focus {
+  outline: none;
+  border-color: #f08c85;
+  box-shadow: 0 0 0 2px rgba(240, 140, 133, 0.2);
 }
 
 .doctors-list {
@@ -217,24 +213,32 @@
 }
 
 .doctor-card-actions button {
-  padding: 5px 10px;
-  border: none;
+  padding: 6px 12px;
+  border: 1px solid #dee2e6;
   border-radius: 4px;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+  background: #ffffff;
+  color: #495057;
+  font-size: 12px;
+  transition: all 0.3s ease;
 }
 
 .doctor-card-actions button:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: #f8f9fa;
+  border-color: #f08c85;
+  color: #495057;
 }
 
 .delete-button {
   background: #dc3545 !important;
+  color: white !important;
+  border-color: #dc3545 !important;
 }
 
 .delete-button:hover {
   background: #c82333 !important;
+  color: white !important;
+  border-color: #c82333 !important;
 }
 
 .doctor-card-content {
@@ -677,4 +681,451 @@
 
 .rotations-manager > *:last-child {
   margin-bottom: 0;
+}
+
+/* Main Tabs Styling */
+.main-tabs {
+  display: flex;
+  border-bottom: 2px solid #ddd;
+  margin-bottom: 30px;
+  background: #f8f9fa;
+  border-radius: 8px 8px 0 0;
+}
+
+.main-tabs button {
+  flex: 1;
+  padding: 15px 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  color: #666;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.main-tabs button:first-child {
+  border-radius: 8px 0 0 0;
+}
+
+.main-tabs button:last-child {
+  border-radius: 0 8px 0 0;
+}
+
+.main-tabs button.active {
+  background: white;
+  color: #f08c85;
+  border-bottom-color: #f08c85;
+  font-weight: bold;
+}
+
+.main-tabs button:hover:not(.active) {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.main-tab-content {
+  min-height: 500px;
+}
+
+/* Rotation Templates Manager Styling */
+.rotation-templates-manager {
+  padding: 20px;
+}
+
+.templates-header {
+  margin-bottom: 25px;
+}
+
+.templates-header h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 24px;
+}
+
+.templates-header p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.templates-list {
+  margin-top: 20px;
+}
+
+/* Add Template Button */
+.add-template-button {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  margin-bottom: 20px;
+  transition: background 0.3s ease;
+}
+
+.add-template-button:hover {
+  background: #218838;
+}
+
+/* Add Doctor Button - Match Template Button Style */
+.add-doctor-button {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  margin-bottom: 20px;
+  transition: background 0.3s ease;
+}
+
+.add-doctor-button:hover {
+  background: #218838;
+}
+
+/* Add Template Form */
+.add-template-form {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+}
+
+.add-template-form h4 {
+  margin: 0 0 15px 0;
+  color: #495057;
+}
+
+.add-template-form input,
+.add-template-form select {
+  width: 100%;
+  padding: 10px 12px;
+  margin: 8px 0;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.add-template-form input:focus,
+.add-template-form select:focus {
+  outline: none;
+  border-color: #f08c85;
+  box-shadow: 0 0 0 2px rgba(240, 140, 133, 0.2);
+}
+
+.template-creation-mode {
+  display: flex;
+  gap: 20px;
+  margin: 15px 0;
+}
+
+.template-creation-mode label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.template-creation-mode input[type="radio"] {
+  margin-right: 8px;
+  width: auto;
+}
+
+/* Template Card Styling */
+.template-card {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  margin: 15px 0;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.template-card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.template-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  border-radius: 8px 8px 0 0;
+}
+
+.template-info h4 {
+  margin: 0 0 5px 0;
+  color: #495057;
+  font-size: 18px;
+}
+
+.template-type {
+  font-size: 12px;
+  color: #6c757d;
+  font-style: italic;
+  background: #e9ecef;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.template-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.template-actions button {
+  padding: 6px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  background: white;
+  font-size: 12px;
+  transition: all 0.3s ease;
+}
+
+.template-actions button:hover {
+  background: #f8f9fa;
+  border-color: #f08c85;
+}
+
+.template-card-content {
+  padding: 20px;
+}
+
+/* Template Schedule Display */
+.template-schedule-display {
+  margin-top: 15px;
+}
+
+.template-schedule-display .display-timeslot {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+}
+
+/* Template Editor */
+.template-editor {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.template-editor h5 {
+  margin: 0 0 8px 0;
+  color: #495057;
+  font-size: 16px;
+}
+
+.template-editor p {
+  margin: 0 0 20px 0;
+  color: #6c757d;
+  font-size: 13px;
+}
+
+/* Enhanced editor actions */
+.template-editor .editor-actions {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #dee2e6;
+}
+
+.template-editor .editor-actions button {
+  background: #007bff;
+  color: white;
+  border: 1px solid #007bff;
+}
+
+.template-editor .editor-actions button:hover {
+  background: #0056b3;
+  border-color: #0056b3;
+}
+
+.template-editor .editor-actions button:last-child {
+  background: #6c757d;
+  border-color: #6c757d;
+}
+
+.template-editor .editor-actions button:last-child:hover {
+  background: #5a6268;
+  border-color: #545b62;
+}
+
+/* Doctors Manager specific styling */
+.doctors-manager {
+  padding: 20px;
+}
+
+/* Doctor Summary */
+.doctors-summary {
+  background: #f8f9fa;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 4px solid #28a745;
+}
+
+.doctors-summary h3 {
+  margin: 0 0 8px 0;
+  color: #495057;
+}
+
+.doctors-summary p {
+  margin: 0;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.summary-item {
+  display: inline-block;
+  margin-right: 20px;
+}
+
+.summary-item strong {
+  color: #495057;
+}
+
+/* Doctor Info in Card Header */
+.doctor-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.doctor-info h3 {
+  margin: 0;
+  color: #333;
+}
+
+/* Doctor Type Badges */
+.doctor-type-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.doctor-type-badge.imported {
+  background: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #bbdefb;
+}
+
+.doctor-type-badge.custom {
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border: 1px solid #e1bee7;
+}
+
+/* Imported Notice */
+.imported-notice {
+  font-size: 12px;
+  color: #6c757d;
+  font-style: italic;
+  padding: 4px 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  cursor: help;
+}
+
+/* Enhanced doctor card header for imported doctors */
+.doctor-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  border-radius: 8px 8px 0 0;
+}
+
+/* Enhanced form validation states */
+.form-actions button:disabled {
+  background: #e9ecef !important;
+  color: #6c757d !important;
+  border-color: #e9ecef !important;
+  cursor: not-allowed;
+}
+
+.form-actions button:disabled:hover {
+  background: #e9ecef !important;
+  border-color: #e9ecef !important;
+}
+
+/* Responsive design improvements */
+@media (max-width: 768px) {
+  .main-tabs {
+    flex-direction: column;
+  }
+  
+  .main-tabs button {
+    border-radius: 0;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .main-tabs button:first-child {
+    border-radius: 8px 8px 0 0;
+  }
+  
+  .main-tabs button:last-child {
+    border-radius: 0 0 8px 8px;
+    border-bottom: none;
+  }
+  
+  .template-actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .template-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .template-creation-mode {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+/* Activity preview enhancements in template context */
+.template-editor .activity-preview,
+.template-card .activity-preview {
+  transition: transform 0.2s ease;
+}
+
+.template-editor .activity-preview:hover,
+.template-card .activity-preview:hover {
+  transform: scale(1.05);
+}
+
+/* Loading and empty states */
+.templates-empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6c757d;
+}
+
+.templates-empty-state h4 {
+  margin-bottom: 10px;
+  color: #495057;
+}
+
+.templates-loading {
+  text-align: center;
+  padding: 20px;
+  color: #6c757d;
 }

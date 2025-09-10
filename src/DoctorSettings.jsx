@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './DoctorSchedule.css';
-import { docActivities, rotationTemplates, buildDoctorSchedule } from './doctorSchedules.js';
+import { docActivities, rotationTemplates, buildDoctorSchedule, doctorProfiles } from './doctorSchedules.js';
 import { activityColors } from './schedule';
 
 // Custom function to merge rotation template with backbone constraints
@@ -31,13 +31,105 @@ const mergeTemplateWithBackbone = (templateName, backbone) => {
 };
 
 const DoctorSettings = () => {
-  const [doctors, setDoctors] = useState([]);
+  const [activeTab, setActiveTab] = useState('doctors');
+
+  return (
+    <div className="doctor-settings-container">
+      <h2>Schedule Settings</h2>
+      
+      {/* Main Tabs */}
+      <div className="main-tabs">
+        <button 
+          className={activeTab === 'doctors' ? 'active' : ''}
+          onClick={() => setActiveTab('doctors')}
+        >
+          Doctors
+        </button>
+        <button 
+          className={activeTab === 'templates' ? 'active' : ''}
+          onClick={() => setActiveTab('templates')}
+        >
+          Rotation Templates
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      <div className="main-tab-content">
+        {activeTab === 'doctors' && <DoctorsManager />}
+        {activeTab === 'templates' && <RotationTemplatesManager />}
+      </div>
+    </div>
+  );
+};
+
+// Function to transform doctorProfiles data to UI state format
+const transformDoctorProfilesToUIState = () => {
+  return Object.entries(doctorProfiles).map(([doctorCode, profile]) => ({
+    id: doctorCode,
+    name: doctorCode,
+    backbone: profile.backbone,
+    skills: profile.skills,
+    rotations: profile.rotations,
+    isImported: true // Flag to distinguish imported doctors from custom ones
+  }));
+};
+
+// Add Doctor Form Component
+const AddDoctorForm = ({ newDoctorName, setNewDoctorName, onAdd, onCancel }) => {
+  const handleSubmit = () => {
+    if (!newDoctorName.trim()) {
+      alert('Please enter a doctor name');
+      return;
+    }
+    onAdd();
+  };
+
+  return (
+    <div className="add-doctor-form">
+      <h4>Add Custom Doctor</h4>
+      <p>Add additional doctors beyond the system-imported ones.</p>
+      
+      <input
+        type="text"
+        placeholder="Enter doctor name"
+        value={newDoctorName}
+        onChange={(e) => setNewDoctorName(e.target.value)}
+        onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
+      />
+
+      <div className="form-actions">
+        <button onClick={handleSubmit} disabled={!newDoctorName.trim()}>
+          Add Doctor
+        </button>
+        <button onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  );
+};
+
+// Extracted Doctors Manager Component
+const DoctorsManager = () => {
+  const [doctors, setDoctors] = useState(() => {
+    // Initialize with existing doctor data from doctorSchedules.js
+    return transformDoctorProfilesToUIState();
+  });
   const [newDoctorName, setNewDoctorName] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const addDoctor = () => {
     if (newDoctorName.trim()) {
+      // Check if doctor name already exists
+      const nameExists = doctors.some(doc => 
+        doc.name.toLowerCase() === newDoctorName.trim().toLowerCase()
+      );
+      
+      if (nameExists) {
+        alert('A doctor with this name already exists. Please choose a different name.');
+        return;
+      }
+
       const newDoctor = {
-        id: Date.now(),
+        id: `custom_${Date.now()}`, // Use custom prefix for new doctors
         name: newDoctorName.trim(),
         backbone: {
           Monday: { "9am-1pm": [], "2pm-6pm": [] },
@@ -47,10 +139,12 @@ const DoctorSettings = () => {
           Friday: { "9am-1pm": [], "2pm-6pm": [] },
         },
         skills: [],
-        rotations: {}
+        rotations: {},
+        isImported: false // Mark as custom doctor
       };
       setDoctors([...doctors, newDoctor]);
       setNewDoctorName('');
+      setShowAddForm(false);
     }
   };
 
@@ -64,24 +158,45 @@ const DoctorSettings = () => {
     ));
   };
 
+  const importedDoctors = doctors.filter(doc => doc.isImported);
+  const customDoctors = doctors.filter(doc => !doc.isImported);
+
   return (
-    <div className="doctor-settings-container">
-      <h2>Doctor Schedule Settings</h2>
-      
-      {/* Add New Doctor Section */}
-      <div className="add-doctor-section">
-        <h3>Add New Doctor</h3>
-        <div className="add-doctor-form">
-          <input
-            type="text"
-            placeholder="Enter doctor name"
-            value={newDoctorName}
-            onChange={(e) => setNewDoctorName(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && addDoctor()}
-          />
-          <button onClick={addDoctor}>Add Doctor</button>
-        </div>
+    <div className="doctors-manager">
+      {/* Summary */}
+      <div className="doctors-summary">
+        <h3>Doctors Management</h3>
+        <p>
+          <span className="summary-item">
+            <strong>{importedDoctors.length}</strong> doctors imported from system data
+          </span>
+          {customDoctors.length > 0 && (
+            <span className="summary-item">
+              <strong>{customDoctors.length}</strong> custom doctor{customDoctors.length > 1 ? 's' : ''} added
+            </span>
+          )}
+        </p>
       </div>
+
+      {/* Add New Doctor Section */}
+      {!showAddForm ? (
+        <button 
+          onClick={() => setShowAddForm(true)} 
+          className="add-doctor-button"
+        >
+          Add Custom Doctor
+        </button>
+      ) : (
+        <AddDoctorForm 
+          newDoctorName={newDoctorName}
+          setNewDoctorName={setNewDoctorName}
+          onAdd={addDoctor}
+          onCancel={() => {
+            setShowAddForm(false);
+            setNewDoctorName('');
+          }}
+        />
+      )}
 
       {/* Doctor List */}
       <div className="doctors-list">
@@ -142,12 +257,27 @@ const DoctorCard = ({ doctor, onUpdate, onDelete }) => {
   return (
     <div className="doctor-card">
       <div className="doctor-card-header">
-        <h3>{doctor.name}</h3>
+        <div className="doctor-info">
+          <h3>{doctor.name}</h3>
+          {doctor.isImported && (
+            <span className="doctor-type-badge imported">Imported from System</span>
+          )}
+          {!doctor.isImported && (
+            <span className="doctor-type-badge custom">Custom Doctor</span>
+          )}
+        </div>
         <div className="doctor-card-actions">
           <button onClick={() => setIsExpanded(!isExpanded)}>
             {isExpanded ? 'Collapse' : 'Expand'}
           </button>
-          <button onClick={onDelete} className="delete-button">Delete</button>
+          {!doctor.isImported && (
+            <button onClick={onDelete} className="delete-button">Delete</button>
+          )}
+          {doctor.isImported && (
+            <span className="imported-notice" title="Imported doctors cannot be deleted, but can be edited">
+              System Doctor
+            </span>
+          )}
         </div>
       </div>
 
@@ -863,6 +993,441 @@ const RotationsManager = ({ rotations, backbone, skills, onAdd, onDelete, onUpda
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// Rotation Templates Manager Component
+const RotationTemplatesManager = () => {
+  const [templates, setTemplates] = useState(() => {
+    // Initialize with existing templates from doctorSchedules.js
+    return Object.keys(rotationTemplates).reduce((acc, templateName) => {
+      acc[templateName] = rotationTemplates[templateName];
+      return acc;
+    }, {});
+  });
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  const addTemplate = (templateName, templateData) => {
+    setTemplates(prev => ({
+      ...prev,
+      [templateName]: templateData
+    }));
+    setShowAddForm(false);
+  };
+
+  const updateTemplate = (templateName, updatedTemplateData) => {
+    setTemplates(prev => ({
+      ...prev,
+      [templateName]: updatedTemplateData
+    }));
+  };
+
+  const deleteTemplate = (templateName) => {
+    setTemplates(prev => {
+      const updated = { ...prev };
+      delete updated[templateName];
+      return updated;
+    });
+  };
+
+  return (
+    <div className="rotation-templates-manager">
+      <div className="templates-header">
+        <h3>Rotation Templates</h3>
+        <p>Manage global rotation templates that can be used by doctors. These templates define weekly schedules for different types of rotations.</p>
+      </div>
+
+      {/* Add New Template Button */}
+      {!showAddForm ? (
+        <button 
+          onClick={() => setShowAddForm(true)} 
+          className="add-template-button"
+        >
+          Add New Template
+        </button>
+      ) : (
+        <AddTemplateForm 
+          onAdd={addTemplate}
+          onCancel={() => setShowAddForm(false)}
+          existingTemplates={Object.keys(templates)}
+        />
+      )}
+
+      {/* Templates List */}
+      <div className="templates-list">
+        {Object.entries(templates).map(([templateName, templateData]) => (
+          <TemplateCard
+            key={templateName}
+            templateName={templateName}
+            templateData={templateData}
+            onUpdate={(updatedData) => updateTemplate(templateName, updatedData)}
+            onDelete={() => deleteTemplate(templateName)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Template Card Component
+const TemplateCard = ({ templateName, templateData, onUpdate, onDelete }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const handleDelete = () => {
+    if (window.confirm(`Are you sure you want to delete the "${templateName}" template? This action cannot be undone.`)) {
+      onDelete();
+    }
+  };
+
+  return (
+    <div className="template-card">
+      <div className="template-card-header">
+        <div className="template-info">
+          <h4>{templateName}</h4>
+          <span className="template-type">Rotation Template</span>
+        </div>
+        <div className="template-actions">
+          <button onClick={() => setIsExpanded(!isExpanded)}>
+            {isExpanded ? 'Collapse' : 'View Schedule'}
+          </button>
+          <button onClick={() => setIsEditing(!isEditing)}>
+            {isEditing ? 'Done Editing' : 'Edit'}
+          </button>
+          <button onClick={handleDelete} className="delete-button">Delete</button>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="template-card-content">
+          {isEditing ? (
+            <TemplateEditor
+              templateName={templateName}
+              templateData={templateData}
+              onUpdate={onUpdate}
+              onCancel={() => setIsEditing(false)}
+            />
+          ) : (
+            <div className="template-schedule-display">
+              <div className="header-row">
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => (
+                  <div key={day} className="day-header">
+                    <div>{day}</div>
+                    <div className="am-pm-header">
+                      <div>AM</div>
+                      <div>PM</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="schedule-columns">
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
+                  <div key={day} className="day-column">
+                    <div className="display-timeslot">
+                      <div className="timeslot-label">AM</div>
+                      <div className="timeslot-content">
+                        {templateData[day]["9am-1pm"].length > 0 ? (
+                          templateData[day]["9am-1pm"].map((activity, index) => (
+                            <div
+                              key={index}
+                              className="activity-block"
+                              style={{
+                                backgroundColor: activityColors[activity] || '#ccc',
+                                height: `${(docActivities[activity]?.duration || 1) * 25}px`,
+                              }}
+                            >
+                              {activity}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="no-schedule">Empty</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="display-timeslot">
+                      <div className="timeslot-label">PM</div>
+                      <div className="timeslot-content">
+                        {templateData[day]["2pm-6pm"].length > 0 ? (
+                          templateData[day]["2pm-6pm"].map((activity, index) => (
+                            <div
+                              key={index}
+                              className="activity-block"
+                              style={{
+                                backgroundColor: activityColors[activity] || '#ccc',
+                                height: `${(docActivities[activity]?.duration || 1) * 25}px`,
+                              }}
+                            >
+                              {activity}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="no-schedule">Empty</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Add Template Form Component
+const AddTemplateForm = ({ onAdd, onCancel, existingTemplates }) => {
+  const [templateName, setTemplateName] = useState('');
+  const [selectedBaseTemplate, setSelectedBaseTemplate] = useState('');
+  const [isCustom, setIsCustom] = useState(false);
+
+  const handleSubmit = () => {
+    if (!templateName.trim()) {
+      alert('Please enter a template name');
+      return;
+    }
+
+    if (existingTemplates.includes(templateName)) {
+      alert('A template with this name already exists');
+      return;
+    }
+
+    let templateData;
+    if (isCustom || !selectedBaseTemplate) {
+      // Create empty template
+      templateData = {
+        Monday: { "9am-1pm": [], "2pm-6pm": [] },
+        Tuesday: { "9am-1pm": [], "2pm-6pm": [] },
+        Wednesday: { "9am-1pm": [], "2pm-6pm": [] },
+        Thursday: { "9am-1pm": [], "2pm-6pm": [] },
+        Friday: { "9am-1pm": [], "2pm-6pm": [] },
+      };
+    } else {
+      // Copy from existing template
+      templateData = JSON.parse(JSON.stringify(rotationTemplates[selectedBaseTemplate]));
+    }
+
+    onAdd(templateName, templateData);
+    setTemplateName('');
+    setSelectedBaseTemplate('');
+    setIsCustom(false);
+  };
+
+  return (
+    <div className="add-template-form">
+      <h4>Add New Rotation Template</h4>
+      
+      <input
+        type="text"
+        placeholder="Template name (e.g., 'New_Rotation')"
+        value={templateName}
+        onChange={(e) => setTemplateName(e.target.value)}
+      />
+
+      <div className="template-creation-mode">
+        <label>
+          <input
+            type="radio"
+            checked={!isCustom}
+            onChange={() => setIsCustom(false)}
+          />
+          Copy from existing template
+        </label>
+        <label>
+          <input
+            type="radio"
+            checked={isCustom}
+            onChange={() => setIsCustom(true)}
+          />
+          Start with empty template
+        </label>
+      </div>
+
+      {!isCustom && (
+        <select 
+          value={selectedBaseTemplate} 
+          onChange={(e) => setSelectedBaseTemplate(e.target.value)}
+        >
+          <option value="">Select base template...</option>
+          {Object.keys(rotationTemplates).map(template => (
+            <option key={template} value={template}>{template}</option>
+          ))}
+        </select>
+      )}
+
+      <div className="form-actions">
+        <button 
+          onClick={handleSubmit}
+          disabled={!templateName.trim() || (!isCustom && !selectedBaseTemplate)}
+        >
+          Create Template
+        </button>
+        <button onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  );
+};
+
+// Template Editor Component
+const TemplateEditor = ({ templateName, templateData, onUpdate, onCancel }) => {
+  const [editingSchedule, setEditingSchedule] = useState(() => {
+    return JSON.parse(JSON.stringify(templateData));
+  });
+  const [selectedSlot, setSelectedSlot] = useState(null);
+
+  const handleSlotClick = (day, timeSlot) => {
+    setSelectedSlot({ 
+      day, 
+      timeSlot, 
+      activities: editingSchedule[day][timeSlot] 
+    });
+  };
+
+  const updateSlot = (activities) => {
+    if (selectedSlot) {
+      const newSchedule = {
+        ...editingSchedule,
+        [selectedSlot.day]: {
+          ...editingSchedule[selectedSlot.day],
+          [selectedSlot.timeSlot]: activities
+        }
+      };
+      setEditingSchedule(newSchedule);
+      setSelectedSlot(null);
+    }
+  };
+
+  const handleSave = () => {
+    onUpdate(editingSchedule);
+    onCancel();
+  };
+
+  return (
+    <div className="template-editor">
+      <h5>Edit Template: {templateName}</h5>
+      <p>Click on any time slot to edit activities for this rotation template.</p>
+      
+      <div className="editable-schedule">
+        <div className="header-row">
+          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => (
+            <div key={day} className="day-header">
+              <div>{day}</div>
+              <div className="am-pm-header">
+                <div>AM</div>
+                <div>PM</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="schedule-columns">
+          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
+            <div key={day} className="day-column">
+              <EditableTimeSlot
+                day={day}
+                timeSlot="9am-1pm"
+                activities={editingSchedule[day]["9am-1pm"]}
+                onClick={() => handleSlotClick(day, "9am-1pm")}
+              />
+              <EditableTimeSlot
+                day={day}
+                timeSlot="2pm-6pm"
+                activities={editingSchedule[day]["2pm-6pm"]}
+                onClick={() => handleSlotClick(day, "2pm-6pm")}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="editor-actions">
+        <button onClick={handleSave}>Save Template</button>
+        <button onClick={onCancel}>Cancel</button>
+      </div>
+
+      {selectedSlot && (
+        <TemplateTimeSlotEditor
+          slot={selectedSlot}
+          onSave={updateSlot}
+          onCancel={() => setSelectedSlot(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+// Template Time Slot Editor Component
+const TemplateTimeSlotEditor = ({ slot, onSave, onCancel }) => {
+  const [selectedActivities, setSelectedActivities] = useState(slot.activities);
+  
+  const allActivities = Object.keys(docActivities);
+  
+  const handleActivityToggle = (activity) => {
+    if (selectedActivities.includes(activity)) {
+      setSelectedActivities(selectedActivities.filter(a => a !== activity));
+    } else {
+      setSelectedActivities([...selectedActivities, activity]);
+    }
+  };
+
+  const handleClear = () => {
+    setSelectedActivities([]);
+  };
+
+  return (
+    <div className="timeslot-editor-overlay">
+      <div className="timeslot-editor">
+        <h4>Edit Template {slot.day} {slot.timeSlot}</h4>
+        
+        <div className="activity-options">
+          <div className="activity-section">
+            <h5>Available Activities:</h5>
+            {allActivities.map(activity => (
+              <label key={activity} className="activity-option">
+                <input
+                  type="checkbox"
+                  checked={selectedActivities.includes(activity)}
+                  onChange={() => handleActivityToggle(activity)}
+                />
+                <span 
+                  className="activity-preview"
+                  style={{ backgroundColor: activityColors[activity] || '#ccc' }}
+                >
+                  {activity} ({docActivities[activity]?.duration || 1}h)
+                </span>
+              </label>
+            ))}
+            
+            <div className="activity-section">
+              <h5>Other Activities:</h5>
+              {['TP', 'Cs', 'Chefferie'].map(activity => (
+                <label key={activity} className="activity-option">
+                  <input
+                    type="checkbox"
+                    checked={selectedActivities.includes(activity)}
+                    onChange={() => handleActivityToggle(activity)}
+                  />
+                  <span 
+                    className="activity-preview"
+                    style={{ backgroundColor: activityColors[activity] || '#ccc' }}
+                  >
+                    {activity}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="editor-actions">
+          <button onClick={handleClear}>Clear</button>
+          <button onClick={() => onSave(selectedActivities)}>Save</button>
+          <button onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
     </div>
   );
 };
