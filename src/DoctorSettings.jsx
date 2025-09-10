@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './DoctorSchedule.css';
-import { docActivities, rotationTemplates, buildDoctorSchedule, doctorProfiles } from './doctorSchedules.js';
+import { docActivities, rotationTemplates, buildDoctorSchedule, doctorProfiles, generateDoctorRotations } from './doctorSchedules.js';
 import { activityColors } from './schedule';
 
 // Custom function to merge rotation template with backbone constraints
@@ -64,14 +64,41 @@ const DoctorSettings = () => {
 
 // Function to transform doctorProfiles data to UI state format
 const transformDoctorProfilesToUIState = () => {
-  return Object.entries(doctorProfiles).map(([doctorCode, profile]) => ({
-    id: doctorCode,
-    name: doctorCode,
-    backbone: profile.backbone,
-    skills: profile.skills,
-    rotations: profile.rotations,
-    isImported: true // Flag to distinguish imported doctors from custom ones
-  }));
+  return Object.entries(doctorProfiles).map(([doctorCode, profile]) => {
+    // Only use computed rotations, ignore hard-coded rotations completely
+    let allRotations = {};
+    let computedRotations = {};
+    let rotationTypes = {};
+
+    // Generate computed rotations if rotationSetting exists
+    if (profile.rotationSetting) {
+      try {
+        computedRotations = generateDoctorRotations(doctorCode);
+        
+        // Use only computed rotations
+        Object.entries(computedRotations).forEach(([rotationName, rotationData]) => {
+          allRotations[rotationName] = rotationData;
+          
+          // All computed rotations are template-based
+          rotationTypes[rotationName] = 'template';
+        });
+      } catch (error) {
+        console.warn(`Error generating computed rotations for ${doctorCode}:`, error);
+      }
+    }
+
+    return {
+      id: doctorCode,
+      name: doctorCode,
+      backbone: profile.backbone,
+      skills: profile.skills,
+      rotations: allRotations,
+      rotationSetting: profile.rotationSetting || [],
+      computedRotations,
+      rotationTypes,
+      isImported: true // Flag to distinguish imported doctors from custom ones
+    };
+  });
 };
 
 // Add Doctor Form Component
@@ -158,6 +185,24 @@ const DoctorsManager = () => {
     ));
   };
 
+  const refreshComputedRotations = (doctorId) => {
+    setDoctors(doctors.map(doc => {
+      if (doc.id === doctorId && doc.isImported) {
+        // Re-generate computed rotations using the latest data
+        const freshDoctorData = transformDoctorProfilesToUIState().find(d => d.id === doctorId);
+        if (freshDoctorData) {
+          return {
+            ...doc,
+            rotations: freshDoctorData.rotations,
+            computedRotations: freshDoctorData.computedRotations,
+            rotationTypes: freshDoctorData.rotationTypes
+          };
+        }
+      }
+      return doc;
+    }));
+  };
+
   const importedDoctors = doctors.filter(doc => doc.isImported);
   const customDoctors = doctors.filter(doc => !doc.isImported);
 
@@ -206,6 +251,7 @@ const DoctorsManager = () => {
             doctor={doctor}
             onUpdate={(updatedDoctor) => updateDoctor(doctor.id, updatedDoctor)}
             onDelete={() => deleteDoctor(doctor.id)}
+            onRefreshRotations={() => refreshComputedRotations(doctor.id)}
           />
         ))}
       </div>
@@ -213,7 +259,7 @@ const DoctorsManager = () => {
   );
 };
 
-const DoctorCard = ({ doctor, onUpdate, onDelete }) => {
+const DoctorCard = ({ doctor, onUpdate, onDelete, onRefreshRotations }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState('backbone');
 
@@ -300,7 +346,7 @@ const DoctorCard = ({ doctor, onUpdate, onDelete }) => {
               className={activeTab === 'rotations' ? 'active' : ''}
               onClick={() => setActiveTab('rotations')}
             >
-              Rotations
+              Rotations ({Object.keys(doctor.rotations || {}).length})
             </button>
           </div>
 
@@ -320,6 +366,7 @@ const DoctorCard = ({ doctor, onUpdate, onDelete }) => {
             {activeTab === 'rotations' && (
               <RotationsManager 
                 rotations={doctor.rotations}
+                rotationTypes={doctor.rotationTypes || {}}
                 backbone={doctor.backbone}
                 skills={doctor.skills}
                 onAdd={addRotation}
@@ -511,13 +558,174 @@ const SkillsEditor = ({ skills, onUpdate }) => {
   );
 };
 
-const RotationCard = ({ name, rotation, backbone, skills, onDelete, onUpdate }) => {
+const RotationSettingEditor = ({ rotationSetting, computedRotations, backbone, doctorId, onUpdate, onRefresh }) => {
+  const [selectedTemplates, setSelectedTemplates] = useState([...rotationSetting]);
+  const [previewRotations, setPreviewRotations] = useState(null);
+
+  const handleTemplateToggle = (templateName) => {
+    const newTemplates = selectedTemplates.includes(templateName)
+      ? selectedTemplates.filter(t => t !== templateName)
+      : [...selectedTemplates, templateName];
+    
+    setSelectedTemplates(newTemplates);
+    
+    // Generate preview of what rotations would be created
+    if (newTemplates.length > 0) {
+      try {
+        // Create a temporary doctor profile for preview
+        const tempProfile = {
+          backbone,
+          skills: [], // Skills not needed for preview
+          rotationSetting: newTemplates
+        };
+        
+        // Mock generateDoctorRotations call
+        const preview = {};
+        newTemplates.forEach(template => {
+          if (rotationTemplates[template]) {
+            const merged = mergeTemplateWithBackbone(template, backbone);
+            preview[template] = merged;
+            preview[`${template}_preview`] = merged; // Basic preview
+          }
+        });
+        setPreviewRotations(preview);
+      } catch (error) {
+        console.error('Error generating preview:', error);
+        setPreviewRotations(null);
+      }
+    } else {
+      setPreviewRotations(null);
+    }
+  };
+
+  const handleSave = () => {
+    onUpdate(selectedTemplates);
+  };
+
+  const handleReset = () => {
+    setSelectedTemplates([...rotationSetting]);
+    setPreviewRotations(null);
+  };
+
+  const availableTemplates = Object.keys(rotationTemplates);
+  const hasChanges = JSON.stringify(selectedTemplates.sort()) !== JSON.stringify(rotationSetting.sort());
+
+  return (
+    <div className="rotation-setting-editor">
+      <h4>Rotation Templates Configuration</h4>
+      <p>Select templates that will automatically generate rotations for this doctor. The system will create base rotations and common variations.</p>
+
+      <div className="current-settings">
+        <h5>Current Templates:</h5>
+        {rotationSetting.length > 0 ? (
+          <div className="template-badges">
+            {rotationSetting.map(template => (
+              <span key={template} className="template-badge current">
+                {template}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="no-templates">No templates configured. Rotations are manually defined.</p>
+        )}
+      </div>
+
+      <div className="computed-rotations-summary">
+        <h5>Currently Generated Rotations:</h5>
+        {Object.keys(computedRotations).length > 0 ? (
+          <div className="rotation-summary">
+            <p><strong>{Object.keys(computedRotations).length}</strong> rotations automatically generated</p>
+            <div className="rotation-list">
+              {Object.keys(computedRotations).map(rotationName => (
+                <span key={rotationName} className="rotation-badge">
+                  {rotationName}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="no-computed">No rotations generated from templates.</p>
+        )}
+      </div>
+
+      <div className="template-selector">
+        <h5>Available Templates:</h5>
+        <div className="templates-grid">
+          {availableTemplates.map(template => (
+            <label key={template} className="template-option">
+              <input
+                type="checkbox"
+                checked={selectedTemplates.includes(template)}
+                onChange={() => handleTemplateToggle(template)}
+              />
+              <span className="template-name">
+                {template}
+              </span>
+              <span className="template-description">
+                Base template + variations
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {previewRotations && (
+        <div className="preview-section">
+          <h5>Preview - Rotations that would be generated:</h5>
+          <div className="preview-rotations">
+            {Object.keys(previewRotations).map(rotationName => (
+              <span key={rotationName} className="rotation-badge preview">
+                {rotationName}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="editor-actions">
+        <button onClick={handleSave} disabled={!hasChanges}>
+          Save Changes
+        </button>
+        <button onClick={handleReset} disabled={!hasChanges}>
+          Reset
+        </button>
+        {onRefresh && (
+          <button onClick={onRefresh} className="refresh-button">
+            🔄 Refresh Rotations
+          </button>
+        )}
+        {hasChanges && (
+          <p className="save-note">
+            Note: Changes will be saved and rotations will be automatically refreshed.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const RotationCard = ({ name, rotation, rotationType, backbone, skills, onDelete, onUpdate }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   // Determine if rotation is template-based or custom
   const isTemplate = typeof rotation === 'string';
-  const rotationType = isTemplate ? `Template: ${rotation}` : 'Custom';
+  
+  // Get rotation type display info
+  const getRotationTypeInfo = () => {
+    switch (rotationType) {
+      case 'hardcoded':
+        return { label: 'Hard-coded', className: 'hardcoded', description: 'Manually defined rotation' };
+      case 'template':
+        return { label: 'Template', className: 'template', description: 'Generated from template' };
+      case 'generated':
+        return { label: 'Auto-generated', className: 'generated', description: 'Automatically created variation' };
+      default:
+        return { label: isTemplate ? `Template: ${rotation}` : 'Custom', className: 'default', description: 'Custom rotation' };
+    }
+  };
+
+  const typeInfo = getRotationTypeInfo();
 
   // Get the actual schedule to display
   const getRotationSchedule = () => {
@@ -538,22 +746,31 @@ const RotationCard = ({ name, rotation, backbone, skills, onDelete, onUpdate }) 
   const schedule = getRotationSchedule();
 
   return (
-    <div className="rotation-card">
+    <div className={`rotation-card ${typeInfo.className}`}>
       <div className="rotation-card-header">
         <div className="rotation-info">
           <h5>{name}</h5>
-          <span className="rotation-type">{rotationType}</span>
+          <span className={`rotation-type ${typeInfo.className}`} title={typeInfo.description}>
+            {typeInfo.label}
+          </span>
         </div>
         <div className="rotation-actions">
           <button onClick={() => setIsExpanded(!isExpanded)}>
             {isExpanded ? 'Collapse' : 'View Schedule'}
           </button>
-          {!isTemplate && (
+          {!isTemplate && rotationType !== 'generated' && (
             <button onClick={() => setIsEditing(!isEditing)}>
               {isEditing ? 'Done Editing' : 'Edit'}
             </button>
           )}
-          <button onClick={onDelete} className="delete-button">Delete</button>
+          {rotationType === 'hardcoded' && (
+            <button onClick={onDelete} className="delete-button">Delete</button>
+          )}
+          {rotationType === 'generated' && (
+            <span className="auto-generated-note" title="This rotation is automatically generated from templates">
+              Auto-generated
+            </span>
+          )}
         </div>
       </div>
 
@@ -801,7 +1018,7 @@ const RotationTimeSlotEditor = ({ slot, skills, onSave, onCancel }) => {
   );
 };
 
-const RotationsManager = ({ rotations, backbone, skills, onAdd, onDelete, onUpdate }) => {
+const RotationsManager = ({ rotations, rotationTypes, backbone, skills, onAdd, onDelete, onUpdate }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [rotationMode, setRotationMode] = useState('template'); // 'template' or 'custom'
   const [newRotationName, setNewRotationName] = useState('');
@@ -864,6 +1081,7 @@ const RotationsManager = ({ rotations, backbone, skills, onAdd, onDelete, onUpda
             key={name}
             name={name}
             rotation={rotation}
+            rotationType={rotationTypes?.[name] || 'hardcoded'}
             backbone={backbone}
             skills={skills}
             onDelete={() => onDelete(name)}

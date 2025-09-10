@@ -100,10 +100,18 @@ export const rotationTemplates = {
 
   EMATIT: {
     Monday: { "9am-1pm": ["EMATIT"], "2pm-6pm": ["EMATIT"] },
-    Tuesday: { "9am-1pm": ["EMATIT"], "2pm-6pm": ["EMIT"] },
+    Tuesday: { "9am-1pm": ["EMATIT"], "2pm-6pm": ["EMATIT"] },
     Wednesday: { "9am-1pm": ["EMATIT"], "2pm-6pm": ["EMATIT"] },
     Thursday: { "9am-1pm": ["EMATIT"], "2pm-6pm": ["EMATIT"] },
     Friday: { "9am-1pm": ["EMATIT"], "2pm-6pm": ["EMATIT"] },
+  },
+
+  AMI: {
+    Monday: { "9am-1pm": ["AMI"], "2pm-6pm": ["AMI"] },
+    Tuesday: { "9am-1pm": ["AMI"], "2pm-6pm": ["AMI"] },
+    Wednesday: { "9am-1pm": ["AMI"], "2pm-6pm": ["AMI"] },
+    Thursday: { "9am-1pm": ["AMI"], "2pm-6pm": ["AMI"] },
+    Friday: { "9am-1pm": ["AMI"], "2pm-6pm": ["AMI"] },
   },
 
   MPO: {
@@ -125,12 +133,13 @@ export const doctorProfiles = {
   YC: {
     backbone: {
       Monday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Tuesday: { "9am-1pm": ["teleCs"], "2pm-6pm": ["Cs"] },
+      Tuesday: { "9am-1pm": ["TeleCs"], "2pm-6pm": ["Cs"] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Thursday: { "9am-1pm": ["teleCs"], "2pm-6pm": ["Cs"] },
+      Thursday: { "9am-1pm": ["TeleCs"], "2pm-6pm": ["Cs"] },
       Friday: { "9am-1pm": ["Chefferie"], "2pm-6pm": ["Chefferie"] },
     },
-    skills: ["AMI", "HTC1", "EMIT", "EMATIT", "Chefferie"],
+    skills: ["AMI", "HTC1", "HTC1_visite", "EMIT", "EMATIT", "Chefferie"],
+    rotationSetting: ["AMI"],
     rotations: {
       ambu: {
         Tuesday: { "9am-1pm": ["TeleCs"] },
@@ -158,10 +167,10 @@ export const doctorProfiles = {
 
   FL: {
     backbone: {
-      Monday: { "9am-1pm": [], "2pm-6pm": [] },
-      Tuesday: { "9am-1pm": [], "2pm-6pm": [] },
-      Wednesday: { "9am-1pm": [], "2pm-6pm": [] },
-      Thursday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
+      Monday: { "9am-1pm": ["Cs"], "2pm-6pm": [] },
+      Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
+      Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
+      Thursday: { "9am-1pm": [], "2pm-6pm": [] },
       Friday: { "9am-1pm": [], "2pm-6pm": [] },
     },
     skills: [
@@ -172,7 +181,9 @@ export const doctorProfiles = {
       "TeleCs",
       "AMI_Cs_U",
       "AMI",
+      "EMIT",
     ],
+    rotationSetting: ["HTC1", "HDJ", "AMI"],
     rotations: {
       HTC: {
         Monday: { "9am-1pm": ["HTC1"], "2pm-6pm": ["HTC1", "AMI"] },
@@ -213,15 +224,29 @@ export const doctorProfiles = {
     },
   },
 
+  NS: {
+    backbone: {
+      Monday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
+      Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
+      Wednesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
+      Thursday: { "9am-1pm": [], "2pm-6pm": [] },
+      Friday: { "9am-1pm": [], "2pm-6pm": [] },
+    },
+    skills: ["HTC1", "HTC1_visite", "HDJ", "AMI_Cs_U", "AMI", "EMIT"],
+    rotationSetting: ["HTC1", "HDJ", "AMI"],
+    rotations: {},
+  },
+
   GC: {
     backbone: {
       Monday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
-      Wednesday: { "9am-1pm": [], "2pm-6pm": [] },
-      Thursday: { "9am-1pm": [], "2pm-6pm": [] },
+      Wednesday: { "9am-1pm": ["Cs"], "2pm-6pm": [] },
+      Thursday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Friday: { "9am-1pm": [], "2pm-6pm": [] },
     },
-    skills: ["HTC2", "HTC2_visite", "EMIT", "EMATIT", "TeleCs"],
+    skills: ["EMIT", "EMATIT"],
+    rotationSetting: ["EMIT", "EMATIT"],
     rotations: {
       HTC: "HTC2", // Use HTC2 template
       EMATIT_remplaHTC_Jeudi: {
@@ -247,11 +272,12 @@ export const doctorProfiles = {
     backbone: {
       Monday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Tuesday: { "9am-1pm": [], "2pm-6pm": [] },
-      Wednesday: { "9am-1pm": [], "2pm-6pm": [] },
-      Thursday: { "9am-1pm": [], "2pm-6pm": [] },
+      Wednesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
+      Thursday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Friday: { "9am-1pm": [], "2pm-6pm": [] },
     },
-    skills: ["HTC1", "HTC1_visite", "HDJ", "TeleCs", "AMI"],
+    skills: ["HTC1", "HTC1_visite", "HDJ", "AMI"],
+    rotationSetting: ["HTC1", "HDJ", "AMI"],
     rotations: {
       HTC: "HTC1", // Use HTC1 template
       HDJ_full: {
@@ -289,7 +315,8 @@ export const doctorProfiles = {
       Thursday: { "9am-1pm": [], "2pm-6pm": [] },
       Friday: { "9am-1pm": [], "2pm-6pm": [] },
     },
-    skills: ["HDJ", "MPO", "Cs", "TeleCs"],
+    skills: ["HDJ", "MPO"],
+    rotationSetting: ["HDJ", "MPO"],
     rotations: {
       HDJ: {
         Monday: { "9am-1pm": ["Cs"], "2pm-6pm": ["Cs"] },
@@ -306,10 +333,11 @@ export const doctorProfiles = {
       Monday: { "9am-1pm": [], "2pm-6pm": [] },
       Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Thursday: { "9am-1pm": [], "2pm-6pm": [] },
+      Thursday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Friday: { "9am-1pm": [], "2pm-6pm": [] },
     },
-    skills: ["HTC1", "HTC1_visite", "EMATIT", "EMIT", "TeleCs", "AMI"],
+    skills: ["HTC2", "HTC2_visite", "EMATIT", "EMIT", "AMI"],
+    rotationSetting: ["HTC2", "EMATIT", "EMIT"],
     rotations: {
       HTC: {
         Monday: { "9am-1pm": ["HTC1", "TeleCs"], "2pm-6pm": ["HTC1"] },
@@ -338,13 +366,14 @@ export const doctorProfiles = {
 
   RNV: {
     backbone: {
-      Monday: { "9am-1pm": [], "2pm-6pm": [] },
+      Monday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Tuesday: { "9am-1pm": [], "2pm-6pm": [] },
-      Wednesday: { "9am-1pm": [], "2pm-6pm": [] },
+      Wednesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Thursday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Friday: { "9am-1pm": [], "2pm-6pm": [] },
     },
-    skills: ["HTC2", "HTC2_visite", "EMATIT", "EMIT", "TeleCs"],
+    skills: ["HTC2", "HTC2_visite", "EMATIT", "EMIT"],
+    rotationSetting: ["HTC2", "EMATIT", "EMIT"],
     rotations: {
       HTC: {
         Monday: { "9am-1pm": ["HTC2"], "2pm-6pm": ["HTC2", "Cs"] },
@@ -369,13 +398,14 @@ export const doctorProfiles = {
 
   MDLC: {
     backbone: {
-      Monday: { "9am-1pm": [], "2pm-6pm": [] },
+      Monday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Tuesday: { "9am-1pm": [], "2pm-6pm": [] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Thursday: { "9am-1pm": [], "2pm-6pm": [] },
+      Thursday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Friday: { "9am-1pm": [], "2pm-6pm": [] },
     },
-    skills: ["HTC2", "HTC2_visite", "EMIT", "TeleCs", "AMI"],
+    skills: ["HTC2", "HTC2_visite", "EMIT", "EMATIT", "AMI"],
+    rotationSetting: ["HTC2", "EMIT", "EMATIT"],
     rotations: {
       HTC: {
         Monday: { "9am-1pm": ["HTC2", "TeleCs"], "2pm-6pm": ["HTC2", "Cs"] },
@@ -412,13 +442,14 @@ export const doctorProfiles = {
 
   BM: {
     backbone: {
-      Monday: { "9am-1pm": [], "2pm-6pm": [] },
+      Monday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Tuesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Thursday: { "9am-1pm": [], "2pm-6pm": [] },
-      Friday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
+      Thursday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["EMIT"] },
+      Friday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["EMIT"] },
     },
-    skills: ["EMIT"],
+    skills: ["EMIT", "EMATIT"],
+    rotationSetting: ["EMIT"],
     rotations: {
       EMIT: {
         Monday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["EMIT"] },
@@ -427,6 +458,69 @@ export const doctorProfiles = {
     },
   },
 };
+
+// Function to merge rotation template with backbone constraints
+// Backbone always takes precedence (overrides template when conflicts occur)
+function mergeTemplateWithBackbone(templateName, backbone) {
+  const template = rotationTemplates[templateName];
+  if (!template) {
+    console.error(`Template ${templateName} not found`);
+    return deepClone(backbone); // Return backbone if template not found
+  }
+
+  // Start with a deep copy of the backbone
+  const mergedSchedule = deepClone(backbone);
+
+  // Merge template activities, but only into empty backbone slots
+  Object.entries(template).forEach(([day, slots]) => {
+    Object.entries(slots).forEach(([timeSlot, activities]) => {
+      // Only fill template activities if backbone slot is empty
+      if (
+        mergedSchedule[day] &&
+        mergedSchedule[day][timeSlot] &&
+        mergedSchedule[day][timeSlot].length === 0
+      ) {
+        mergedSchedule[day][timeSlot] = [...activities]; // Copy activities
+      }
+      // If backbone has activities, they take precedence (template is ignored for this slot)
+    });
+  });
+
+  return mergedSchedule;
+}
+
+// Generate rotations automatically from rotationSetting arrays
+export function generateDoctorRotations(doctorCode) {
+  const doctor = doctorProfiles[doctorCode];
+  if (!doctor) {
+    throw new Error(`Doctor ${doctorCode} not found`);
+  }
+
+  const { backbone, rotationSetting } = doctor;
+  if (!rotationSetting) {
+    // If no rotationSetting, return existing rotations or empty object
+    return doctor.rotations || {};
+  }
+
+  const generatedRotations = {};
+
+  // Generate base rotations from templates
+  rotationSetting.forEach((templateName) => {
+    if (rotationTemplates[templateName]) {
+      // Generate simple rotation from template + backbone
+      const baseRotation = mergeTemplateWithBackbone(templateName, backbone);
+      generatedRotations[templateName] = baseRotation;
+    } else {
+      console.warn(
+        `Template ${templateName} not found for doctor ${doctorCode}`
+      );
+    }
+  });
+
+  return generatedRotations;
+}
+
+// Generate common rotation variations based on template patterns
 
 // Build doctor schedule by merging backbone with rotation (template or custom)
 export function buildDoctorSchedule(doctorCode, rotationName) {
@@ -477,12 +571,40 @@ export function buildDoctorSchedule(doctorCode, rotationName) {
 // Generate docChunks using the new system
 export const docChunks = {};
 
-// Generate all doctor schedule combinations
+// Generate all doctor schedule combinations using computed rotations
 Object.entries(doctorProfiles).forEach(([doctorCode, doctor]) => {
-  Object.keys(doctor.rotations).forEach((rotationName) => {
+  // First, generate rotations from rotationSetting if available
+  let rotationsToUse = doctor.rotations || {};
+
+  if (doctor.rotationSetting) {
+    try {
+      const computedRotations = generateDoctorRotations(doctorCode);
+      // Merge computed rotations with existing ones (existing take precedence for compatibility)
+      rotationsToUse = { ...computedRotations, ...rotationsToUse };
+    } catch (error) {
+      console.warn(
+        `Error generating computed rotations for ${doctorCode}:`,
+        error
+      );
+    }
+  }
+
+  // Generate docChunks from all available rotations
+  Object.entries(rotationsToUse).forEach(([rotationName, rotationData]) => {
     const chunkName = `${doctorCode}_${rotationName}`;
     try {
-      docChunks[chunkName] = buildDoctorSchedule(doctorCode, rotationName);
+      // Build the schedule directly from the rotation data
+      if (typeof rotationData === "string") {
+        // It's a template reference - merge template with backbone
+        const schedule = mergeTemplateWithBackbone(
+          rotationData,
+          doctor.backbone
+        );
+        docChunks[chunkName] = schedule;
+      } else {
+        // It's already a complete schedule
+        docChunks[chunkName] = rotationData;
+      }
     } catch (error) {
       console.error(`Error building schedule for ${chunkName}:`, error);
     }
@@ -490,6 +612,132 @@ Object.entries(doctorProfiles).forEach(([doctorCode, doctor]) => {
 });
 
 // docChunks is now automatically generated from doctorProfiles
+
+// Validation function to test the new automated rotation system
+export function validateRotationSystem() {
+  const results = {
+    success: true,
+    errors: [],
+    warnings: [],
+    stats: {
+      doctorsProcessed: 0,
+      rotationsGenerated: 0,
+      templatesUsed: new Set(),
+    },
+  };
+
+  try {
+    Object.entries(doctorProfiles).forEach(([doctorCode, doctor]) => {
+      results.stats.doctorsProcessed++;
+
+      if (doctor.rotationSetting) {
+        try {
+          const generatedRotations = generateDoctorRotations(doctorCode);
+          results.stats.rotationsGenerated +=
+            Object.keys(generatedRotations).length;
+
+          // Track templates used
+          doctor.rotationSetting.forEach((template) => {
+            results.stats.templatesUsed.add(template);
+          });
+
+          // Check if generated rotations are valid schedules
+          Object.entries(generatedRotations).forEach(
+            ([rotationName, rotationData]) => {
+              if (!rotationData || typeof rotationData !== "object") {
+                results.errors.push(
+                  `Generated rotation ${doctorCode}_${rotationName} is not a valid schedule object`
+                );
+                results.success = false;
+                return;
+              }
+
+              // Check if schedule has proper structure
+              const requiredDays = [
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+              ];
+              const requiredSlots = ["9am-1pm", "2pm-6pm"];
+
+              requiredDays.forEach((day) => {
+                if (!rotationData[day]) {
+                  results.errors.push(
+                    `Generated rotation ${doctorCode}_${rotationName} missing day: ${day}`
+                  );
+                  results.success = false;
+                  return;
+                }
+
+                requiredSlots.forEach((slot) => {
+                  if (
+                    !rotationData[day][slot] ||
+                    !Array.isArray(rotationData[day][slot])
+                  ) {
+                    results.errors.push(
+                      `Generated rotation ${doctorCode}_${rotationName} has invalid slot: ${day} ${slot}`
+                    );
+                    results.success = false;
+                  }
+                });
+              });
+            }
+          );
+        } catch (error) {
+          results.errors.push(
+            `Error generating rotations for doctor ${doctorCode}: ${error.message}`
+          );
+          results.success = false;
+        }
+      }
+    });
+
+    results.stats.templatesUsed = Array.from(results.stats.templatesUsed);
+  } catch (error) {
+    results.errors.push(`Critical error during validation: ${error.message}`);
+    results.success = false;
+  }
+
+  return results;
+}
+
+// Test function to compare a specific doctor's old vs new rotations
+export function compareDoctorRotations(doctorCode, rotationName) {
+  const doctor = doctorProfiles[doctorCode];
+  if (!doctor) {
+    return { error: `Doctor ${doctorCode} not found` };
+  }
+
+  const oldRotation = doctor.rotations[rotationName];
+  if (!oldRotation) {
+    return {
+      error: `Rotation ${rotationName} not found for doctor ${doctorCode}`,
+    };
+  }
+
+  let newRotation = null;
+  if (doctor.rotationSetting) {
+    try {
+      const generatedRotations = generateDoctorRotations(doctorCode);
+      newRotation = generatedRotations[rotationName];
+    } catch (error) {
+      return { error: `Error generating rotations: ${error.message}` };
+    }
+  }
+
+  return {
+    doctorCode,
+    rotationName,
+    oldRotation,
+    newRotation,
+    hasNewRotation: !!newRotation,
+    identical: newRotation
+      ? JSON.stringify(oldRotation) === JSON.stringify(newRotation)
+      : false,
+  };
+}
 
 export const doc = {
   // emploi du temps  théorique hebdomadaire de chaque médecin pour chaque rotation (sur 3 ou 4 temps selon internistes ou infectiologues)
