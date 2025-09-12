@@ -52,7 +52,7 @@ export const docActivities = {
   },
   TeleCs: {
     name: "TeleCs",
-    duration: 2,
+    duration: 4,
   },
   MPO: {
     name: "MPO",
@@ -135,7 +135,7 @@ function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
-// Doctor profiles with backbone constraints, skills, and rotations
+// Doctor profiles with backbone constraints, skills, rotations, and weekly needs
 export const doctorProfiles = {
   YC: {
     backbone: {
@@ -147,6 +147,16 @@ export const doctorProfiles = {
     },
     skills: ["AMI", "HTC1", "HTC1_visite", "EMIT", "EMATIT", "Chefferie"],
     rotationSetting: ["Chefferie"],
+    weeklyNeeds: {
+      TeleCs: {
+        count: 2,
+        priority: "high",
+        constraints: {
+          timeSlots: ["9am-1pm"],
+          preferredDays: ["Tuesday", "Thursday"],
+        },
+      },
+    },
     rotations: {
       ambu: {
         Tuesday: { "9am-1pm": ["TeleCs"] },
@@ -191,6 +201,16 @@ export const doctorProfiles = {
       "EMIT",
     ],
     rotationSetting: ["HTC1", "HDJ", "AMI"],
+    weeklyNeeds: {
+      TeleCs: {
+        count: 2,
+        priority: "medium",
+        constraints: {
+          timeSlots: ["9am-1pm", "2pm-6pm"],
+          excludeDays: ["Wednesday"],
+        },
+      },
+    },
     rotations: {
       HTC: {
         Monday: { "9am-1pm": ["HTC1"], "2pm-6pm": ["HTC1", "AMI"] },
@@ -242,6 +262,16 @@ export const doctorProfiles = {
     skills: ["HTC1", "HTC1_visite", "HDJ", "AMI_Cs_U", "AMI", "EMIT"],
     rotationSetting: ["HTC1", "HDJ", "AMI"],
     rotations: {},
+    weeklyNeeds: {
+      TeleCs: {
+        count: 2,
+        priority: "medium",
+        constraints: {
+          timeSlots: ["9am-1pm", "2pm-6pm"],
+          excludeDays: ["Wednesday"],
+        },
+      },
+    },
   },
 
   GC: {
@@ -254,6 +284,16 @@ export const doctorProfiles = {
     },
     skills: ["EMIT", "EMATIT"],
     rotationSetting: ["EMIT", "EMATIT"],
+    weeklyNeeds: {
+      TeleCs: {
+        count: 1,
+        priority: "low",
+        constraints: {
+          timeSlots: ["9am-1pm", "2pm-6pm"],
+          preferredDays: ["Tuesday", "Thursday"],
+        },
+      },
+    },
     rotations: {
       HTC: "HTC2", // Use HTC2 template
       EMATIT_remplaHTC_Jeudi: {
@@ -285,6 +325,16 @@ export const doctorProfiles = {
     },
     skills: ["HTC1", "HTC1_visite", "HDJ", "AMI"],
     rotationSetting: ["HTC1", "HDJ", "AMI"],
+    weeklyNeeds: {
+      TeleCs: {
+        count: 2,
+        priority: "medium",
+        constraints: {
+          timeSlots: ["9am-1pm", "2pm-6pm"],
+          excludeDays: ["Wednesday"],
+        },
+      },
+    },
     rotations: {
       HTC: "HTC1", // Use HTC1 template
       HDJ_full: {
@@ -324,6 +374,16 @@ export const doctorProfiles = {
     },
     skills: ["HDJ", "MPO"],
     rotationSetting: ["HDJ", "MPO"],
+    weeklyNeeds: {
+      TeleCs: {
+        count: 2,
+        priority: "medium",
+        constraints: {
+          timeSlots: ["9am-1pm", "2pm-6pm"],
+          excludeDays: ["Wednesday"],
+        },
+      },
+    },
     rotations: {
       HDJ: {
         Monday: { "9am-1pm": ["Cs"], "2pm-6pm": ["Cs"] },
@@ -345,6 +405,16 @@ export const doctorProfiles = {
     },
     skills: ["HTC2", "HTC2_visite", "EMATIT", "EMIT", "AMI"],
     rotationSetting: ["HTC2", "EMATIT", "EMIT"],
+    weeklyNeeds: {
+      TeleCs: {
+        count: 2,
+        priority: "medium",
+        constraints: {
+          timeSlots: ["9am-1pm", "2pm-6pm"],
+          preferredDays: ["Monday", "Tuesday", "Thursday"],
+        },
+      },
+    },
     rotations: {
       HTC: {
         Monday: { "9am-1pm": ["HTC1", "TeleCs"], "2pm-6pm": ["HTC1"] },
@@ -381,6 +451,16 @@ export const doctorProfiles = {
     },
     skills: ["HTC2", "HTC2_visite", "EMATIT", "EMIT"],
     rotationSetting: ["HTC2", "EMATIT", "EMIT"],
+    weeklyNeeds: {
+      TeleCs: {
+        count: 1,
+        priority: "medium",
+        constraints: {
+          timeSlots: ["9am-1pm", "2pm-6pm"],
+          preferredDays: ["Monday", "Tuesday", "Friday"],
+        },
+      },
+    },
     rotations: {
       HTC: {
         Monday: { "9am-1pm": ["HTC2"], "2pm-6pm": ["HTC2", "Cs"] },
@@ -413,6 +493,16 @@ export const doctorProfiles = {
     },
     skills: ["HTC2", "HTC2_visite", "EMIT", "EMATIT", "AMI"],
     rotationSetting: ["HTC2", "EMIT", "EMATIT"],
+    weeklyNeeds: {
+      TeleCs: {
+        count: 2,
+        priority: "medium",
+        constraints: {
+          timeSlots: ["9am-1pm"],
+          preferredDays: ["Monday", "Thursday"],
+        },
+      },
+    },
     rotations: {
       HTC: {
         Monday: { "9am-1pm": ["HTC2", "TeleCs"], "2pm-6pm": ["HTC2", "Cs"] },
@@ -452,8 +542,8 @@ export const doctorProfiles = {
       Monday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Tuesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Thursday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["EMIT"] },
-      Friday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["EMIT"] },
+      Thursday: { "9am-1pm": [], "2pm-6pm": [] },
+      Friday: { "9am-1pm": [], "2pm-6pm": [] },
     },
     skills: ["EMIT", "EMATIT"],
     rotationSetting: ["EMIT"],

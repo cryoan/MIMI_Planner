@@ -9,7 +9,23 @@ const ETAWorkloadInfographic = () => {
     return docActivities[activity]?.duration || 4; // Default to 4 hours if not found
   };
 
-  // Calculate total activity distribution: backbone + HTC templates
+  // Calculate TeleCs weekly needs from doctorProfiles
+  const calculateTeleCsNeeds = () => {
+    let totalTeleCsHours = 0;
+    const teleCsPerDoctor = {};
+    
+    Object.entries(doctorProfiles).forEach(([doctorCode, doctor]) => {
+      if (doctor.weeklyNeeds?.TeleCs) {
+        const weeklyHours = doctor.weeklyNeeds.TeleCs.count * docActivities.TeleCs.duration;
+        teleCsPerDoctor[doctorCode] = weeklyHours;
+        totalTeleCsHours += weeklyHours;
+      }
+    });
+    
+    return { totalTeleCsHours, teleCsPerDoctor };
+  };
+
+  // Calculate total activity distribution: backbone + HTC templates + TeleCs needs
   const calculateWorkloadDistribution = () => {
     const activityCounts = {};
     const activityHours = {};
@@ -17,6 +33,9 @@ const ETAWorkloadInfographic = () => {
     const totalDoctors = doctors.length;
     const totalHalfDays = totalDoctors * 10; // Each doctor has 10 half-days per week
     const totalHours = totalDoctors * 40; // Each doctor has 40 hours per week (10 * 4 hours)
+
+    // Calculate TeleCs needs
+    const { totalTeleCsHours, teleCsPerDoctor } = calculateTeleCsNeeds();
 
     // Count all backbone activities across all doctors
     doctors.forEach(doctorCode => {
@@ -77,6 +96,13 @@ const ETAWorkloadInfographic = () => {
       });
     }
 
+    // Add TeleCs from weekly needs
+    if (totalTeleCsHours > 0) {
+      const teleCsSessions = totalTeleCsHours / docActivities.TeleCs.duration;
+      activityCounts['TeleCs'] = (activityCounts['TeleCs'] || 0) + teleCsSessions;
+      activityHours['TeleCs'] = (activityHours['TeleCs'] || 0) + totalTeleCsHours;
+    }
+
     // Convert hours to array of activities for hour-based visualization
     const hourArray = [];
     
@@ -119,7 +145,9 @@ const ETAWorkloadInfographic = () => {
       activityCounts, 
       activityHours,
       totalUsedHours,
-      remainingHours
+      remainingHours,
+      totalTeleCsHours,
+      teleCsPerDoctor
     };
   };
 
@@ -132,7 +160,9 @@ const ETAWorkloadInfographic = () => {
     activityCounts, 
     activityHours,
     totalUsedHours,
-    remainingHours
+    remainingHours,
+    totalTeleCsHours,
+    teleCsPerDoctor
   } = calculateWorkloadDistribution();
 
   // Create hour-based grid data - fill from bottom to top, left to right
@@ -188,7 +218,7 @@ const ETAWorkloadInfographic = () => {
   return (
     <div className="eta-workload-infographic">
       <div className="infographic-header">
-        <h3>ETP Workload Distribution - Backbone + HTC + HDJ Templates</h3>
+        <h3>ETP Workload Distribution - Backbone + Templates + TeleCs Needs</h3>
         <div className="infographic-stats">
           <div className="stats-section">
             <strong>Doctors:</strong>
@@ -205,6 +235,11 @@ const ETAWorkloadInfographic = () => {
             <span>Total: {totalHours}h</span>
             <span>Used: {totalUsedHours}h</span>
             <span>Available: {remainingHours}h</span>
+          </div>
+          <div className="stats-section">
+            <strong>TeleCs Needs:</strong>
+            <span>{totalTeleCsHours}h • {(totalTeleCsHours / 40).toFixed(1)} ETP</span>
+            <span>{totalTeleCsHours / docActivities.TeleCs.duration} sessions/week</span>
           </div>
           <div className="stats-section">
             <strong>Utilization:</strong>
@@ -265,6 +300,7 @@ const ETAWorkloadInfographic = () => {
                     <small style={{ color: '#6c757d' }}>
                       {activityHoursPerSlot}h per slot ({activityHoursPerSlot}/4 precision)
                       {activity.startsWith('HTC') && ' • Template activity'}
+                      {activity === 'TeleCs' && ' • From weekly needs'}
                     </small>
                   </span>
                 </div>
@@ -273,7 +309,8 @@ const ETAWorkloadInfographic = () => {
           <div className="legend-separator">
             <hr style={{ margin: '10px 0', border: '1px solid #dee2e6' }} />
             <small style={{ color: '#6c757d' }}>
-              Includes: Backbone activities + 1× HTC1 template + 1× HTC2 template + 1× HDJ template<br />
+              Includes: Backbone activities + 1× HTC1 template + 1× HTC2 template + 1× HDJ template + TeleCs weekly needs<br />
+              TeleCs: {totalTeleCsHours}h from {Object.keys(teleCsPerDoctor).length} doctors' weekly requirements<br />
               Hour-based precision: Each cell = 1 hour, grouped in 4-hour slots with boundaries<br />
               ETP = Equivalent Time Position (1 ETP = 10 slots = 40h per week)
             </small>
