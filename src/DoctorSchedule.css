@@ -1209,7 +1209,7 @@
 }
 
 .eta-cell {
-  width: 32px;
+  width: 8px;
   height: 32px;
   border-right: 1px solid #dee2e6;
   cursor: pointer;
@@ -1231,53 +1231,18 @@
   position: relative;
 }
 
-/* Quarter-square precision display */
-.eta-cell-quarters {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  width: 100%;
-  height: 100%;
-  gap: 1px;
+/* Slot boundary indicators - every 4th hour (every 4 cells) */
+.eta-cell.slot-boundary {
+  border-right: 2px solid #495057;
 }
 
-.eta-quarter {
-  width: 100%;
-  height: 100%;
-  border-radius: 1px;
+.eta-cell.slot-start {
+  border-left: 2px solid #495057;
 }
 
-.eta-cell-full {
-  width: 100%;
-  height: 100%;
-  border-radius: 2px;
-}
-
-/* Hour-based activity indicators */
-.eta-cell[data-hours="1"] .eta-cell-quarters .eta-quarter:first-child {
-  opacity: 1;
-}
-.eta-cell[data-hours="1"] .eta-cell-quarters .eta-quarter:not(:first-child) {
-  opacity: 0.1;
-}
-
-.eta-cell[data-hours="2"] .eta-cell-quarters .eta-quarter:nth-child(-n+2) {
-  opacity: 1;
-}
-.eta-cell[data-hours="2"] .eta-cell-quarters .eta-quarter:nth-child(n+3) {
-  opacity: 0.1;
-}
-
-.eta-cell[data-hours="3"] .eta-cell-quarters .eta-quarter:nth-child(-n+3) {
-  opacity: 1;
-}
-.eta-cell[data-hours="3"] .eta-cell-quarters .eta-quarter:nth-child(4) {
-  opacity: 0.1;
-}
-
-.eta-cell[data-hours="4"] .eta-cell-quarters .eta-quarter,
-.eta-cell[data-hours="4"] .eta-cell-full {
-  opacity: 1;
+/* Hour-based cell styling */
+.eta-hour-cell {
+  transition: opacity 0.2s ease;
 }
 
 .eta-legend {
@@ -1330,7 +1295,7 @@
   }
   
   .eta-cell {
-    width: 28px;
+    width: 7px;
     height: 28px;
   }
 }

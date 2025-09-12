@@ -35,35 +35,54 @@ const ETAWorkloadInfographic = () => {
     });
 
     // Add HTC1 and HTC2 template activities
-    // HTC1 Template: 2 instances (20 total slots)
+    // HTC1 Template: 1 instance (10 total slots)
     if (rotationTemplates.HTC1) {
       Object.values(rotationTemplates.HTC1).forEach(daySchedule => {
         Object.values(daySchedule).forEach(timeSlotActivities => {
           timeSlotActivities.forEach(activity => {
-            // Count 2 instances of HTC1 template
-            activityCounts[activity] = (activityCounts[activity] || 0) + 2;
+            // Count 1 instance of HTC1 template
+            activityCounts[activity] = (activityCounts[activity] || 0) + 1;
             const hours = getActivityHours(activity);
-            activityHours[activity] = (activityHours[activity] || 0) + (hours * 2);
+            activityHours[activity] = (activityHours[activity] || 0) + hours;
           });
         });
       });
     }
 
-    // HTC2 Template: 2 instances (20 total slots)  
+    // HTC2 Template: 1 instance (10 total slots)  
     if (rotationTemplates.HTC2) {
       Object.values(rotationTemplates.HTC2).forEach(daySchedule => {
         Object.values(daySchedule).forEach(timeSlotActivities => {
           timeSlotActivities.forEach(activity => {
-            // Count 2 instances of HTC2 template
-            activityCounts[activity] = (activityCounts[activity] || 0) + 2;
+            // Count 1 instance of HTC2 template
+            activityCounts[activity] = (activityCounts[activity] || 0) + 1;
             const hours = getActivityHours(activity);
-            activityHours[activity] = (activityHours[activity] || 0) + (hours * 2);
+            activityHours[activity] = (activityHours[activity] || 0) + hours;
           });
         });
       });
     }
 
-    // Convert counts to array of activities for visualization
+    // Convert hours to array of activities for hour-based visualization
+    const hourArray = [];
+    
+    // Add each activity based on its hour duration
+    Object.entries(activityHours).forEach(([activity, totalHours]) => {
+      for (let i = 0; i < totalHours; i++) {
+        hourArray.push(activity);
+      }
+    });
+
+    // Calculate total used hours
+    const totalUsedHours = Object.values(activityHours).reduce((sum, hours) => sum + hours, 0);
+    const remainingHours = totalHours - totalUsedHours;
+
+    // Fill remaining hours with "Available" 
+    for (let i = 0; i < remainingHours; i++) {
+      hourArray.push('Available');
+    }
+
+    // Create slot-based array for backwards compatibility with existing statistics
     const activityArray = [];
     Object.entries(activityCounts).forEach(([activity, count]) => {
       for (let i = 0; i < count; i++) {
@@ -71,18 +90,15 @@ const ETAWorkloadInfographic = () => {
       }
     });
 
-    // Fill remaining slots with "Available" 
+    // Fill remaining slots with "Available" for slot-based statistics
     const remainingSlots = totalHalfDays - activityArray.length;
     for (let i = 0; i < remainingSlots; i++) {
       activityArray.push('Available');
     }
 
-    // Calculate total used hours
-    const totalUsedHours = Object.values(activityHours).reduce((sum, hours) => sum + hours, 0);
-    const remainingHours = totalHours - totalUsedHours;
-
     return { 
       activityArray, 
+      hourArray,
       totalDoctors, 
       totalHalfDays, 
       totalHours,
@@ -95,6 +111,7 @@ const ETAWorkloadInfographic = () => {
 
   const { 
     activityArray, 
+    hourArray,
     totalDoctors, 
     totalHalfDays, 
     totalHours,
@@ -104,23 +121,23 @@ const ETAWorkloadInfographic = () => {
     remainingHours
   } = calculateWorkloadDistribution();
 
-  // Create grid data - fill from bottom to top, left to right
+  // Create hour-based grid data - fill from bottom to top, left to right
   const createGridData = () => {
     const grid = [];
-    const cellsPerRow = 10;
+    const hoursPerRow = 40; // 40 hours = 10 slots of 4 hours each
     
     // Initialize empty grid
     for (let row = 0; row < totalDoctors; row++) {
-      grid.push(new Array(cellsPerRow).fill('Available'));
+      grid.push(new Array(hoursPerRow).fill('Available'));
     }
     
-    // Fill from bottom to top, left to right
-    let activityIndex = 0;
+    // Fill from bottom to top, left to right using hour array
+    let hourIndex = 0;
     for (let row = totalDoctors - 1; row >= 0; row--) {
-      for (let col = 0; col < cellsPerRow; col++) {
-        if (activityIndex < activityArray.length) {
-          grid[row][col] = activityArray[activityIndex];
-          activityIndex++;
+      for (let col = 0; col < hoursPerRow; col++) {
+        if (hourIndex < hourArray.length) {
+          grid[row][col] = hourArray[hourIndex];
+          hourIndex++;
         }
       }
     }
@@ -138,36 +155,20 @@ const ETAWorkloadInfographic = () => {
     return activityColors[activity] || '#ddd';
   };
 
-  // Render quarter-square display based on activity hours
-  const renderActivityCell = (activity) => {
-    const hours = getActivityHours(activity);
+  // Render simple hour-based cell
+  const renderHourCell = (activity) => {
     const color = getActivityColor(activity);
-    
-    if (hours === 4 || activity === 'Available') {
-      // Full square for 4-hour activities or available slots
-      return (
-        <div 
-          className="eta-cell-full" 
-          style={{ backgroundColor: color }}
-        />
-      );
-    } else {
-      // Quarter-square display for partial hours
-      return (
-        <div className="eta-cell-quarters">
-          {[1, 2, 3, 4].map(quarter => (
-            <div
-              key={quarter}
-              className="eta-quarter"
-              style={{ 
-                backgroundColor: color,
-                opacity: quarter <= hours ? 1 : 0.1
-              }}
-            />
-          ))}
-        </div>
-      );
-    }
+    return (
+      <div 
+        className="eta-hour-cell" 
+        style={{ 
+          backgroundColor: color,
+          width: '100%',
+          height: '100%',
+          borderRadius: '1px'
+        }}
+      />
+    );
   };
 
   return (
@@ -204,16 +205,25 @@ const ETAWorkloadInfographic = () => {
           {gridData.map((row, rowIndex) => (
             <div key={rowIndex} className="eta-row">
               <div className="eta-row-cells">
-                {row.map((activity, colIndex) => {
-                  const hours = getActivityHours(activity);
+                {row.map((activity, hourIndex) => {
+                  // Calculate slot position and hour within slot
+                  const slotNumber = Math.floor(hourIndex / 4) + 1;
+                  const hourInSlot = (hourIndex % 4) + 1;
+                  const isSlotBoundary = (hourIndex + 1) % 4 === 0;
+                  const isSlotStart = hourIndex % 4 === 0;
+                  
+                  // Build CSS classes
+                  let cellClasses = "eta-cell";
+                  if (isSlotBoundary && hourIndex < 39) cellClasses += " slot-boundary";
+                  if (isSlotStart && hourIndex > 0) cellClasses += " slot-start";
+                  
                   return (
                     <div
-                      key={colIndex}
-                      className="eta-cell"
-                      data-hours={hours}
-                      title={`${activity}: ${hours}h (${(hours/4).toFixed(2)} slots, ${(hours/40).toFixed(3)} ETP)`}
+                      key={hourIndex}
+                      className={cellClasses}
+                      title={`${activity} | Hour ${hourIndex + 1} | Slot ${slotNumber}, Hour ${hourInSlot}/4 | ${(1/40).toFixed(3)} ETP`}
                     >
-                      {renderActivityCell(activity)}
+                      {renderHourCell(activity)}
                     </div>
                   );
                 })}
@@ -249,8 +259,8 @@ const ETAWorkloadInfographic = () => {
           <div className="legend-separator">
             <hr style={{ margin: '10px 0', border: '1px solid #dee2e6' }} />
             <small style={{ color: '#6c757d' }}>
-              Includes: Backbone activities + 2× HTC1 template + 2× HTC2 template<br />
-              Quarter-square precision: Each square = 4h slot, quarters show 1h increments<br />
+              Includes: Backbone activities + 1× HTC1 template + 1× HTC2 template<br />
+              Hour-based precision: Each cell = 1 hour, grouped in 4-hour slots with boundaries<br />
               ETP = Equivalent Time Position (1 ETP = 10 slots = 40h per week)
             </small>
           </div>
