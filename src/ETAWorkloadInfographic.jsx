@@ -63,6 +63,20 @@ const ETAWorkloadInfographic = () => {
       });
     }
 
+    // HDJ Template: 1 instance (6 active slots - Tue/Thu/Fri)
+    if (rotationTemplates.HDJ) {
+      Object.values(rotationTemplates.HDJ).forEach(daySchedule => {
+        Object.values(daySchedule).forEach(timeSlotActivities => {
+          timeSlotActivities.forEach(activity => {
+            // Count 1 instance of HDJ template
+            activityCounts[activity] = (activityCounts[activity] || 0) + 1;
+            const hours = getActivityHours(activity);
+            activityHours[activity] = (activityHours[activity] || 0) + hours;
+          });
+        });
+      });
+    }
+
     // Convert hours to array of activities for hour-based visualization
     const hourArray = [];
     
@@ -174,17 +188,17 @@ const ETAWorkloadInfographic = () => {
   return (
     <div className="eta-workload-infographic">
       <div className="infographic-header">
-        <h3>ETP Workload Distribution - Backbone + HTC Templates</h3>
+        <h3>ETP Workload Distribution - Backbone + HTC + HDJ Templates</h3>
         <div className="infographic-stats">
           <div className="stats-section">
             <strong>Doctors:</strong>
             <span>Total: {totalDoctors}</span>
           </div>
           <div className="stats-section">
-            <strong>ETP (Slot-based):</strong>
-            <span>Total: {(totalHalfDays / 10).toFixed(1)} ETP</span>
-            <span>Used: {(activityArray.filter(a => a !== 'Available').length / 10).toFixed(1)} ETP</span>
-            <span>Available: {(activityArray.filter(a => a === 'Available').length / 10).toFixed(1)} ETP</span>
+            <strong>ETP (Hour-based):</strong>
+            <span>Total: {(totalHours / 40).toFixed(1)} ETP</span>
+            <span>Used: {(totalUsedHours / 40).toFixed(1)} ETP</span>
+            <span>Available: {(remainingHours / 40).toFixed(1)} ETP</span>
           </div>
           <div className="stats-section">
             <strong>Hours (Precision):</strong>
@@ -221,7 +235,7 @@ const ETAWorkloadInfographic = () => {
                     <div
                       key={hourIndex}
                       className={cellClasses}
-                      title={`${activity} | Hour ${hourIndex + 1} | Slot ${slotNumber}, Hour ${hourInSlot}/4 | ${(1/40).toFixed(3)} ETP`}
+                      title={`${activity} | Hour ${hourIndex + 1} | ${(1/40).toFixed(3)} ETP`}
                     >
                       {renderHourCell(activity)}
                     </div>
@@ -246,7 +260,7 @@ const ETAWorkloadInfographic = () => {
                     style={{ backgroundColor: getActivityColor(activity) }}
                   ></div>
                   <span>
-                    {activity}: {count} slots • {hours}h • {(count / 10).toFixed(1)} ETP
+                    {activity}: {hours}h • {(hours / 40).toFixed(1)} ETP
                     <br />
                     <small style={{ color: '#6c757d' }}>
                       {activityHoursPerSlot}h per slot ({activityHoursPerSlot}/4 precision)
@@ -259,7 +273,7 @@ const ETAWorkloadInfographic = () => {
           <div className="legend-separator">
             <hr style={{ margin: '10px 0', border: '1px solid #dee2e6' }} />
             <small style={{ color: '#6c757d' }}>
-              Includes: Backbone activities + 1× HTC1 template + 1× HTC2 template<br />
+              Includes: Backbone activities + 1× HTC1 template + 1× HTC2 template + 1× HDJ template<br />
               Hour-based precision: Each cell = 1 hour, grouped in 4-hour slots with boundaries<br />
               ETP = Equivalent Time Position (1 ETP = 10 slots = 40h per week)
             </small>
