@@ -1129,3 +1129,208 @@
   padding: 20px;
   color: #6c757d;
 }
+
+/* ETA Workload Infographic Styles */
+.eta-workload-infographic {
+  margin: 20px 0;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.infographic-header {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.infographic-header h3 {
+  margin: 0 0 10px 0;
+  color: #495057;
+  font-size: 20px;
+}
+
+.infographic-stats {
+  display: flex;
+  justify-content: center;
+  gap: 25px;
+  font-size: 14px;
+  color: #6c757d;
+  flex-wrap: wrap;
+}
+
+.stats-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.stats-section strong {
+  color: #495057;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.infographic-stats span {
+  padding: 4px 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.eta-grid-container {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+}
+
+.eta-grid {
+  flex: 1;
+  border: 2px solid #495057;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.eta-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.eta-row:last-child {
+  border-bottom: none;
+}
+
+.eta-row-cells {
+  display: flex;
+  flex: 1;
+}
+
+.eta-cell {
+  width: 32px;
+  height: 32px;
+  border-right: 1px solid #dee2e6;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.eta-cell:last-child {
+  border-right: none;
+}
+
+.eta-cell:hover {
+  transform: scale(1.1);
+  border: 2px solid #495057;
+  z-index: 10;
+  position: relative;
+}
+
+/* Quarter-square precision display */
+.eta-cell-quarters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+  gap: 1px;
+}
+
+.eta-quarter {
+  width: 100%;
+  height: 100%;
+  border-radius: 1px;
+}
+
+.eta-cell-full {
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+}
+
+/* Hour-based activity indicators */
+.eta-cell[data-hours="1"] .eta-cell-quarters .eta-quarter:first-child {
+  opacity: 1;
+}
+.eta-cell[data-hours="1"] .eta-cell-quarters .eta-quarter:not(:first-child) {
+  opacity: 0.1;
+}
+
+.eta-cell[data-hours="2"] .eta-cell-quarters .eta-quarter:nth-child(-n+2) {
+  opacity: 1;
+}
+.eta-cell[data-hours="2"] .eta-cell-quarters .eta-quarter:nth-child(n+3) {
+  opacity: 0.1;
+}
+
+.eta-cell[data-hours="3"] .eta-cell-quarters .eta-quarter:nth-child(-n+3) {
+  opacity: 1;
+}
+.eta-cell[data-hours="3"] .eta-cell-quarters .eta-quarter:nth-child(4) {
+  opacity: 0.1;
+}
+
+.eta-cell[data-hours="4"] .eta-cell-quarters .eta-quarter,
+.eta-cell[data-hours="4"] .eta-cell-full {
+  opacity: 1;
+}
+
+.eta-legend {
+  width: 250px;
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.eta-legend h4 {
+  margin: 0 0 15px 0;
+  color: #495057;
+  font-size: 16px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  margin-right: 10px;
+  border: 1px solid #dee2e6;
+}
+
+.legend-item span {
+  color: #495057;
+}
+
+/* Responsive design for infographic */
+@media (max-width: 768px) {
+  .infographic-stats {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .eta-grid-container {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .eta-legend {
+    width: 100%;
+  }
+  
+  .eta-cell {
+    width: 28px;
+    height: 28px;
+  }
+}

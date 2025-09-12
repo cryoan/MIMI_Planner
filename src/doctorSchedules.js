@@ -121,6 +121,13 @@ export const rotationTemplates = {
     Thursday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
     Friday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
   },
+  Chefferie: {
+    Monday: { "9am-1pm": [], "2pm-6pm": [] },
+    Tuesday: { "9am-1pm": [], "2pm-6pm": [] },
+    Wednesday: { "9am-1pm": [], "2pm-6pm": [] },
+    Thursday: { "9am-1pm": [], "2pm-6pm": [] },
+    Friday: { "9am-1pm": ["Chefferie"], "2pm-6pm": ["Chefferie"] },
+  },
 };
 
 // Helper function to deep clone objects
@@ -133,13 +140,13 @@ export const doctorProfiles = {
   YC: {
     backbone: {
       Monday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Tuesday: { "9am-1pm": ["TeleCs"], "2pm-6pm": ["Cs"] },
+      Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Thursday: { "9am-1pm": ["TeleCs"], "2pm-6pm": ["Cs"] },
-      Friday: { "9am-1pm": ["Chefferie"], "2pm-6pm": ["Chefferie"] },
+      Thursday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
+      Friday: { "9am-1pm": [], "2pm-6pm": [] },
     },
     skills: ["AMI", "HTC1", "HTC1_visite", "EMIT", "EMATIT", "Chefferie"],
-    rotationSetting: ["AMI"],
+    rotationSetting: ["Chefferie"],
     rotations: {
       ambu: {
         Tuesday: { "9am-1pm": ["TeleCs"] },
@@ -309,11 +316,11 @@ export const doctorProfiles = {
 
   DL: {
     backbone: {
-      Monday: { "9am-1pm": [], "2pm-6pm": [] },
+      Monday: { "9am-1pm": ["Cs"], "2pm-6pm": [] },
       Tuesday: { "9am-1pm": [], "2pm-6pm": [] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Thursday: { "9am-1pm": [], "2pm-6pm": [] },
-      Friday: { "9am-1pm": [], "2pm-6pm": [] },
+      Friday: { "9am-1pm": ["Cs"], "2pm-6pm": [] },
     },
     skills: ["HDJ", "MPO"],
     rotationSetting: ["HDJ", "MPO"],
