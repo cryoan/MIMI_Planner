@@ -24,7 +24,7 @@ export const docActivities = {
   },
   EMATIT: {
     name: "EMATIT",
-    duration: 2,
+    duration: 3,
   },
   HDJ: {
     name: "HDJ",
@@ -52,7 +52,7 @@ export const docActivities = {
   },
   TeleCs: {
     name: "TeleCs",
-    duration: 4,
+    duration: 3,
   },
   MPO: {
     name: "MPO",

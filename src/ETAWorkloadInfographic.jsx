@@ -96,6 +96,48 @@ const ETAWorkloadInfographic = () => {
       });
     }
 
+    // EMIT Template: 1 instance (10 total slots)
+    if (rotationTemplates.EMIT) {
+      Object.values(rotationTemplates.EMIT).forEach(daySchedule => {
+        Object.values(daySchedule).forEach(timeSlotActivities => {
+          timeSlotActivities.forEach(activity => {
+            // Count 1 instance of EMIT template
+            activityCounts[activity] = (activityCounts[activity] || 0) + 1;
+            const hours = getActivityHours(activity);
+            activityHours[activity] = (activityHours[activity] || 0) + hours;
+          });
+        });
+      });
+    }
+
+    // EMATIT Template: 1 instance (10 total slots)
+    if (rotationTemplates.EMATIT) {
+      Object.values(rotationTemplates.EMATIT).forEach(daySchedule => {
+        Object.values(daySchedule).forEach(timeSlotActivities => {
+          timeSlotActivities.forEach(activity => {
+            // Count 1 instance of EMATIT template
+            activityCounts[activity] = (activityCounts[activity] || 0) + 1;
+            const hours = getActivityHours(activity);
+            activityHours[activity] = (activityHours[activity] || 0) + hours;
+          });
+        });
+      });
+    }
+
+    // AMI Template: 1 instance (10 total slots)
+    if (rotationTemplates.AMI) {
+      Object.values(rotationTemplates.AMI).forEach(daySchedule => {
+        Object.values(daySchedule).forEach(timeSlotActivities => {
+          timeSlotActivities.forEach(activity => {
+            // Count 1 instance of AMI template
+            activityCounts[activity] = (activityCounts[activity] || 0) + 1;
+            const hours = getActivityHours(activity);
+            activityHours[activity] = (activityHours[activity] || 0) + hours;
+          });
+        });
+      });
+    }
+
     // Add TeleCs from weekly needs
     if (totalTeleCsHours > 0) {
       const teleCsSessions = totalTeleCsHours / docActivities.TeleCs.duration;
@@ -309,7 +351,7 @@ const ETAWorkloadInfographic = () => {
           <div className="legend-separator">
             <hr style={{ margin: '10px 0', border: '1px solid #dee2e6' }} />
             <small style={{ color: '#6c757d' }}>
-              Includes: Backbone activities + 1× HTC1 template + 1× HTC2 template + 1× HDJ template + TeleCs weekly needs<br />
+              Includes: Backbone activities + 1× HTC1 template + 1× HTC2 template + 1× HDJ template + 1× EMIT template + 1× EMATIT template + 1× AMI template + TeleCs weekly needs<br />
               TeleCs: {totalTeleCsHours}h from {Object.keys(teleCsPerDoctor).length} doctors' weekly requirements<br />
               Hour-based precision: Each cell = 1 hour, grouped in 4-hour slots with boundaries<br />
               ETP = Equivalent Time Position (1 ETP = 10 slots = 40h per week)
