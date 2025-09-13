@@ -145,25 +145,6 @@ const ETAWorkloadInfographic = () => {
       activityHours['TeleCs'] = (activityHours['TeleCs'] || 0) + totalTeleCsHours;
     }
 
-    // Convert hours to array of activities for hour-based visualization
-    const hourArray = [];
-    
-    // Add each activity based on its hour duration
-    Object.entries(activityHours).forEach(([activity, totalHours]) => {
-      for (let i = 0; i < totalHours; i++) {
-        hourArray.push(activity);
-      }
-    });
-
-    // Calculate total used hours
-    const totalUsedHours = Object.values(activityHours).reduce((sum, hours) => sum + hours, 0);
-    const remainingHours = totalHours - totalUsedHours;
-
-    // Fill remaining hours with "Available" 
-    for (let i = 0; i < remainingHours; i++) {
-      hourArray.push('Available');
-    }
-
     // Create slot-based array for backwards compatibility with existing statistics
     const activityArray = [];
     Object.entries(activityCounts).forEach(([activity, count]) => {
@@ -178,9 +159,12 @@ const ETAWorkloadInfographic = () => {
       activityArray.push('Available');
     }
 
+    // Calculate total used hours
+    const totalUsedHours = Object.values(activityHours).reduce((sum, hours) => sum + hours, 0);
+    const remainingHours = totalHours - totalUsedHours;
+
     return { 
       activityArray, 
-      hourArray,
       totalDoctors, 
       totalHalfDays, 
       totalHours,
@@ -195,7 +179,6 @@ const ETAWorkloadInfographic = () => {
 
   const { 
     activityArray, 
-    hourArray,
     totalDoctors, 
     totalHalfDays, 
     totalHours,
@@ -206,6 +189,92 @@ const ETAWorkloadInfographic = () => {
     totalTeleCsHours,
     teleCsPerDoctor
   } = calculateWorkloadDistribution();
+
+  // State for sortable legend and drag operations
+  const [activityOrder, setActivityOrder] = React.useState(() => {
+    // Initialize with default order (by activity count descending, excluding Available)
+    return Object.entries(activityCounts)
+      .filter(([activity]) => activity !== 'Available')
+      .sort(([,a], [,b]) => b - a)
+      .map(([activity]) => activity);
+  });
+  
+  const [dragState, setDragState] = React.useState({
+    draggedItem: null,
+    draggedOverItem: null
+  });
+
+  // Create hourArray based on custom activity order
+  const createCustomHourArray = () => {
+    const hourArray = [];
+    
+    // Add each activity based on custom order and hour duration
+    activityOrder.forEach(activity => {
+      const totalHours = activityHours[activity] || 0;
+      for (let i = 0; i < totalHours; i++) {
+        hourArray.push(activity);
+      }
+    });
+
+    // Fill remaining hours with "Available" 
+    for (let i = 0; i < remainingHours; i++) {
+      hourArray.push('Available');
+    }
+
+    return hourArray;
+  };
+
+  const hourArray = createCustomHourArray();
+
+  // Drag and drop handlers
+  const handleDragStart = (e, activity) => {
+    setDragState({ ...dragState, draggedItem: activity });
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', activity);
+  };
+
+  const handleDragOver = (e, activity) => {
+    e.preventDefault();
+    if (dragState.draggedItem !== activity) {
+      setDragState({ ...dragState, draggedOverItem: activity });
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragState({ ...dragState, draggedOverItem: null });
+  };
+
+  const handleDrop = (e, dropActivity) => {
+    e.preventDefault();
+    const draggedActivity = dragState.draggedItem;
+    
+    if (draggedActivity && draggedActivity !== dropActivity) {
+      const newOrder = [...activityOrder];
+      const draggedIndex = newOrder.indexOf(draggedActivity);
+      const dropIndex = newOrder.indexOf(dropActivity);
+      
+      // Remove dragged item and insert at new position
+      newOrder.splice(draggedIndex, 1);
+      newOrder.splice(dropIndex, 0, draggedActivity);
+      
+      setActivityOrder(newOrder);
+    }
+    
+    setDragState({ draggedItem: null, draggedOverItem: null });
+  };
+
+  const handleDragEnd = () => {
+    setDragState({ draggedItem: null, draggedOverItem: null });
+  };
+
+  // Reset to default order
+  const resetOrder = () => {
+    const defaultOrder = Object.entries(activityCounts)
+      .filter(([activity]) => activity !== 'Available')
+      .sort(([,a], [,b]) => b - a)
+      .map(([activity]) => activity);
+    setActivityOrder(defaultOrder);
+  };
 
   // Create hour-based grid data - fill from bottom to top, left to right
   const createGridData = () => {
@@ -324,39 +393,65 @@ const ETAWorkloadInfographic = () => {
         </div>
         
         <div className="eta-legend">
-          <h4>Activity Legend</h4>
-          {Object.entries(activityCounts)
-            .sort(([,a], [,b]) => b - a) // Sort by count descending
-            .map(([activity, count]) => {
-              const hours = activityHours[activity] || 0;
-              const activityHoursPerSlot = getActivityHours(activity);
-              return (
-                <div key={activity} className="legend-item">
-                  <div 
-                    className="legend-color" 
-                    style={{ backgroundColor: getActivityColor(activity) }}
-                  ></div>
-                  <span>
-                    {activity}: {hours}h • {(hours / 40).toFixed(1)} ETP
-                    <br />
-                    <small style={{ color: '#6c757d' }}>
-                      {activityHoursPerSlot}h per slot ({activityHoursPerSlot}/4 precision)
-                      {activity.startsWith('HTC') && ' • Template activity'}
-                      {activity === 'TeleCs' && ' • From weekly needs'}
-                    </small>
-                  </span>
-                </div>
-              );
-            })}
-          <div className="legend-separator">
-            <hr style={{ margin: '10px 0', border: '1px solid #dee2e6' }} />
-            <small style={{ color: '#6c757d' }}>
-              Includes: Backbone activities + 1× HTC1 template + 1× HTC2 template + 1× HDJ template + 1× EMIT template + 1× EMATIT template + 1× AMI template + TeleCs weekly needs<br />
-              TeleCs: {totalTeleCsHours}h from {Object.keys(teleCsPerDoctor).length} doctors' weekly requirements<br />
-              Hour-based precision: Each cell = 1 hour, grouped in 4-hour slots with boundaries<br />
-              ETP = Equivalent Time Position (1 ETP = 10 slots = 40h per week)
-            </small>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <h4 style={{ margin: 0 }}>Activity Legend</h4>
+            <button 
+              onClick={resetOrder}
+              style={{
+                padding: '4px 8px',
+                fontSize: '12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                background: '#f8f9fa',
+                cursor: 'pointer'
+              }}
+              title="Reset to default order"
+            >
+              ↺ Reset
+            </button>
           </div>
+          <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '10px' }}>
+            💡 Drag activities to reorder the grid visualization
+          </div>
+          {activityOrder.map((activity) => {
+            const count = activityCounts[activity] || 0;
+            const hours = activityHours[activity] || 0;
+            const activityHoursPerSlot = getActivityHours(activity);
+            const isDragging = dragState.draggedItem === activity;
+            const isDraggedOver = dragState.draggedOverItem === activity;
+            
+            return (
+              <div 
+                key={activity} 
+                className="legend-item"
+                draggable
+                onDragStart={(e) => handleDragStart(e, activity)}
+                onDragOver={(e) => handleDragOver(e, activity)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, activity)}
+                onDragEnd={handleDragEnd}
+                style={{
+                  opacity: isDragging ? 0.5 : 1,
+                  borderTop: isDraggedOver ? '2px solid #007bff' : 'none',
+                  paddingTop: isDraggedOver ? '8px' : '10px',
+                  cursor: 'grab',
+                  userSelect: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <div style={{ color: '#6c757d', fontSize: '12px' }}>⋮⋮</div>
+                <div 
+                  className="legend-color" 
+                  style={{ backgroundColor: getActivityColor(activity) }}
+                ></div>
+                <span>
+                  {activity}: {(hours / 40).toFixed(1)} ETP ({hours}h)
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
