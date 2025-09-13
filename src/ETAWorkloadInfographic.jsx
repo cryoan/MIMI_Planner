@@ -1,6 +1,16 @@
 import React from 'react';
 import { doctorProfiles, rotationTemplates, docActivities } from './doctorSchedules.js';
 import { activityColors } from './schedule.jsx';
+import { Pie } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+// Register Chart.js components
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 const ETAWorkloadInfographic = () => {
   // Helper function to get activity duration in hours
@@ -226,6 +236,67 @@ const ETAWorkloadInfographic = () => {
 
   const hourArray = createCustomHourArray();
 
+  // Get color for activity
+  const getActivityColor = (activity) => {
+    if (activity === 'Available') {
+      return '#f5f5f5'; // Light gray for available slots
+    }
+    return activityColors[activity] || '#ddd';
+  };
+
+  // Function to group activities by their color and calculate pie chart data
+  const generatePieChartData = () => {
+    const colorGroups = {};
+    const colorLabels = {};
+    
+    // Group activities by their exact color
+    Object.entries(activityHours).forEach(([activity, hours]) => {
+      if (activity !== 'Available' && hours > 0) {
+        const color = getActivityColor(activity);
+        
+        if (!colorGroups[color]) {
+          colorGroups[color] = 0;
+          colorLabels[color] = [];
+        }
+        
+        colorGroups[color] += hours;
+        colorLabels[color].push(activity);
+      }
+    });
+
+    // Convert to arrays for Chart.js
+    const colors = Object.keys(colorGroups);
+    const data = colors.map(color => colorGroups[color]);
+    const labels = colors.map(color => {
+      const activities = colorLabels[color];
+      if (activities.length === 1) {
+        return activities[0];
+      } else {
+        // Group label with count
+        return `${activities.join(', ')} (${activities.length})`;
+      }
+    });
+
+    // Calculate percentages
+    const totalHours = Object.values(colorGroups).reduce((sum, hours) => sum + hours, 0);
+    const percentages = data.map(hours => ((hours / totalHours) * 100).toFixed(1));
+
+    return {
+      labels: labels.map((label, index) => `${label} (${percentages[index]}%)`),
+      datasets: [
+        {
+          data,
+          backgroundColor: colors,
+          borderColor: colors.map(color => color),
+          borderWidth: 1,
+          hoverOffset: 4,
+        },
+      ],
+    };
+  };
+
+  const pieChartData = generatePieChartData();
+
   // Drag and drop handlers
   const handleDragStart = (e, activity) => {
     setDragState({ ...dragState, draggedItem: activity });
@@ -302,13 +373,7 @@ const ETAWorkloadInfographic = () => {
 
   const gridData = createGridData();
 
-  // Get color for activity
-  const getActivityColor = (activity) => {
-    if (activity === 'Available') {
-      return '#f5f5f5'; // Light gray for available slots
-    }
-    return activityColors[activity] || '#ddd';
-  };
+  // Get color for activity (moved up to fix initialization order)
 
   // Render simple hour-based cell
   const renderHourCell = (activity) => {
@@ -452,6 +517,56 @@ const ETAWorkloadInfographic = () => {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Pie Chart Section */}
+      <div className="pie-chart-section" style={{ marginTop: '30px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
+        <h3 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
+          Activity Time Distribution by Color Groups
+        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
+          <div style={{ width: '400px', height: '400px' }}>
+            <Pie 
+              data={pieChartData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'right',
+                    labels: {
+                      boxWidth: 12,
+                      padding: 15,
+                      font: {
+                        size: 11
+                      }
+                    }
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: function(context) {
+                        const label = context.label;
+                        const value = context.parsed;
+                        const etpValue = (value / 40).toFixed(1);
+                        const percentage = ((value / totalUsedHours) * 100).toFixed(1);
+                        return [`${label}`, `${value}h (${etpValue} ETP)`, `${percentage}% of total`];
+                      }
+                    }
+                  }
+                }
+              }}
+            />
+          </div>
+        </div>
+        <div style={{ marginTop: '20px', fontSize: '14px', color: '#6c757d', textAlign: 'center' }}>
+          <p>
+            <strong>Total Used Time:</strong> {totalUsedHours}h ({(totalUsedHours / 40).toFixed(1)} ETP) • 
+            <strong> Available Time:</strong> {remainingHours}h ({(remainingHours / 40).toFixed(1)} ETP)
+          </p>
+          <p style={{ fontSize: '12px', fontStyle: 'italic' }}>
+            Activities with the same color are grouped together. Hover over slices for detailed information.
+          </p>
         </div>
       </div>
     </div>
