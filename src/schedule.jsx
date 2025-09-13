@@ -124,6 +124,7 @@ export const activityColors = {
   FMC: "#FFCCBC", // Peach (Gentle, soft color for training/continuing education)
   WE: "#5E35B1", // Rich Purple (Strong and distinct for weekend shifts)
   Chefferie: "black",
+  Staff: "#7B68EE", // Medium Slate Blue (Professional color for staff activities)
 };
 
 //__________________________________________//
