@@ -200,13 +200,59 @@ const ETAWorkloadInfographic = () => {
     teleCsPerDoctor
   } = calculateWorkloadDistribution();
 
+  // Helper function to generate different sorting orders
+  // Available options: 'hours-desc', 'hours-asc', 'count-desc', 'count-asc', 'alphabetical', 'color-groups', 'custom'
+  const getDefaultActivityOrder = (sortBy = 'hours-desc') => {
+    const activities = Object.keys(activityCounts).filter(activity => activity !== 'Available');
+    
+    switch (sortBy) {
+      case 'hours-desc':
+        return activities.sort((a, b) => (activityHours[b] || 0) - (activityHours[a] || 0));
+      
+      case 'hours-asc':
+        return activities.sort((a, b) => (activityHours[a] || 0) - (activityHours[b] || 0));
+      
+      case 'count-desc':
+        return activities.sort((a, b) => (activityCounts[b] || 0) - (activityCounts[a] || 0));
+      
+      case 'count-asc':
+        return activities.sort((a, b) => (activityCounts[a] || 0) - (activityCounts[b] || 0));
+      
+      case 'alphabetical':
+        return activities.sort();
+      
+      case 'color-groups':
+        return activities.sort((a, b) => {
+          const colorA = getActivityColor(a);
+          const colorB = getActivityColor(b);
+          if (colorA === colorB) {
+            // If same color, sort by hours desc
+            return (activityHours[b] || 0) - (activityHours[a] || 0);
+          }
+          return colorA.localeCompare(colorB);
+        });
+      
+      case 'custom':
+        // Define your custom priority order here
+        const customOrder = ['HTC1', 'HTC2', 'HDJ', 'EMIT', 'EMATIT', 'AMI', 'TeleCs'];
+        return activities.sort((a, b) => {
+          const indexA = customOrder.indexOf(a);
+          const indexB = customOrder.indexOf(b);
+          if (indexA === -1 && indexB === -1) return a.localeCompare(b);
+          if (indexA === -1) return 1;
+          if (indexB === -1) return -1;
+          return indexA - indexB;
+        });
+      
+      default:
+        return activities.sort((a, b) => (activityHours[b] || 0) - (activityHours[a] || 0));
+    }
+  };
+
   // State for sortable legend and drag operations
   const [activityOrder, setActivityOrder] = React.useState(() => {
-    // Initialize with default order (by activity count descending, excluding Available)
-    return Object.entries(activityCounts)
-      .filter(([activity]) => activity !== 'Available')
-      .sort(([,a], [,b]) => b - a)
-      .map(([activity]) => activity);
+    // Initialize with default order (by hours descending)
+    return getDefaultActivityOrder('hours-desc');
   });
   
   const [dragState, setDragState] = React.useState({
@@ -340,11 +386,7 @@ const ETAWorkloadInfographic = () => {
 
   // Reset to default order
   const resetOrder = () => {
-    const defaultOrder = Object.entries(activityCounts)
-      .filter(([activity]) => activity !== 'Available')
-      .sort(([,a], [,b]) => b - a)
-      .map(([activity]) => activity);
-    setActivityOrder(defaultOrder);
+    setActivityOrder(getDefaultActivityOrder('hours-desc'));
   };
 
   // Create hour-based grid data - fill from bottom to top, left to right
