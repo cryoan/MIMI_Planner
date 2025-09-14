@@ -1,4 +1,4 @@
-import { generateDoctorRotations, doctorProfiles } from './doctorSchedules.js';
+import { generateDoctorRotations, doctorProfiles, docActivities } from './doctorSchedules.js';
 import { expectedActivities } from './schedule.jsx';
 
 // Round Robin Planning System - Activity Assignment Based
@@ -21,13 +21,96 @@ const AVAILABLE_DOCTORS = Object.keys(doctorProfiles);
 const ALL_ACTIVITIES = ['HTC1', 'HTC1_visite', 'HTC2', 'HTC2_visite', 'EMIT', 'EMATIT', 'HDJ', 'AMI'];
 
 /**
+ * Time slot configuration
+ */
+const TIME_SLOT_DURATION = 4; // Each time slot is 4 hours
+
+/**
+ * Get activity duration in hours
+ * @param {string} activity - Activity name
+ * @returns {number} Duration in hours
+ */
+function getActivityDuration(activity) {
+  return docActivities[activity]?.duration || 0;
+}
+
+/**
+ * Calculate remaining capacity in a time slot
+ * @param {Array} assignedActivities - Currently assigned activities
+ * @returns {number} Remaining hours in the time slot
+ */
+function getRemainingCapacity(assignedActivities) {
+  const usedDuration = assignedActivities.reduce((total, activity) => {
+    return total + getActivityDuration(activity);
+  }, 0);
+  return Math.max(0, TIME_SLOT_DURATION - usedDuration);
+}
+
+/**
+ * Check if an activity can fit in the remaining time slot capacity
+ * @param {string} activity - Activity to check
+ * @param {Array} currentActivities - Currently assigned activities in the slot
+ * @returns {boolean} True if activity fits
+ */
+function canActivityFitInTimeSlot(activity, currentActivities) {
+  const activityDuration = getActivityDuration(activity);
+  const remainingCapacity = getRemainingCapacity(currentActivities);
+  return activityDuration <= remainingCapacity;
+}
+
+/**
+ * Get the root HTC activity for HTC-related activities
+ * @param {string} activity - Activity to check
+ * @returns {string} Root activity (HTC1 or HTC2) or the activity itself
+ */
+function getHtcRootActivity(activity) {
+  if (activity.startsWith('HTC1')) return 'HTC1';
+  if (activity.startsWith('HTC2')) return 'HTC2';
+  return activity;
+}
+
+/**
+ * Get HTC activity group for an activity
+ * @param {string} activity - Activity to check
+ * @returns {Array} Array of all related HTC activities or [activity] if not HTC
+ */
+function getHtcActivityGroup(activity) {
+  if (activity.startsWith('HTC1')) return ['HTC1', 'HTC1_visite'];
+  if (activity.startsWith('HTC2')) return ['HTC2', 'HTC2_visite'];
+  return [activity];
+}
+
+/**
+ * Get doctors who can perform a specific activity based on their rotationSetting (strict mode)
+ * Includes HTC activity grouping: doctors with HTC1 can also handle HTC1_visite
+ * @param {string} activity - Activity to check
+ * @returns {Array} Array of doctor codes who have this activity in their rotationSetting
+ */
+function getQualifiedDoctorsStrict(activity) {
+  return AVAILABLE_DOCTORS.filter(doctorCode => {
+    const doctorProfile = doctorProfiles[doctorCode];
+    if (!doctorProfile || !doctorProfile.rotationSetting) {
+      return false;
+    }
+    
+    // For HTC activities, check if doctor has the root HTC activity
+    const rootActivity = getHtcRootActivity(activity);
+    return doctorProfile.rotationSetting.includes(rootActivity);
+  });
+}
+
+/**
  * Find next available doctor for activity assignment using round robin
  * @param {Array} candidates - Doctors who can perform the activity
  * @param {Object} assignments - Current assignments for this time slot
  * @param {number} startIndex - Round robin starting index
+ * @param {string} activity - Activity to be assigned
+ * @param {Object} currentSchedule - Current schedule state for duration checking
+ * @param {string} day - Day of week
+ * @param {string} timeSlot - Time slot
  * @returns {string|null} Selected doctor code or null if none available
  */
-function findNextAvailableDoctor(candidates, assignments, startIndex) {
+function findNextAvailableDoctor(candidates, assignments, startIndex, activity, currentSchedule, day, timeSlot) {
   if (candidates.length === 0) return null;
   
   const assignedDoctors = new Set(Object.values(assignments));
@@ -38,6 +121,14 @@ function findNextAvailableDoctor(candidates, assignments, startIndex) {
     const candidate = candidates[candidateIndex];
     
     if (!assignedDoctors.has(candidate)) {
+      // Check if this doctor can fit the activity in their time slot
+      if (currentSchedule && currentSchedule[candidate]) {
+        const doctorCurrentSlot = currentSchedule[candidate][day]?.[timeSlot] || [];
+        if (!canActivityFitInTimeSlot(activity, doctorCurrentSlot)) {
+          continue; // Skip this doctor, they don't have capacity
+        }
+      }
+      
       return candidate;
     }
   }
@@ -46,16 +137,53 @@ function findNextAvailableDoctor(candidates, assignments, startIndex) {
 }
 
 /**
+ * Check for existing HTC assignments in the schedule to maintain HTC consistency
+ * @param {Object} currentSchedule - Current schedule
+ * @param {string} activity - Activity to assign (e.g., HTC1_visite)
+ * @returns {string|null} Doctor already assigned to this HTC group, or null
+ */
+function getExistingHtcAssignment(currentSchedule, activity) {
+  const htcGroup = getHtcActivityGroup(activity);
+  if (htcGroup.length === 1) return null; // Not an HTC activity
+  
+  // Look for any doctor already assigned to activities in this HTC group
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const timeSlots = ['9am-1pm', '2pm-6pm'];
+  
+  for (const [doctorCode, schedule] of Object.entries(currentSchedule)) {
+    for (const checkDay of days) {
+      for (const checkTimeSlot of timeSlots) {
+        const activities = schedule[checkDay]?.[checkTimeSlot] || [];
+        // Check if this doctor has any activity from the same HTC group
+        for (const assignedActivity of activities) {
+          if (htcGroup.includes(assignedActivity)) {
+            return doctorCode;
+          }
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
  * Assign activities to doctors for a specific time slot using round robin
  * @param {Array} doctors - Available doctors
  * @param {string} day - Day of week
  * @param {string} timeSlot - Time slot (9am-1pm or 2pm-6pm)
  * @param {number} roundRobinOffset - Round robin offset for fairness
+ * @param {Object} currentSchedule - Current schedule state for duration checking
  * @returns {Object} Activity to doctor assignments
  */
-function assignActivitiesForTimeSlot(doctors, day, timeSlot, roundRobinOffset) {
+function assignActivitiesForTimeSlot(doctors, day, timeSlot, roundRobinOffset, currentSchedule = {}) {
   // Get required activities for this time slot
   const requiredActivities = expectedActivities[day]?.[timeSlot] || [];
+  
+  // Sort activities by duration (largest first) for better fitting
+  const sortedActivities = requiredActivities.sort((a, b) => 
+    getActivityDuration(b) - getActivityDuration(a)
+  );
   
   // Get doctors available for assignment (not blocked by backbone)
   const availableDoctors = doctors.filter(doctorCode => {
@@ -68,31 +196,63 @@ function assignActivitiesForTimeSlot(doctors, day, timeSlot, roundRobinOffset) {
            backboneActivities.every(activity => !ALL_ACTIVITIES.includes(activity));
   });
   
-  // Create activity-doctor matching matrix based on skills
+  // Create activity-doctor matching matrix based on rotationSetting (not skills)
   const activityCandidates = {};
-  requiredActivities.forEach(activity => {
-    activityCandidates[activity] = availableDoctors.filter(doctorCode => {
-      const doctorProfile = doctorProfiles[doctorCode];
-      return doctorProfile?.skills?.includes(activity) || false;
-    });
+  sortedActivities.forEach(activity => {
+    // Use strict qualification based on rotationSetting
+    activityCandidates[activity] = getQualifiedDoctorsStrict(activity).filter(doctorCode => 
+      availableDoctors.includes(doctorCode)
+    );
   });
   
   // Assign activities using round robin
   const assignments = {};
   let currentOffset = roundRobinOffset;
   
-  requiredActivities.forEach((activity, activityIndex) => {
+  sortedActivities.forEach((activity, activityIndex) => {
     const candidates = activityCandidates[activity] || [];
     
     if (candidates.length > 0) {
-      const assignedDoctor = findNextAvailableDoctor(
-        candidates, 
-        assignments, 
-        (currentOffset + activityIndex) % Math.max(candidates.length, 1)
-      );
+      // Check if this is an HTC activity and if there's already a doctor assigned to this HTC group
+      const existingHtcDoctor = getExistingHtcAssignment(currentSchedule, activity);
+      
+      let assignedDoctor = null;
+      
+      if (existingHtcDoctor && candidates.includes(existingHtcDoctor)) {
+        // HTC consistency: assign to the same doctor already handling this HTC group
+        // But only if they have capacity and are not already assigned in this time slot
+        const assignedDoctors = new Set(Object.values(assignments));
+        if (!assignedDoctors.has(existingHtcDoctor)) {
+          const doctorCurrentSlot = currentSchedule[existingHtcDoctor][day]?.[timeSlot] || [];
+          if (canActivityFitInTimeSlot(activity, doctorCurrentSlot)) {
+            assignedDoctor = existingHtcDoctor;
+          }
+        }
+      }
+      
+      // If no HTC consistency match, use round robin selection
+      if (!assignedDoctor) {
+        assignedDoctor = findNextAvailableDoctor(
+          candidates, 
+          assignments, 
+          (currentOffset + activityIndex) % Math.max(candidates.length, 1),
+          activity,
+          currentSchedule,
+          day,
+          timeSlot
+        );
+      }
       
       if (assignedDoctor) {
         assignments[activity] = assignedDoctor;
+        
+        // Update current schedule to track duration usage
+        if (!currentSchedule[assignedDoctor]) {
+          currentSchedule[assignedDoctor] = getEmptySchedule();
+        }
+        if (!currentSchedule[assignedDoctor][day][timeSlot].includes(activity)) {
+          currentSchedule[assignedDoctor][day][timeSlot].push(activity);
+        }
       }
     }
   });
@@ -131,7 +291,7 @@ function buildScheduleFromAssignments(activityAssignments, doctors) {
         if (doctorCode && schedule[doctorCode]) {
           const doctorSlot = schedule[doctorCode][day][timeSlot];
           
-          // Only add if not already present and not conflicting with backbone
+          // Only add if not already present and not conflicting with backbone and fits duration
           if (!doctorSlot.includes(activity)) {
             // Check if backbone allows this assignment
             const backboneActivities = doctorProfiles[doctorCode]?.backbone?.[day]?.[timeSlot] || [];
@@ -139,7 +299,10 @@ function buildScheduleFromAssignments(activityAssignments, doctors) {
               ALL_ACTIVITIES.includes(bActivity) && bActivity !== activity
             );
             
-            if (!hasBackboneConflict) {
+            // Check if activity can fit in the time slot
+            const canFit = canActivityFitInTimeSlot(activity, doctorSlot);
+            
+            if (!hasBackboneConflict && canFit) {
               doctorSlot.push(activity);
             }
           }
@@ -166,6 +329,17 @@ export function generateRoundRobinScenario(doctors, periods, startOffset = 0) {
     // Generate activity assignments for this period
     const periodAssignments = {};
     
+    // Initialize current schedule for duration tracking across this period
+    const currentSchedule = {};
+    doctors.forEach(doctorCode => {
+      const doctorProfile = doctorProfiles[doctorCode];
+      if (doctorProfile?.backbone) {
+        currentSchedule[doctorCode] = JSON.parse(JSON.stringify(doctorProfile.backbone));
+      } else {
+        currentSchedule[doctorCode] = getEmptySchedule();
+      }
+    });
+    
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     const timeSlots = ['9am-1pm', '2pm-6pm'];
     
@@ -178,7 +352,8 @@ export function generateRoundRobinScenario(doctors, periods, startOffset = 0) {
           doctors, 
           day, 
           timeSlot, 
-          globalOffset
+          globalOffset,
+          currentSchedule  // Pass current schedule for duration checking
         );
         
         periodAssignments[day][timeSlot] = slotAssignments;
@@ -502,7 +677,15 @@ export {
   DEFAULT_PERIODS,
   AVAILABLE_DOCTORS,
   ALL_ACTIVITIES,
+  TIME_SLOT_DURATION,
   expectedActivities,
   assignActivitiesForTimeSlot,
-  buildScheduleFromAssignments
+  buildScheduleFromAssignments,
+  getActivityDuration,
+  getRemainingCapacity,
+  canActivityFitInTimeSlot,
+  getQualifiedDoctorsStrict,
+  getHtcRootActivity,
+  getHtcActivityGroup,
+  getExistingHtcAssignment
 };

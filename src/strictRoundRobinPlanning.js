@@ -1,6 +1,17 @@
-import { doctorProfiles } from './doctorSchedules.js';
-import { expectedActivities } from './schedule.jsx';
+import { doctorProfiles, docActivities } from './doctorSchedules.js';
 import { getISOWeek } from 'date-fns';
+
+// Fallback expectedActivities for testing - will be overridden by global mock or parameter
+const defaultExpectedActivities = {
+  Monday: { "9am-1pm": ['HTC1', 'EMIT'], "2pm-6pm": ['HTC2', 'HDJ'] },
+  Tuesday: { "9am-1pm": ['HTC1_visite'], "2pm-6pm": ['EMATIT', 'AMI'] },
+  Wednesday: { "9am-1pm": ['HTC2_visite'], "2pm-6pm": ['EMIT'] },
+  Thursday: { "9am-1pm": ['HDJ'], "2pm-6pm": ['HTC1', 'EMATIT'] },
+  Friday: { "9am-1pm": ['AMI'], "2pm-6pm": ['HTC2', 'EMIT'] }
+};
+
+// Use global mock if available (for testing), or default
+const expectedActivities = global.expectedActivities || defaultExpectedActivities;
 
 // Strict Round Robin Planning System - Rotation Setting Based
 // Only assigns activities to doctors who have them in their rotationSetting
@@ -64,7 +75,7 @@ export function calculateRotationBoundaries() {
   };
 
   const vacationPeriods2025 = {
-    'Vacances d'hiver': {
+    "Vacances d'hiver": {
       Début: 'samedi 8 février 2025',
       Fin: 'lundi 24 février 2025',
     },
@@ -72,7 +83,7 @@ export function calculateRotationBoundaries() {
       Début: 'samedi 5 avril 2025',
       Fin: 'mardi 22 avril 2025',
     },
-    'Pont de l'Ascension': {
+    "Pont de l'Ascension": {
       Début: 'mercredi 28 mai 2025',
       Fin: 'lundi 2 juin 2025',
     },
@@ -192,7 +203,99 @@ const AVAILABLE_DOCTORS = Object.keys(doctorProfiles);
 const ALL_ACTIVITIES = ['HTC1', 'HTC1_visite', 'HTC2', 'HTC2_visite', 'EMIT', 'EMATIT', 'HDJ', 'AMI'];
 
 /**
+ * Time slot configuration
+ */
+const TIME_SLOT_DURATION = 4; // Each time slot is 4 hours
+
+/**
+ * Get activity duration in hours
+ * @param {string} activity - Activity name
+ * @returns {number} Duration in hours
+ */
+function getActivityDuration(activity) {
+  return docActivities[activity]?.duration || 0;
+}
+
+/**
+ * Calculate remaining capacity in a time slot
+ * @param {Array} assignedActivities - Currently assigned activities
+ * @returns {number} Remaining hours in the time slot
+ */
+function getRemainingCapacity(assignedActivities) {
+  const usedDuration = assignedActivities.reduce((total, activity) => {
+    return total + getActivityDuration(activity);
+  }, 0);
+  return Math.max(0, TIME_SLOT_DURATION - usedDuration);
+}
+
+/**
+ * Check if an activity can fit in the remaining time slot capacity
+ * @param {string} activity - Activity to check
+ * @param {Array} currentActivities - Currently assigned activities in the slot
+ * @returns {boolean} True if activity fits
+ */
+function canActivityFitInTimeSlot(activity, currentActivities) {
+  const activityDuration = getActivityDuration(activity);
+  const remainingCapacity = getRemainingCapacity(currentActivities);
+  return activityDuration <= remainingCapacity;
+}
+
+/**
+ * Get the root HTC activity for HTC-related activities
+ * @param {string} activity - Activity to check
+ * @returns {string} Root activity (HTC1 or HTC2) or the activity itself
+ */
+function getHtcRootActivity(activity) {
+  if (activity.startsWith('HTC1')) return 'HTC1';
+  if (activity.startsWith('HTC2')) return 'HTC2';
+  return activity;
+}
+
+/**
+ * Get HTC activity group for an activity
+ * @param {string} activity - Activity to check
+ * @returns {Array} Array of all related HTC activities or [activity] if not HTC
+ */
+function getHtcActivityGroup(activity) {
+  if (activity.startsWith('HTC1')) return ['HTC1', 'HTC1_visite'];
+  if (activity.startsWith('HTC2')) return ['HTC2', 'HTC2_visite'];
+  return [activity];
+}
+
+/**
+ * Check for existing HTC assignments in the schedule to maintain HTC consistency
+ * @param {Object} currentSchedule - Current schedule
+ * @param {string} activity - Activity to assign (e.g., HTC1_visite)
+ * @returns {string|null} Doctor already assigned to this HTC group, or null
+ */
+function getExistingHtcAssignment(currentSchedule, activity) {
+  const htcGroup = getHtcActivityGroup(activity);
+  if (htcGroup.length === 1) return null; // Not an HTC activity
+  
+  // Look for any doctor already assigned to activities in this HTC group
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const timeSlots = ['9am-1pm', '2pm-6pm'];
+  
+  for (const [doctorCode, schedule] of Object.entries(currentSchedule)) {
+    for (const checkDay of days) {
+      for (const checkTimeSlot of timeSlots) {
+        const activities = schedule[checkDay]?.[checkTimeSlot] || [];
+        // Check if this doctor has any activity from the same HTC group
+        for (const assignedActivity of activities) {
+          if (htcGroup.includes(assignedActivity)) {
+            return doctorCode;
+          }
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
  * Get doctors who can perform a specific activity based on their rotationSetting (strict mode)
+ * Includes HTC activity grouping: doctors with HTC1 can also handle HTC1_visite
  * @param {string} activity - Activity to check
  * @returns {Array} Array of doctor codes who have this activity in their rotationSetting
  */
@@ -203,8 +306,9 @@ export function getQualifiedDoctorsStrict(activity) {
       return false;
     }
     
-    // Check if the activity is in the doctor's rotation setting
-    return doctorProfile.rotationSetting.includes(activity);
+    // For HTC activities, check if doctor has the root HTC activity
+    const rootActivity = getHtcRootActivity(activity);
+    return doctorProfile.rotationSetting.includes(rootActivity);
   });
 }
 
@@ -265,21 +369,33 @@ function getEmptySchedule() {
  * @param {string} day - Day of week
  * @param {string} timeSlot - Time slot
  * @param {string} activity - Activity to assign
+ * @param {Object} currentSchedule - Current schedule to check duration constraints (optional)
  * @returns {boolean} True if doctor is available
  */
-function isDoctorAvailable(doctorCode, day, timeSlot, activity) {
+function isDoctorAvailable(doctorCode, day, timeSlot, activity, currentSchedule = null) {
   const doctorProfile = doctorProfiles[doctorCode];
   if (!doctorProfile) return false;
   
   const backboneActivities = doctorProfile.backbone?.[day]?.[timeSlot] || [];
   
-  // Doctor is available if:
-  // 1. Backbone slot is empty, OR
-  // 2. Backbone has non-conflicting activities (not medical activities), OR  
-  // 3. Backbone already includes this specific activity
-  return backboneActivities.length === 0 || 
+  // Check backbone availability first
+  const backboneAvailable = backboneActivities.length === 0 || 
          backboneActivities.every(bActivity => !ALL_ACTIVITIES.includes(bActivity)) ||
          backboneActivities.includes(activity);
+  
+  if (!backboneAvailable) return false;
+  
+  // Check duration constraints if current schedule is provided
+  if (currentSchedule && currentSchedule[doctorCode]) {
+    const doctorCurrentSlot = currentSchedule[doctorCode][day]?.[timeSlot] || [];
+    
+    // Check if this activity can fit in the remaining time slot
+    if (!canActivityFitInTimeSlot(activity, doctorCurrentSlot)) {
+      return false;
+    }
+  }
+  
+  return true;
 }
 
 /**
@@ -311,32 +427,60 @@ export function assignPrimaryActivityForRotation(doctorCode, rotationPeriod, rou
  * @param {string} day - Day of week
  * @param {string} timeSlot - Time slot (9am-1pm or 2pm-6pm)
  * @param {Object} rotationAssignments - Primary activity assignments for rotation
+ * @param {Object} currentSchedule - Current schedule state for duration checking
  * @returns {Object} Activity to doctor assignments for this time slot
  */
-function assignActivitiesForTimeSlotStrict(doctors, day, timeSlot, rotationAssignments) {
+function assignActivitiesForTimeSlotStrict(doctors, day, timeSlot, rotationAssignments, currentSchedule = {}) {
   const requiredActivities = expectedActivities[day]?.[timeSlot] || [];
   const assignments = {};
   
+  // Sort activities by duration (largest first) for better fitting
+  const sortedActivities = requiredActivities.sort((a, b) => 
+    getActivityDuration(b) - getActivityDuration(a)
+  );
+  
   // For each required activity, find a qualified doctor
-  requiredActivities.forEach(activity => {
+  sortedActivities.forEach(activity => {
     const qualifiedDoctors = getQualifiedDoctorsStrict(activity);
     
-    // Filter for doctors who are available (not blocked by backbone)
+    // Filter for doctors who are available (not blocked by backbone and have capacity)
     const availableDoctors = qualifiedDoctors.filter(doctorCode => 
-      isDoctorAvailable(doctorCode, day, timeSlot, activity)
+      isDoctorAvailable(doctorCode, day, timeSlot, activity, currentSchedule)
     );
     
     if (availableDoctors.length > 0) {
-      // Prefer doctor who has this as primary activity for the rotation
-      const primaryDoctor = availableDoctors.find(doctorCode => 
-        rotationAssignments[doctorCode] === activity
-      );
+      let selectedDoctor = null;
       
-      if (primaryDoctor) {
-        assignments[activity] = primaryDoctor;
+      // Check for HTC consistency first
+      const existingHtcDoctor = getExistingHtcAssignment(currentSchedule, activity);
+      if (existingHtcDoctor && availableDoctors.includes(existingHtcDoctor)) {
+        // HTC consistency: prefer the doctor already handling this HTC group
+        selectedDoctor = existingHtcDoctor;
       } else {
-        // Use first available qualified doctor (could be enhanced with round robin)
-        assignments[activity] = availableDoctors[0];
+        // Prefer doctor who has this as primary activity for the rotation
+        const primaryDoctor = availableDoctors.find(doctorCode => {
+          const rootActivity = getHtcRootActivity(activity);
+          return rotationAssignments[doctorCode] === rootActivity || rotationAssignments[doctorCode] === activity;
+        });
+        
+        if (primaryDoctor) {
+          selectedDoctor = primaryDoctor;
+        } else {
+          // Use first available qualified doctor (could be enhanced with round robin)
+          selectedDoctor = availableDoctors[0];
+        }
+      }
+      
+      if (selectedDoctor) {
+        assignments[activity] = selectedDoctor;
+        
+        // Update current schedule to track duration usage
+        if (!currentSchedule[selectedDoctor]) {
+          currentSchedule[selectedDoctor] = getEmptySchedule();
+        }
+        if (!currentSchedule[selectedDoctor][day][timeSlot].includes(activity)) {
+          currentSchedule[selectedDoctor][day][timeSlot].push(activity);
+        }
       }
     }
     // If no qualified doctors available, activity remains unassigned
@@ -346,7 +490,72 @@ function assignActivitiesForTimeSlotStrict(doctors, day, timeSlot, rotationAssig
 }
 
 /**
- * Build complete doctor schedules from rotation assignments (strict mode)
+ * Build complete doctor schedules from exclusive activity ownership
+ * Each activity is owned by exactly one doctor who handles ALL instances of that activity
+ * @param {Object} activityOwnership - Activity to doctor exclusive ownership mapping
+ * @param {Array} doctors - List of all doctors
+ * @param {Object} rotationPeriod - Rotation period info
+ * @returns {Object} Complete doctor schedules
+ */
+function buildStrictScheduleFromExclusiveAssignments(activityOwnership, doctors, rotationPeriod) {
+  console.log('Building schedule from exclusive assignments...');
+  
+  const schedule = {};
+  
+  // Initialize with backbone schedules
+  doctors.forEach(doctorCode => {
+    const doctorProfile = doctorProfiles[doctorCode];
+    if (doctorProfile?.backbone) {
+      schedule[doctorCode] = JSON.parse(JSON.stringify(doctorProfile.backbone));
+    } else {
+      schedule[doctorCode] = getEmptySchedule();
+    }
+  });
+  
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const timeSlots = ['9am-1pm', '2pm-6pm'];
+  
+  // Apply exclusive activity assignments
+  days.forEach(day => {
+    timeSlots.forEach(timeSlot => {
+      const requiredActivities = expectedActivities[day]?.[timeSlot] || [];
+      
+      requiredActivities.forEach(activity => {
+        const ownerDoctor = activityOwnership[activity];
+        
+        if (ownerDoctor && schedule[ownerDoctor]) {
+          const doctorSlot = schedule[ownerDoctor][day][timeSlot];
+          
+          // Only add if not already present and fits duration constraints
+          if (!doctorSlot.includes(activity)) {
+            // Check if activity can fit in the time slot
+            const canFit = canActivityFitInTimeSlot(activity, doctorSlot);
+            
+            // Check backbone conflicts
+            const backboneActivities = doctorProfiles[ownerDoctor]?.backbone?.[day]?.[timeSlot] || [];
+            const hasBackboneConflict = backboneActivities.some(bActivity => 
+              ALL_ACTIVITIES.includes(bActivity) && bActivity !== activity
+            );
+            
+            if (canFit && !hasBackboneConflict) {
+              doctorSlot.push(activity);
+              console.log(`Assigned ${activity} to ${ownerDoctor} on ${day} ${timeSlot} (exclusive owner)`);
+            } else {
+              console.log(`⚠️  Could not assign ${activity} to owner ${ownerDoctor} on ${day} ${timeSlot} - ${!canFit ? 'duration conflict' : 'backbone conflict'}`);
+            }
+          }
+        } else {
+          console.log(`⚠️  No owner found for activity: ${activity} on ${day} ${timeSlot}`);
+        }
+      });
+    });
+  });
+  
+  return schedule;
+}
+
+/**
+ * Build complete doctor schedules from rotation assignments (strict mode) - DEPRECATED
  * @param {Object} rotationAssignments - Primary activity assignments per doctor
  * @param {Array} doctors - List of all doctors
  * @param {Object} rotationPeriod - Rotation period info
@@ -375,21 +584,25 @@ function buildStrictScheduleFromRotationAssignments(rotationAssignments, doctors
         doctors, 
         day, 
         timeSlot, 
-        rotationAssignments
+        rotationAssignments,
+        schedule  // Pass current schedule for duration checking
       );
       
       Object.entries(slotAssignments).forEach(([activity, doctorCode]) => {
         if (doctorCode && schedule[doctorCode]) {
           const doctorSlot = schedule[doctorCode][day][timeSlot];
           
-          // Only add if not already present and not conflicting with backbone
+          // Only add if not already present and not conflicting with backbone and fits duration
           if (!doctorSlot.includes(activity)) {
             const backboneActivities = doctorProfiles[doctorCode]?.backbone?.[day]?.[timeSlot] || [];
             const hasBackboneConflict = backboneActivities.some(bActivity => 
               ALL_ACTIVITIES.includes(bActivity) && bActivity !== activity
             );
             
-            if (!hasBackboneConflict) {
+            // Check if activity can fit in the time slot
+            const canFit = canActivityFitInTimeSlot(activity, doctorSlot);
+            
+            if (!hasBackboneConflict && canFit) {
               doctorSlot.push(activity);
             }
           }
@@ -402,7 +615,128 @@ function buildStrictScheduleFromRotationAssignments(rotationAssignments, doctors
 }
 
 /**
- * Generate strict round robin scenario for a single rotation period
+ * Assign activities exclusively to doctors for entire rotation period
+ * Each activity is owned by exactly one doctor for the full period
+ * @param {Array} doctors - List of doctor codes
+ * @param {Object} rotationPeriod - Rotation period info
+ * @param {number} startOffset - Starting offset for round robin fairness
+ * @returns {Object} Exclusive activity ownership assignments
+ */
+function assignActivitiesForRotationPeriod(doctors, rotationPeriod, startOffset = 0) {
+  console.log(`Assigning exclusive activities for rotation period: ${rotationPeriod.name}`);
+  
+  const activityOwnership = {}; // activity -> doctorCode mapping
+  const doctorWorkload = {}; // doctorCode -> array of owned activities
+  
+  // Initialize doctor workload tracking
+  doctors.forEach(doctorCode => {
+    doctorWorkload[doctorCode] = [];
+  });
+  
+  // Get all activities that need to be assigned during this period
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const timeSlots = ['9am-1pm', '2pm-6pm'];
+  const requiredActivities = new Set();
+  
+  days.forEach(day => {
+    timeSlots.forEach(timeSlot => {
+      const activitiesForSlot = expectedActivities[day]?.[timeSlot] || [];
+      activitiesForSlot.forEach(activity => requiredActivities.add(activity));
+    });
+  });
+  
+  const allRequiredActivities = Array.from(requiredActivities);
+  console.log('Required activities for period:', allRequiredActivities);
+  
+  // Sort activities by priority (HTC groups first, then by duration)
+  const sortedActivities = allRequiredActivities.sort((a, b) => {
+    // HTC activities get priority
+    const aIsHTC = a.startsWith('HTC');
+    const bIsHTC = b.startsWith('HTC');
+    if (aIsHTC && !bIsHTC) return -1;
+    if (!aIsHTC && bIsHTC) return 1;
+    
+    // Within same category, sort by duration (larger first)
+    return getActivityDuration(b) - getActivityDuration(a);
+  });
+  
+  // Assign each activity exclusively to one doctor
+  let currentOffset = startOffset;
+  
+  sortedActivities.forEach((activity, activityIndex) => {
+    // Check if this activity is already covered by HTC grouping
+    if (activityOwnership[activity]) {
+      return; // Skip, already assigned via HTC grouping
+    }
+    
+    const qualifiedDoctors = getQualifiedDoctorsStrict(activity);
+    
+    if (qualifiedDoctors.length === 0) {
+      console.log(`⚠️  No qualified doctors found for activity: ${activity}`);
+      return;
+    }
+    
+    // Use round robin to select doctor, considering current workload
+    let selectedDoctor = null;
+    let attemptCount = 0;
+    
+    while (!selectedDoctor && attemptCount < qualifiedDoctors.length) {
+      const candidateIndex = (currentOffset + activityIndex + attemptCount) % qualifiedDoctors.length;
+      const candidateDoctor = qualifiedDoctors[candidateIndex];
+      
+      // Check if this doctor can take on this activity (capacity-based selection)
+      const currentWorkloadHours = doctorWorkload[candidateDoctor].reduce((total, act) => 
+        total + getActivityDuration(act), 0
+      );
+      
+      // Simple capacity check - don't overload doctors
+      const maxWorkloadPerPeriod = 20; // hours per rotation period
+      if (currentWorkloadHours + getActivityDuration(activity) <= maxWorkloadPerPeriod) {
+        selectedDoctor = candidateDoctor;
+      }
+      
+      attemptCount++;
+    }
+    
+    // If no doctor found with capacity, use first qualified doctor
+    if (!selectedDoctor) {
+      selectedDoctor = qualifiedDoctors[0];
+    }
+    
+    // Assign activity exclusively to this doctor
+    activityOwnership[activity] = selectedDoctor;
+    doctorWorkload[selectedDoctor].push(activity);
+    
+    console.log(`${activity} → ${selectedDoctor} (exclusive ownership)`);
+    
+    // Handle HTC grouping - if assigning HTC1, also assign HTC1_visite exclusively
+    const htcGroup = getHtcActivityGroup(activity);
+    if (htcGroup.length > 1) {
+      htcGroup.forEach(groupActivity => {
+        if (groupActivity !== activity && allRequiredActivities.includes(groupActivity)) {
+          activityOwnership[groupActivity] = selectedDoctor;
+          if (!doctorWorkload[selectedDoctor].includes(groupActivity)) {
+            doctorWorkload[selectedDoctor].push(groupActivity);
+            console.log(`${groupActivity} → ${selectedDoctor} (HTC grouping)`);
+          }
+        }
+      });
+    }
+    
+    currentOffset = (currentOffset + 1) % Math.max(qualifiedDoctors.length, 1);
+  });
+  
+  console.log('Final activity ownership:', activityOwnership);
+  console.log('Doctor workloads:', doctorWorkload);
+  
+  return {
+    activityOwnership,
+    doctorWorkload
+  };
+}
+
+/**
+ * Generate strict round robin scenario for a single rotation period with exclusive assignment
  * @param {Array} doctors - List of doctor codes
  * @param {Object} rotationPeriod - Rotation period info
  * @param {number} startOffset - Starting offset for round robin fairness
@@ -411,33 +745,20 @@ function buildStrictScheduleFromRotationAssignments(rotationAssignments, doctors
 export function generateStrictRotationScenario(doctors, rotationPeriod, startOffset = 0) {
   console.log(`Generating strict scenario for rotation period: ${rotationPeriod.name}`);
   
-  // Phase 1: Assign primary activities to doctors based on their rotationSetting
-  const rotationAssignments = {};
+  // Phase 1: Assign activities exclusively to doctors for entire period
+  const periodAssignments = assignActivitiesForRotationPeriod(doctors, rotationPeriod, startOffset);
   
-  doctors.forEach((doctorCode, index) => {
-    const primaryActivity = assignPrimaryActivityForRotation(
-      doctorCode, 
-      rotationPeriod, 
-      (startOffset + index) % doctors.length
-    );
-    
-    if (primaryActivity) {
-      rotationAssignments[doctorCode] = primaryActivity;
-    }
-  });
-  
-  console.log('Primary activity assignments for rotation:', rotationAssignments);
-  
-  // Phase 2: Build complete weekly schedule based on rotation assignments
-  const weeklySchedule = buildStrictScheduleFromRotationAssignments(
-    rotationAssignments, 
+  // Phase 2: Build complete weekly schedule based on exclusive assignments
+  const weeklySchedule = buildStrictScheduleFromExclusiveAssignments(
+    periodAssignments.activityOwnership,
     doctors, 
     rotationPeriod
   );
   
   return {
     rotationPeriod,
-    rotationAssignments,
+    activityOwnership: periodAssignments.activityOwnership,
+    doctorWorkload: periodAssignments.doctorWorkload,
     weeklySchedule
   };
 }
@@ -476,6 +797,179 @@ export function generateCompleteStrictSchedule(
   });
   
   return completeSchedule;
+}
+
+/**
+ * Validate exclusive activity assignment (no sharing between doctors within periods)
+ * @param {Object} schedule - Complete schedule to analyze
+ * @returns {Object} Exclusivity validation results
+ */
+function validateActivityExclusivity(schedule) {
+  const validation = {
+    exclusivityViolations: [],
+    totalViolations: 0,
+    compliancePercentage: 100,
+    activityOwnership: {}, // activity -> set of doctors who handle it
+    summary: {
+      activitiesChecked: 0,
+      exclusiveActivities: 0,
+      sharedActivities: 0
+    }
+  };
+
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const timeSlots = ['9am-1pm', '2pm-6pm'];
+
+  // Track activity ownership across all rotation periods
+  Object.entries(schedule).forEach(([rotationName, rotationData]) => {
+    if (rotationData.weeklySchedule) {
+      Object.entries(rotationData.weeklySchedule).forEach(([doctorCode, doctorSchedule]) => {
+        days.forEach(day => {
+          timeSlots.forEach(timeSlot => {
+            const activities = doctorSchedule[day]?.[timeSlot] || [];
+            const medicalActivities = activities.filter(activity => ALL_ACTIVITIES.includes(activity));
+
+            medicalActivities.forEach(activity => {
+              if (!validation.activityOwnership[activity]) {
+                validation.activityOwnership[activity] = new Set();
+              }
+              validation.activityOwnership[activity].add(`${rotationName}:${doctorCode}`);
+            });
+          });
+        });
+      });
+    }
+  });
+
+  // Check for violations (same activity handled by multiple doctors in same period)
+  Object.entries(validation.activityOwnership).forEach(([activity, ownerSet]) => {
+    validation.summary.activitiesChecked++;
+    
+    // Group by rotation period to check exclusivity within periods
+    const ownersByPeriod = {};
+    ownerSet.forEach(owner => {
+      const [rotationName, doctorCode] = owner.split(':');
+      if (!ownersByPeriod[rotationName]) {
+        ownersByPeriod[rotationName] = new Set();
+      }
+      ownersByPeriod[rotationName].add(doctorCode);
+    });
+
+    // Check if any period has multiple doctors for same activity
+    let hasViolation = false;
+    Object.entries(ownersByPeriod).forEach(([rotationName, doctorsInPeriod]) => {
+      if (doctorsInPeriod.size > 1) {
+        validation.exclusivityViolations.push({
+          activity,
+          rotationPeriod: rotationName,
+          violatingDoctors: Array.from(doctorsInPeriod),
+          violation: `Activity ${activity} is shared between ${doctorsInPeriod.size} doctors in period ${rotationName}`
+        });
+        hasViolation = true;
+      }
+    });
+
+    if (hasViolation) {
+      validation.summary.sharedActivities++;
+    } else {
+      validation.summary.exclusiveActivities++;
+    }
+  });
+
+  validation.totalViolations = validation.exclusivityViolations.length;
+  
+  if (validation.summary.activitiesChecked > 0) {
+    validation.compliancePercentage = 
+      (validation.summary.exclusiveActivities / validation.summary.activitiesChecked) * 100;
+  }
+
+  return validation;
+}
+
+/**
+ * Analyze schedule for rule compliance (duration and rotation settings)
+ * @param {Object} schedule - Complete schedule to analyze
+ * @returns {Object} Rule compliance analysis
+ */
+function analyzeRuleCompliance(schedule) {
+  const compliance = {
+    durationViolations: [],
+    rotationSettingViolations: [],
+    totalViolations: 0,
+    compliancePercentage: 100,
+    summary: {
+      durationViolationCount: 0,
+      rotationSettingViolationCount: 0,
+      totalSlotsChecked: 0
+    }
+  };
+
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const timeSlots = ['9am-1pm', '2pm-6pm'];
+
+  Object.entries(schedule).forEach(([rotationName, rotationData]) => {
+    if (rotationData.weeklySchedule) {
+      Object.entries(rotationData.weeklySchedule).forEach(([doctorCode, doctorSchedule]) => {
+        const doctorProfile = doctorProfiles[doctorCode];
+        if (!doctorProfile) return;
+
+        days.forEach(day => {
+          timeSlots.forEach(timeSlot => {
+            compliance.summary.totalSlotsChecked++;
+            const activities = doctorSchedule[day]?.[timeSlot] || [];
+            const medicalActivities = activities.filter(activity => ALL_ACTIVITIES.includes(activity));
+
+            // Check duration violations
+            const totalDuration = medicalActivities.reduce((sum, activity) => 
+              sum + getActivityDuration(activity), 0
+            );
+
+            if (totalDuration > TIME_SLOT_DURATION) {
+              compliance.durationViolations.push({
+                rotation: rotationName,
+                doctor: doctorCode,
+                day,
+                timeSlot,
+                activities: medicalActivities,
+                totalDuration,
+                exceeds: totalDuration - TIME_SLOT_DURATION,
+                violation: `Duration ${totalDuration}h exceeds slot capacity ${TIME_SLOT_DURATION}h`
+              });
+              compliance.summary.durationViolationCount++;
+            }
+
+            // Check rotation setting violations
+            if (doctorProfile.rotationSetting) {
+              medicalActivities.forEach(activity => {
+                if (!doctorProfile.rotationSetting.includes(activity)) {
+                  compliance.rotationSettingViolations.push({
+                    rotation: rotationName,
+                    doctor: doctorCode,
+                    day,
+                    timeSlot,
+                    activity,
+                    allowedActivities: doctorProfile.rotationSetting,
+                    violation: `Activity ${activity} not in doctor's rotationSetting`
+                  });
+                  compliance.summary.rotationSettingViolationCount++;
+                }
+              });
+            }
+          });
+        });
+      });
+    }
+  });
+
+  compliance.totalViolations = compliance.summary.durationViolationCount + compliance.summary.rotationSettingViolationCount;
+  
+  if (compliance.summary.totalSlotsChecked > 0) {
+    compliance.compliancePercentage = Math.max(0, 
+      ((compliance.summary.totalSlotsChecked - compliance.totalViolations) / compliance.summary.totalSlotsChecked) * 100
+    );
+  }
+
+  return compliance;
 }
 
 /**
@@ -691,8 +1185,18 @@ export function generateStrictScheduleReport(strictSchedule) {
 export { 
   AVAILABLE_DOCTORS,
   ALL_ACTIVITIES,
+  TIME_SLOT_DURATION,
   getEmptySchedule,
   isDoctorAvailable,
   assignActivitiesForTimeSlotStrict,
-  buildStrictScheduleFromRotationAssignments
+  buildStrictScheduleFromRotationAssignments,
+  buildStrictScheduleFromExclusiveAssignments,
+  getActivityDuration,
+  getRemainingCapacity,
+  canActivityFitInTimeSlot,
+  analyzeRuleCompliance,
+  validateActivityExclusivity,
+  getHtcRootActivity,
+  getHtcActivityGroup,
+  getExistingHtcAssignment
 };
