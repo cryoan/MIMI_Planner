@@ -4,7 +4,7 @@ export const docActivities = {
   // duration for 1 plage of activity
   AMI: {
     name: "AMI",
-    duration: 1,
+    duration: 2,
   },
   AMI_Cs_U: {
     name: "AMI_Cs_U",

@@ -270,7 +270,7 @@ const DaySchedule = ({ day, schedule }) => {
                   className="activity-block"
                   style={{
                     backgroundColor: activityColors[activity] || '#ccc',
-                    height: `${duration * 25}px`, // Example: 25px height per hour duration
+                    height: `${(duration / 4) * 90}px`, // Proportional height with white space margin
                     backgroundImage: ['Cs_Prison', 'AMI_Cs_U'].includes(
                       activity
                     )
@@ -304,7 +304,7 @@ const DaySchedule = ({ day, schedule }) => {
                   className="activity-block"
                   style={{
                     backgroundColor: activityColors[activity] || '#ccc',
-                    height: `${duration * 25}px`, // Example: 25px height per hour duration
+                    height: `${(duration / 4) * 90}px`, // Proportional height with white space margin
                     backgroundImage: ['Cs_Prison', 'AMI_Cs_U'].includes(
                       activity
                     )

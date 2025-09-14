@@ -456,7 +456,7 @@ const EditableTimeSlot = ({ day, timeSlot, activities, onClick }) => {
               className="activity-block"
               style={{
                 backgroundColor: activityColors[activity] || '#ccc',
-                height: `${(docActivities[activity]?.duration || 1) * 25}px`,
+                height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
               }}
             >
               {activity}
@@ -816,7 +816,7 @@ const RotationCard = ({ name, rotation, rotationType, backbone, skills, onDelete
                               className="activity-block"
                               style={{
                                 backgroundColor: activityColors[activity] || '#ccc',
-                                height: `${(docActivities[activity]?.duration || 1) * 25}px`,
+                                height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
                               }}
                             >
                               {activity}
@@ -837,7 +837,7 @@ const RotationCard = ({ name, rotation, rotationType, backbone, skills, onDelete
                               className="activity-block"
                               style={{
                                 backgroundColor: activityColors[activity] || '#ccc',
-                                height: `${(docActivities[activity]?.duration || 1) * 25}px`,
+                                height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
                               }}
                             >
                               {activity}
@@ -1163,7 +1163,7 @@ const RotationsManager = ({ rotations, rotationTypes, backbone, skills, onAdd, o
                                   className="activity-block"
                                   style={{
                                     backgroundColor: activityColors[activity] || '#ccc',
-                                    height: `${(docActivities[activity]?.duration || 1) * 20}px`,
+                                    height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
                                   }}
                                 >
                                   {activity}
@@ -1180,7 +1180,7 @@ const RotationsManager = ({ rotations, rotationTypes, backbone, skills, onAdd, o
                                   className="activity-block"
                                   style={{
                                     backgroundColor: activityColors[activity] || '#ccc',
-                                    height: `${(docActivities[activity]?.duration || 1) * 20}px`,
+                                    height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
                                   }}
                                 >
                                   {activity}
@@ -1353,7 +1353,7 @@ const TemplateCard = ({ templateName, templateData, onUpdate, onDelete }) => {
                               className="activity-block"
                               style={{
                                 backgroundColor: activityColors[activity] || '#ccc',
-                                height: `${(docActivities[activity]?.duration || 1) * 25}px`,
+                                height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
                               }}
                             >
                               {activity}
@@ -1374,7 +1374,7 @@ const TemplateCard = ({ templateName, templateData, onUpdate, onDelete }) => {
                               className="activity-block"
                               style={{
                                 backgroundColor: activityColors[activity] || '#ccc',
-                                height: `${(docActivities[activity]?.duration || 1) * 25}px`,
+                                height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
                               }}
                             >
                               {activity}

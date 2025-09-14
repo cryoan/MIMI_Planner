@@ -94,6 +94,7 @@
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 10px;
+  align-items: stretch;
 }
 
 /* Each day's column */
@@ -104,6 +105,7 @@
   padding: 5px;
   border-radius: 4px;
   background-color: #f5f5f5;
+  align-items: stretch;
 }
 
 /* AM/PM container with horizontal layout */
@@ -119,16 +121,19 @@
   display: flex;
   flex-direction: column;
   width: 48%; /* Make both AM and PM schedules take up equal width */
+  height: 120px; /* Fixed height for 4-hour time slots + labels + margins */
   padding: 5px;
   /* background-color: #f0f0f0; */
   border-radius: 4px;
+  overflow: hidden;
+  justify-content: flex-start;
 }
 
 /* Activity block */
 .activity-block {
   width: 100%;
   border-radius: 4px;
-  margin: 5px 0;
+  margin: 2px 0;
   padding: 5px;
   display: flex;
   align-items: center;
@@ -285,8 +290,9 @@
   margin: 2px 0;
   border-radius: 4px;
   cursor: pointer;
-  min-height: 60px;
+  height: 120px;
   background: #f9f9f9;
+  overflow: hidden;
 }
 
 .editable-timeslot:hover {
@@ -304,6 +310,8 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  justify-content: flex-start;
 }
 
 .timeslot-editor-overlay {
@@ -563,7 +571,8 @@
   border: 1px solid #f0f0f0;
   border-radius: 3px;
   background: #fafafa;
-  min-height: 50px;
+  height: 120px;
+  overflow: hidden;
 }
 
 .rotation-schedule-editor {
@@ -610,7 +619,8 @@
   border: 1px solid #e9ecef;
   border-radius: 3px;
   background: white;
-  min-height: 45px;
+  height: 120px;
+  overflow: hidden;
 }
 
 .preview-timeslot .timeslot-label {
@@ -623,6 +633,8 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  justify-content: flex-start;
 }
 
 .preview-timeslot .activity-block {
