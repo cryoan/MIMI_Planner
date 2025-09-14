@@ -234,7 +234,7 @@ const ETAWorkloadInfographic = () => {
       
       case 'custom':
         // Define your custom priority order here
-        const customOrder = ['HTC1', 'HTC2', 'HDJ', 'EMIT', 'EMATIT', 'AMI', 'TeleCs'];
+        const customOrder = ['TP', 'HTC1', 'HTC1_visite', 'HTC2_visite', 'HTC2', 'Cs', 'TeleCs', 'EMIT', 'EMATIT', 'Staff', 'HDJ', 'AMI'];
         return activities.sort((a, b) => {
           const indexA = customOrder.indexOf(a);
           const indexB = customOrder.indexOf(b);
@@ -251,8 +251,8 @@ const ETAWorkloadInfographic = () => {
 
   // State for sortable legend and drag operations
   const [activityOrder, setActivityOrder] = React.useState(() => {
-    // Initialize with default order (by hours descending)
-    return getDefaultActivityOrder('hours-desc');
+    // Initialize with custom order
+    return getDefaultActivityOrder('custom');
   });
   
   const [dragState, setDragState] = React.useState({
@@ -386,7 +386,7 @@ const ETAWorkloadInfographic = () => {
 
   // Reset to default order
   const resetOrder = () => {
-    setActivityOrder(getDefaultActivityOrder('hours-desc'));
+    setActivityOrder(getDefaultActivityOrder('custom'));
   };
 
   // Create hour-based grid data - fill from bottom to top, left to right
