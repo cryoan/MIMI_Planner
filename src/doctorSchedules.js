@@ -144,9 +144,9 @@ export const doctorProfiles = {
   YC: {
     backbone: {
       Monday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
+      Tuesday: { "9am-1pm": ["TeleCs"], "2pm-6pm": ["Cs"] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Thursday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
+      Thursday: { "9am-1pm": ["TeleCs"], "2pm-6pm": ["Cs"] },
       Friday: { "9am-1pm": [], "2pm-6pm": ["Staff"] },
     },
     skills: ["AMI", "HTC1", "HTC1_visite", "EMIT", "EMATIT", "Chefferie"],
@@ -188,10 +188,10 @@ export const doctorProfiles = {
 
   FL: {
     backbone: {
-      Monday: { "9am-1pm": ["Cs"], "2pm-6pm": [] },
+      Monday: { "9am-1pm": ["Cs"], "2pm-6pm": ["TeleCs"] },
       Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Thursday: { "9am-1pm": [], "2pm-6pm": [] },
+      Thursday: { "9am-1pm": [], "2pm-6pm": ["TeleCs"] },
       Friday: { "9am-1pm": [], "2pm-6pm": ["Staff"] },
     },
     skills: [
@@ -284,10 +284,10 @@ export const doctorProfiles = {
       Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Wednesday: { "9am-1pm": ["Cs"], "2pm-6pm": [] },
       Thursday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Friday: { "9am-1pm": [], "2pm-6pm": ["Staff"] },
+      Friday: { "9am-1pm": ["TeleCs"], "2pm-6pm": ["Staff"] },
     },
     skills: ["EMIT", "EMATIT"],
-    rotationSetting: ["EMIT", "EMATIT"],
+    rotationSetting: ["EMIT"],
     weeklyNeeds: {
       TeleCs: {
         count: 1,
@@ -546,8 +546,8 @@ export const doctorProfiles = {
       Monday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Tuesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Thursday: { "9am-1pm": [], "2pm-6pm": [] },
-      Friday: { "9am-1pm": [], "2pm-6pm": ["Staff"] },
+      Thursday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["EMIT"] },
+      Friday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["Staff"] },
     },
     skills: ["EMIT", "EMATIT"],
     rotationSetting: ["EMIT"],

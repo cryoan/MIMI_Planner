@@ -515,6 +515,16 @@ import {
   expectedActivities,
   activityColors,
 } from './schedule';
+import {
+  generateCompleteStrictSchedule,
+  AVAILABLE_DOCTORS,
+  ALL_ACTIVITIES
+} from './strictRoundRobinPlanning.js';
+import {
+  generateCompleteValidatedSchedule,
+  buildRotationAvailability,
+  generateSimplifiedScheduleReport
+} from './simplifiedRoundRobinPlanner.js';
 import { realTimeDb } from './firebase';
 import { publicHolidays } from './publicHolidays.js'; // Import the holidays JSON file
 import { docActivities } from './doctorSchedules.js'; // Import activities for durations
@@ -675,6 +685,8 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
   const [newActivity, setNewActivity] = useState('');
   const [astreinte, setAstreinte] = useState({});
   const [editingAstreinte, setEditingAstreinte] = useState(null);
+  const [useSimplifiedSystem, setUseSimplifiedSystem] = useState(false);
+  const [validationReport, setValidationReport] = useState(null);
 
   const deepMerge = (target, source) => {
     for (const key in source) {
@@ -685,18 +697,79 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
     return { ...target, ...source };
   };
 
+  // Simple adapter to convert strict round robin format to calendar format
+  const convertStrictToCalendarFormat = (strictScheduleData) => {
+    const calendarFormat = {
+      2024: { Month1: {} },
+      2025: { Month1: {} }
+    };
+
+    // Take first few rotation periods and map them to weeks
+    const periods = Object.keys(strictScheduleData);
+    periods.slice(0, 10).forEach((periodName, index) => {
+      const weekNumber = 44 + index; // Start from Week44 like original
+      const year = weekNumber > 52 ? 2025 : 2024;
+      const adjustedWeekNumber = weekNumber > 52 ? weekNumber - 52 : weekNumber;
+      const weekKey = `Week${adjustedWeekNumber}`;
+
+      if (strictScheduleData[periodName].weeklySchedule) {
+        calendarFormat[year].Month1[weekKey] = strictScheduleData[periodName].weeklySchedule;
+      }
+    });
+
+    return calendarFormat;
+  };
+
+  // Adapter to convert simplified round robin format to calendar format
+  const convertSimplifiedToCalendarFormat = (simplifiedScheduleData) => {
+    const calendarFormat = {
+      2024: { Month1: {} },
+      2025: { Month1: {} }
+    };
+
+    // Take timeframes and map them to weeks
+    const timeframes = Object.keys(simplifiedScheduleData);
+    timeframes.slice(0, 10).forEach((timeframeName, index) => {
+      const weekNumber = 44 + index; // Start from Week44 like original
+      const year = weekNumber > 52 ? 2025 : 2024;
+      const adjustedWeekNumber = weekNumber > 52 ? weekNumber - 52 : weekNumber;
+      const weekKey = `Week${adjustedWeekNumber}`;
+
+      if (simplifiedScheduleData[timeframeName].detailedSchedule) {
+        calendarFormat[year].Month1[weekKey] = simplifiedScheduleData[timeframeName].detailedSchedule;
+      }
+    });
+
+    return calendarFormat;
+  };
+
   useEffect(() => {
     if (!loading && doc) {
-      const originalSchedule = doctorsSchedule(doc);
-      console.log('originalSchedule', originalSchedule);
+      let originalSchedule;
+      let reportData = null;
+
+      if (useSimplifiedSystem) {
+        console.log('Using Simplified Round Robin System');
+        const simplifiedScheduleData = generateCompleteValidatedSchedule(10);
+        originalSchedule = convertSimplifiedToCalendarFormat(simplifiedScheduleData);
+        reportData = generateSimplifiedScheduleReport(simplifiedScheduleData);
+        console.log('originalSchedule (converted from simplified round robin)', originalSchedule);
+        console.log('Simplified Round Robin Report:', reportData);
+        setValidationReport(reportData);
+      } else {
+        console.log('Using Strict Round Robin System');
+        const strictScheduleData = generateCompleteStrictSchedule(AVAILABLE_DOCTORS);
+        originalSchedule = convertStrictToCalendarFormat(strictScheduleData);
+        console.log('originalSchedule (converted from strict round robin)', originalSchedule);
+        setValidationReport(null);
+      }
+
       const updatesRef = ref(realTimeDb, `schedules/`);
       get(updatesRef)
         .then((snapshot) => {
           if (snapshot.exists()) {
             const updates = snapshot.val();
-
             const mergedSchedule = deepMerge(originalSchedule, updates);
-
             setSchedule(mergedSchedule);
           } else {
             setSchedule(originalSchedule);
@@ -706,7 +779,7 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
           console.error('Error fetching updates:', error);
         });
     }
-  }, [doc, loading, year, month]);
+  }, [doc, loading, year, month, useSimplifiedSystem]);
 
   const handleAstreinteChange = (week, day, e) => {
     const updatedAstreinte = { ...astreinte };
@@ -781,7 +854,43 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
 
   return (
     <div className="calendar-container">
-      <h2>{year}</h2>
+      <div className="system-controls" style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '5px' }}>
+        <label style={{ marginRight: '10px' }}>
+          <input
+            type="checkbox"
+            checked={useSimplifiedSystem}
+            onChange={(e) => setUseSimplifiedSystem(e.target.checked)}
+            style={{ marginRight: '5px' }}
+          />
+          Use Simplified Round Robin System
+        </label>
+
+        {useSimplifiedSystem && validationReport && (
+          <div style={{ marginTop: '10px', fontSize: '14px' }}>
+            <strong>System Report:</strong>
+            <div>✅ Coverage: {validationReport.overallStats.averageCoveragePercentage.toFixed(1)}%</div>
+            <div>📊 Rotation Availability: {Object.keys(validationReport.rotationAvailability).length} rotations</div>
+            {validationReport.overallStats.totalMissingActivities > 0 && (
+              <div style={{ color: 'red' }}>⚠️ Missing Activities: {validationReport.overallStats.totalMissingActivities}</div>
+            )}
+            {validationReport.overallStats.totalDuplicateActivities > 0 && (
+              <div style={{ color: 'orange' }}>⚠️ Duplicate Activities: {validationReport.overallStats.totalDuplicateActivities}</div>
+            )}
+            {validationReport.recommendations.length > 0 && (
+              <details style={{ marginTop: '5px' }}>
+                <summary>📋 Recommendations ({validationReport.recommendations.length})</summary>
+                <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
+                  {validationReport.recommendations.map((rec, idx) => (
+                    <li key={idx} style={{ fontSize: '12px' }}>{rec}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
+      </div>
+
+      <h2>{year} - {useSimplifiedSystem ? 'Simplified Round Robin' : 'Strict Round Robin'}</h2>
       {weeks.map((week) => {
         const weekNumber = parseInt(week.replace('Week', ''));
         const dates = getDateOfISOWeek(weekNumber, year);

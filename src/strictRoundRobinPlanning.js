@@ -1,17 +1,6 @@
 import { doctorProfiles, docActivities } from './doctorSchedules.js';
+import { expectedActivities } from './schedule.jsx';
 import { getISOWeek } from 'date-fns';
-
-// Fallback expectedActivities for testing - will be overridden by global mock or parameter
-const defaultExpectedActivities = {
-  Monday: { "9am-1pm": ['HTC1', 'EMIT'], "2pm-6pm": ['HTC2', 'HDJ'] },
-  Tuesday: { "9am-1pm": ['HTC1_visite'], "2pm-6pm": ['EMATIT', 'AMI'] },
-  Wednesday: { "9am-1pm": ['HTC2_visite'], "2pm-6pm": ['EMIT'] },
-  Thursday: { "9am-1pm": ['HDJ'], "2pm-6pm": ['HTC1', 'EMATIT'] },
-  Friday: { "9am-1pm": ['AMI'], "2pm-6pm": ['HTC2', 'EMIT'] }
-};
-
-// Use global mock if available (for testing), or default
-const expectedActivities = global.expectedActivities || defaultExpectedActivities;
 
 // Strict Round Robin Planning System - Rotation Setting Based
 // Only assigns activities to doctors who have them in their rotationSetting
