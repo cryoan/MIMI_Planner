@@ -533,6 +533,7 @@ import { testCustomPlanningLogic, quickValidation } from './testCustomLogic.js';
 import { realTimeDb } from './firebase';
 import { publicHolidays } from './publicHolidays.js'; // Import the holidays JSON file
 import { docActivities } from './doctorSchedules.js'; // Import activities for durations
+import PlanningOverview from './PlanningOverview';
 
 console.log('Public Holidays Structure:', publicHolidays);
 
@@ -694,6 +695,8 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
   const [useCustomLogic, setUseCustomLogic] = useState(false);
   const [validationReport, setValidationReport] = useState(null);
   const [customLogicReport, setCustomLogicReport] = useState(null);
+  const [customScheduleData, setCustomScheduleData] = useState(null);
+  const [showPlanningOverview, setShowPlanningOverview] = useState(true);
 
   // Make test functions available in browser console for debugging
   React.useEffect(() => {
@@ -827,12 +830,13 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
 
       if (useCustomLogic) {
         console.log('Using Custom Planning Logic - 3 Phases Algorithm');
-        const customScheduleData = executeCustomPlanningAlgorithm();
-        originalSchedule = convertCustomToCalendarFormat(customScheduleData);
-        reportData = generateCustomPlanningReport(customScheduleData);
+        const customScheduleDataResult = executeCustomPlanningAlgorithm();
+        originalSchedule = convertCustomToCalendarFormat(customScheduleDataResult);
+        reportData = generateCustomPlanningReport(customScheduleDataResult);
         console.log('originalSchedule (converted from custom logic)', originalSchedule);
         console.log('Custom Planning Logic Report:', reportData);
         setCustomLogicReport(reportData);
+        setCustomScheduleData(customScheduleDataResult);
         setValidationReport(null);
       } else if (useSimplifiedSystem) {
         console.log('Using Simplified Round Robin System');
@@ -843,6 +847,7 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
         console.log('Simplified Round Robin Report:', reportData);
         setValidationReport(reportData);
         setCustomLogicReport(null);
+        setCustomScheduleData(null);
       } else {
         console.log('Using Strict Round Robin System');
         const strictScheduleData = generateCompleteStrictSchedule(AVAILABLE_DOCTORS);
@@ -850,6 +855,7 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
         console.log('originalSchedule (converted from strict round robin)', originalSchedule);
         setValidationReport(null);
         setCustomLogicReport(null);
+        setCustomScheduleData(null);
       }
 
       const updatesRef = ref(realTimeDb, `schedules/`);
@@ -906,6 +912,13 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
   const assignmentStatus = checkAssignments(schedule, expectedActivities);
 
   const formatDateInFrench = (date) => format(date, 'do MMMM', { locale: fr });
+
+  const handlePeriodClick = (period) => {
+    const weekElement = document.getElementById(`week-${period.startWeek}`);
+    if (weekElement) {
+      weekElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   const handleActivityClick = (week, doctor, day, slot, activity) => {
     setEditing({ week, doctor, day, slot, activity });
@@ -988,6 +1001,16 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
           🧪 Test Custom Logic
         </button>
 
+        <label style={{ marginLeft: '15px' }}>
+          <input
+            type="checkbox"
+            checked={showPlanningOverview}
+            onChange={(e) => setShowPlanningOverview(e.target.checked)}
+            style={{ marginRight: '5px' }}
+          />
+          Show Planning Overview
+        </label>
+
         {useSimplifiedSystem && validationReport && (
           <div style={{ marginTop: '10px', fontSize: '14px' }}>
             <strong>Simplified Round Robin Report:</strong>
@@ -1046,13 +1069,28 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
         )}
       </div>
 
+      {/* Planning Overview */}
+      {showPlanningOverview && (
+        <PlanningOverview
+          schedule={schedule}
+          assignmentStatus={assignmentStatus}
+          year={year}
+          month={month}
+          getDateOfISOWeek={getDateOfISOWeek}
+          useCustomLogic={useCustomLogic}
+          customLogicReport={customLogicReport}
+          customScheduleData={customScheduleData}
+          onPeriodClick={handlePeriodClick}
+        />
+      )}
+
       <h2>{year} - {useCustomLogic ? 'Custom Logic (Simplified)' : useSimplifiedSystem ? 'Simplified Round Robin' : 'Strict Round Robin'}</h2>
       {weeks.map((week) => {
         const weekNumber = parseInt(week.replace('Week', ''));
         const dates = getDateOfISOWeek(weekNumber, year);
 
         return (
-          <div key={week}>
+          <div key={week} id={`week-${weekNumber}`}>
             <h3>
               {week}: du {formatDateInFrench(dates[0])} au{' '}
               {formatDateInFrench(dates[6])}
