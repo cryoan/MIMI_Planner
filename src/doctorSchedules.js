@@ -147,12 +147,14 @@ function calculateSlotDuration(activities) {
 
   return activities.reduce((total, activity) => {
     const activityInfo = docActivities[activity];
-    if (activityInfo && typeof activityInfo.duration === 'number') {
+    if (activityInfo && typeof activityInfo.duration === "number") {
       return total + activityInfo.duration;
     }
     // If activity not found in docActivities, assume it takes 4 hours (full slot)
     // This is a conservative approach for unknown activities
-    console.warn(`Activity "${activity}" not found in docActivities, assuming 4 hours duration`);
+    console.warn(
+      `Activity "${activity}" not found in docActivities, assuming 4 hours duration`
+    );
     return total + 4;
   }, 0);
 }
@@ -275,14 +277,14 @@ export const doctorProfiles = {
 
   NS: {
     backbone: {
-      Monday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
+      Monday: { "9am-1pm": [], "2pm-6pm": [] },
       Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Wednesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Thursday: { "9am-1pm": [], "2pm-6pm": [] },
       Friday: { "9am-1pm": [], "2pm-6pm": ["Staff"] },
     },
     skills: ["HTC1", "HTC1_visite", "HDJ", "AMI_Cs_U", "AMI", "EMIT"],
-    rotationSetting: ["HTC1", "HDJ", "AMI"],
+    rotationSetting: ["HTC1", "AMI"],
     rotations: {},
     weeklyNeeds: {
       TeleCs: {
@@ -388,14 +390,14 @@ export const doctorProfiles = {
 
   DL: {
     backbone: {
-      Monday: { "9am-1pm": ["Cs"], "2pm-6pm": [] },
+      Monday: { "9am-1pm": ["Cs"], "2pm-6pm": ["Cs"] },
       Tuesday: { "9am-1pm": [], "2pm-6pm": [] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Thursday: { "9am-1pm": [], "2pm-6pm": [] },
-      Friday: { "9am-1pm": ["Cs"], "2pm-6pm": [] },
+      Friday: { "9am-1pm": ["Cs"], "2pm-6pm": ["TeleCs"] },
     },
     skills: ["HDJ", "MPO"],
-    rotationSetting: ["HDJ", "MPO"],
+    rotationSetting: ["MPO", "HDJ"],
     weeklyNeeds: {
       TeleCs: {
         count: 2,
@@ -580,6 +582,7 @@ export const doctorProfiles = {
 
 // Function to merge rotation template with backbone constraints
 // Backbone always takes precedence and capacity-aware template merging
+// Special handling for HTC rotations: HTC activities are enforced alongside Cs activities
 function mergeTemplateWithBackbone(templateName, backbone) {
   const template = rotationTemplates[templateName];
   if (!template) {
@@ -590,6 +593,12 @@ function mergeTemplateWithBackbone(templateName, backbone) {
   // Start with a deep copy of the backbone
   const mergedSchedule = deepClone(backbone);
 
+  // Check if this is an HTC rotation
+  const isHTCRotation = templateName === "HTC1" || templateName === "HTC2";
+
+  // Define HTC-related activities
+  const htcActivities = ["HTC1", "HTC1_visite", "HTC2", "HTC2_visite"];
+
   // Merge template activities based on remaining capacity in each slot
   Object.entries(template).forEach(([day, slots]) => {
     Object.entries(slots).forEach(([timeSlot, templateActivities]) => {
@@ -599,28 +608,82 @@ function mergeTemplateWithBackbone(templateName, backbone) {
         Array.isArray(mergedSchedule[day][timeSlot])
       ) {
         // Calculate current duration of backbone activities
-        const currentDuration = calculateSlotDuration(mergedSchedule[day][timeSlot]);
+        const currentDuration = calculateSlotDuration(
+          mergedSchedule[day][timeSlot]
+        );
         const remainingCapacity = 4 - currentDuration; // Each time slot is 4 hours
 
-        // Only add template activities if there's remaining capacity
-        if (remainingCapacity > 0) {
-          // Try to add template activities that fit in remaining capacity
-          const activitiesToAdd = [];
-          let usedCapacity = 0;
+        // Check if we're in HTC rotation with HTC activities
+        const hasHTCActivities = templateActivities.some(activity =>
+          htcActivities.includes(activity)
+        );
 
-          for (const activity of templateActivities) {
-            const activityDuration = docActivities[activity]?.duration || 4;
+        // Check if backbone slot contains TP (Temps Partiel - doctor unavailable)
+        const hasTP = mergedSchedule[day][timeSlot].includes("TP");
 
-            // Only add if it fits in remaining capacity
-            if (usedCapacity + activityDuration <= remainingCapacity) {
-              activitiesToAdd.push(activity);
-              usedCapacity += activityDuration;
-            }
+        if (isHTCRotation && hasHTCActivities && !hasTP) {
+          // Special case: HTC rotation with HTC activities, but NOT when TP is present
+          // Add HTC activities regardless of capacity constraints, except when doctor has TP
+          const htcActivitiesToAdd = templateActivities.filter(activity =>
+            htcActivities.includes(activity)
+          );
+
+          if (htcActivitiesToAdd.length > 0) {
+            mergedSchedule[day][timeSlot] = [
+              ...mergedSchedule[day][timeSlot],
+              ...htcActivitiesToAdd,
+            ];
           }
 
-          // Add the activities that fit
-          if (activitiesToAdd.length > 0) {
-            mergedSchedule[day][timeSlot] = [...mergedSchedule[day][timeSlot], ...activitiesToAdd];
+          // Also add non-HTC activities if there's capacity
+          const nonHTCActivities = templateActivities.filter(activity =>
+            !htcActivities.includes(activity)
+          );
+
+          if (nonHTCActivities.length > 0 && remainingCapacity > 0) {
+            const activitiesToAdd = [];
+            let usedCapacity = 0;
+
+            for (const activity of nonHTCActivities) {
+              const activityDuration = docActivities[activity]?.duration || 4;
+
+              if (usedCapacity + activityDuration <= remainingCapacity) {
+                activitiesToAdd.push(activity);
+                usedCapacity += activityDuration;
+              }
+            }
+
+            if (activitiesToAdd.length > 0) {
+              mergedSchedule[day][timeSlot] = [
+                ...mergedSchedule[day][timeSlot],
+                ...activitiesToAdd,
+              ];
+            }
+          }
+        } else {
+          // Standard capacity-aware merging for non-HTC cases
+          if (remainingCapacity > 0) {
+            // Try to add template activities that fit in remaining capacity
+            const activitiesToAdd = [];
+            let usedCapacity = 0;
+
+            for (const activity of templateActivities) {
+              const activityDuration = docActivities[activity]?.duration || 4;
+
+              // Only add if it fits in remaining capacity
+              if (usedCapacity + activityDuration <= remainingCapacity) {
+                activitiesToAdd.push(activity);
+                usedCapacity += activityDuration;
+              }
+            }
+
+            // Add the activities that fit
+            if (activitiesToAdd.length > 0) {
+              mergedSchedule[day][timeSlot] = [
+                ...mergedSchedule[day][timeSlot],
+                ...activitiesToAdd,
+              ];
+            }
           }
         }
       }
@@ -879,7 +942,6 @@ export function compareDoctorRotations(doctorCode, rotationName) {
       : false,
   };
 }
-
 
 export const doc = {
   // emploi du temps  théorique hebdomadaire de chaque médecin pour chaque rotation (sur 3 ou 4 temps selon internistes ou infectiologues)
