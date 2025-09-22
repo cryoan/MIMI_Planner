@@ -139,6 +139,24 @@ function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+// Helper function to calculate total duration of activities in a time slot
+function calculateSlotDuration(activities) {
+  if (!Array.isArray(activities)) {
+    return 0;
+  }
+
+  return activities.reduce((total, activity) => {
+    const activityInfo = docActivities[activity];
+    if (activityInfo && typeof activityInfo.duration === 'number') {
+      return total + activityInfo.duration;
+    }
+    // If activity not found in docActivities, assume it takes 4 hours (full slot)
+    // This is a conservative approach for unknown activities
+    console.warn(`Activity "${activity}" not found in docActivities, assuming 4 hours duration`);
+    return total + 4;
+  }, 0);
+}
+
 // Doctor profiles with backbone constraints, skills, rotations, and weekly needs
 export const doctorProfiles = {
   YC: {
@@ -561,7 +579,7 @@ export const doctorProfiles = {
 };
 
 // Function to merge rotation template with backbone constraints
-// Backbone always takes precedence (overrides template when conflicts occur)
+// Backbone always takes precedence and capacity-aware template merging
 function mergeTemplateWithBackbone(templateName, backbone) {
   const template = rotationTemplates[templateName];
   if (!template) {
@@ -572,18 +590,40 @@ function mergeTemplateWithBackbone(templateName, backbone) {
   // Start with a deep copy of the backbone
   const mergedSchedule = deepClone(backbone);
 
-  // Merge template activities, but only into empty backbone slots
+  // Merge template activities based on remaining capacity in each slot
   Object.entries(template).forEach(([day, slots]) => {
-    Object.entries(slots).forEach(([timeSlot, activities]) => {
-      // Only fill template activities if backbone slot is empty
+    Object.entries(slots).forEach(([timeSlot, templateActivities]) => {
       if (
         mergedSchedule[day] &&
         mergedSchedule[day][timeSlot] &&
-        mergedSchedule[day][timeSlot].length === 0
+        Array.isArray(mergedSchedule[day][timeSlot])
       ) {
-        mergedSchedule[day][timeSlot] = [...activities]; // Copy activities
+        // Calculate current duration of backbone activities
+        const currentDuration = calculateSlotDuration(mergedSchedule[day][timeSlot]);
+        const remainingCapacity = 4 - currentDuration; // Each time slot is 4 hours
+
+        // Only add template activities if there's remaining capacity
+        if (remainingCapacity > 0) {
+          // Try to add template activities that fit in remaining capacity
+          const activitiesToAdd = [];
+          let usedCapacity = 0;
+
+          for (const activity of templateActivities) {
+            const activityDuration = docActivities[activity]?.duration || 4;
+
+            // Only add if it fits in remaining capacity
+            if (usedCapacity + activityDuration <= remainingCapacity) {
+              activitiesToAdd.push(activity);
+              usedCapacity += activityDuration;
+            }
+          }
+
+          // Add the activities that fit
+          if (activitiesToAdd.length > 0) {
+            mergedSchedule[day][timeSlot] = [...mergedSchedule[day][timeSlot], ...activitiesToAdd];
+          }
+        }
       }
-      // If backbone has activities, they take precedence (template is ignored for this slot)
     });
   });
 
@@ -839,6 +879,7 @@ export function compareDoctorRotations(doctorCode, rotationName) {
       : false,
   };
 }
+
 
 export const doc = {
   // emploi du temps  théorique hebdomadaire de chaque médecin pour chaque rotation (sur 3 ou 4 temps selon internistes ou infectiologues)

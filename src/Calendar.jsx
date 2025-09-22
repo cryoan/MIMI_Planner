@@ -525,6 +525,11 @@ import {
   buildRotationAvailability,
   generateSimplifiedScheduleReport
 } from './simplifiedRoundRobinPlanner.js';
+import {
+  executeCustomPlanningAlgorithm,
+  generateCustomPlanningReport
+} from './customPlanningLogic.js';
+import { testCustomPlanningLogic, quickValidation } from './testCustomLogic.js';
 import { realTimeDb } from './firebase';
 import { publicHolidays } from './publicHolidays.js'; // Import the holidays JSON file
 import { docActivities } from './doctorSchedules.js'; // Import activities for durations
@@ -686,7 +691,19 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
   const [astreinte, setAstreinte] = useState({});
   const [editingAstreinte, setEditingAstreinte] = useState(null);
   const [useSimplifiedSystem, setUseSimplifiedSystem] = useState(false);
+  const [useCustomLogic, setUseCustomLogic] = useState(false);
   const [validationReport, setValidationReport] = useState(null);
+  const [customLogicReport, setCustomLogicReport] = useState(null);
+
+  // Make test functions available in browser console for debugging
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.testCustomLogic = testCustomPlanningLogic;
+      window.quickValidationCustomLogic = quickValidation;
+      window.executeCustomPlanningAlgorithm = executeCustomPlanningAlgorithm;
+      console.log('🔧 Debug functions available: testCustomLogic(), quickValidationCustomLogic(), executeCustomPlanningAlgorithm()');
+    }
+  }, []);
 
   const deepMerge = (target, source) => {
     for (const key in source) {
@@ -743,12 +760,81 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
     return calendarFormat;
   };
 
+  // Adapter to convert custom planning logic format to calendar format
+  const convertCustomToCalendarFormat = (customScheduleData) => {
+    const calendarFormat = {
+      2024: { Month1: {} },
+      2025: { Month1: {} }
+    };
+
+    if (customScheduleData.success) {
+      // Priorité 1: Utiliser le planning final ajusté (Phase 2) pour les premières semaines
+      if (customScheduleData.finalSchedule) {
+        const firstWeeks = ['Week44', 'Week45', 'Week46', 'Week47'];
+        firstWeeks.forEach(weekKey => {
+          calendarFormat[2024].Month1[weekKey] = customScheduleData.finalSchedule;
+        });
+        console.log('📅 Utilisation du planning final ajusté pour les premières semaines');
+      }
+
+      // Priorité 2: Utiliser la variation périodique pour les semaines suivantes
+      if (customScheduleData.periodicSchedule) {
+        const periods = Object.keys(customScheduleData.periodicSchedule);
+        periods.slice(0, 6).forEach((periodName, index) => {
+          const weekNumber = 48 + index; // Commencer après les premières semaines
+          const year = weekNumber > 52 ? 2025 : 2024;
+          const adjustedWeekNumber = weekNumber > 52 ? weekNumber - 52 : weekNumber;
+          const weekKey = `Week${adjustedWeekNumber}`;
+
+          if (customScheduleData.periodicSchedule[periodName].schedule) {
+            if (year === 2024) {
+              calendarFormat[2024].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+            } else {
+              calendarFormat[2025].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+            }
+          }
+        });
+        console.log('📅 Utilisation des variations périodiques pour les semaines suivantes');
+      }
+
+      // Fallback: Si pas de planning final, utiliser uniquement le périodique
+      if (!customScheduleData.finalSchedule && customScheduleData.periodicSchedule) {
+        const periods = Object.keys(customScheduleData.periodicSchedule);
+        periods.slice(0, 10).forEach((periodName, index) => {
+          const weekNumber = 44 + index;
+          const year = weekNumber > 52 ? 2025 : 2024;
+          const adjustedWeekNumber = weekNumber > 52 ? weekNumber - 52 : weekNumber;
+          const weekKey = `Week${adjustedWeekNumber}`;
+
+          if (customScheduleData.periodicSchedule[periodName].schedule) {
+            if (year === 2024) {
+              calendarFormat[2024].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+            } else {
+              calendarFormat[2025].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+            }
+          }
+        });
+      }
+    }
+
+    return calendarFormat;
+  };
+
   useEffect(() => {
     if (!loading && doc) {
       let originalSchedule;
       let reportData = null;
 
-      if (useSimplifiedSystem) {
+      if (useCustomLogic) {
+        console.log('Using Custom Planning Logic - 3 Phases Algorithm');
+        const customScheduleData = executeCustomPlanningAlgorithm();
+        originalSchedule = convertCustomToCalendarFormat(customScheduleData);
+        reportData = generateCustomPlanningReport(customScheduleData);
+        console.log('originalSchedule (converted from custom logic)', originalSchedule);
+        console.log('Custom Planning Logic Report:', reportData);
+        setCustomLogicReport(reportData);
+        setValidationReport(null);
+      } else if (useSimplifiedSystem) {
         console.log('Using Simplified Round Robin System');
         const simplifiedScheduleData = generateCompleteValidatedSchedule(10);
         originalSchedule = convertSimplifiedToCalendarFormat(simplifiedScheduleData);
@@ -756,12 +842,14 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
         console.log('originalSchedule (converted from simplified round robin)', originalSchedule);
         console.log('Simplified Round Robin Report:', reportData);
         setValidationReport(reportData);
+        setCustomLogicReport(null);
       } else {
         console.log('Using Strict Round Robin System');
         const strictScheduleData = generateCompleteStrictSchedule(AVAILABLE_DOCTORS);
         originalSchedule = convertStrictToCalendarFormat(strictScheduleData);
         console.log('originalSchedule (converted from strict round robin)', originalSchedule);
         setValidationReport(null);
+        setCustomLogicReport(null);
       }
 
       const updatesRef = ref(realTimeDb, `schedules/`);
@@ -779,7 +867,7 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
           console.error('Error fetching updates:', error);
         });
     }
-  }, [doc, loading, year, month, useSimplifiedSystem]);
+  }, [doc, loading, year, month, useSimplifiedSystem, useCustomLogic]);
 
   const handleAstreinteChange = (week, day, e) => {
     const updatedAstreinte = { ...astreinte };
@@ -859,15 +947,50 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
           <input
             type="checkbox"
             checked={useSimplifiedSystem}
-            onChange={(e) => setUseSimplifiedSystem(e.target.checked)}
+            onChange={(e) => {
+              setUseSimplifiedSystem(e.target.checked);
+              if (e.target.checked) setUseCustomLogic(false);
+            }}
             style={{ marginRight: '5px' }}
           />
           Use Simplified Round Robin System
         </label>
 
+        <label style={{ marginRight: '10px' }}>
+          <input
+            type="checkbox"
+            checked={useCustomLogic}
+            onChange={(e) => {
+              setUseCustomLogic(e.target.checked);
+              if (e.target.checked) setUseSimplifiedSystem(false);
+            }}
+            style={{ marginRight: '5px' }}
+          />
+          Use custom logic also
+        </label>
+
+        <button
+          onClick={() => {
+            console.log('🧪 Running Custom Logic Test...');
+            quickValidation();
+          }}
+          style={{
+            marginLeft: '10px',
+            padding: '5px 10px',
+            backgroundColor: '#4CAF50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            fontSize: '12px'
+          }}
+        >
+          🧪 Test Custom Logic
+        </button>
+
         {useSimplifiedSystem && validationReport && (
           <div style={{ marginTop: '10px', fontSize: '14px' }}>
-            <strong>System Report:</strong>
+            <strong>Simplified Round Robin Report:</strong>
             <div>✅ Coverage: {validationReport.overallStats.averageCoveragePercentage.toFixed(1)}%</div>
             <div>📊 Rotation Availability: {Object.keys(validationReport.rotationAvailability).length} rotations</div>
             {validationReport.overallStats.totalMissingActivities > 0 && (
@@ -888,9 +1011,42 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
             )}
           </div>
         )}
+
+        {useCustomLogic && customLogicReport && (
+          <div style={{ marginTop: '10px', fontSize: '14px' }}>
+            <strong>Custom Logic Report (Simplified):</strong>
+            <div>🚀 Algorithm: {customLogicReport.algorithmType}</div>
+            <div>👥 Doctors: {customLogicReport.summary.totalDoctors} ({customLogicReport.summary.rigidDoctors} rigid, {customLogicReport.summary.flexibleDoctors} flexible)</div>
+            <div>🔄 Periods Generated: {customLogicReport.summary.periodsGenerated}</div>
+            <div>⏱️ Execution Time: {customLogicReport.summary.executionTime}</div>
+            {customLogicReport.summary.simplified && (
+              <div style={{ color: 'blue' }}>✨ Mode simplifié - Pas de résolution automatique des conflits</div>
+            )}
+
+            {customLogicReport.recommendations && customLogicReport.recommendations.length > 0 && (
+              <details style={{ marginTop: '5px' }}>
+                <summary>📋 Recommendations ({customLogicReport.recommendations.length})</summary>
+                <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
+                  {customLogicReport.recommendations.map((rec, idx) => (
+                    <li key={idx} style={{ fontSize: '12px' }}>{rec}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+
+            <details style={{ marginTop: '5px' }}>
+              <summary>🔍 Simplified 3-Phase Details</summary>
+              <div style={{ margin: '5px 0', paddingLeft: '10px', fontSize: '12px' }}>
+                <div><strong>Phase 1:</strong> {customLogicReport.phases.phase1.description}</div>
+                <div><strong>Phase 2:</strong> {customLogicReport.phases.phase2.description}</div>
+                <div><strong>Phase 3:</strong> {customLogicReport.phases.phase3.description}</div>
+              </div>
+            </details>
+          </div>
+        )}
       </div>
 
-      <h2>{year} - {useSimplifiedSystem ? 'Simplified Round Robin' : 'Strict Round Robin'}</h2>
+      <h2>{year} - {useCustomLogic ? 'Custom Logic (Simplified)' : useSimplifiedSystem ? 'Simplified Round Robin' : 'Strict Round Robin'}</h2>
       {weeks.map((week) => {
         const weekNumber = parseInt(week.replace('Week', ''));
         const dates = getDateOfISOWeek(weekNumber, year);
