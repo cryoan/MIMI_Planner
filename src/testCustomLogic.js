@@ -76,15 +76,58 @@ export function testCustomPlanningLogic() {
       data: algorithmResult
     });
 
-    // Test 6: Report generation
-    console.log('\n📋 Test 6: Report generation');
+    // Test 6: Report generation with real validation
+    console.log('\n📋 Test 6: Report generation with real validation');
     const report = generateCustomPlanningReport(algorithmResult);
 
+    // Display validation results
+    if (report.success && report.summary.validationResults) {
+      const problems = report.summary.problemsIdentified;
+      const validation = report.summary.validationResults;
+
+      console.log(`\n🔍 Validation Results:`);
+      console.log(`  - Coverage: ${validation.coveragePercentage.toFixed(1)}% (${validation.validSlots}/${validation.totalSlots} slots)`);
+
+      // Enhanced activity breakdown display
+      if (validation.summaryText) {
+        console.log(`  - ${validation.summaryText.missing}`);
+        console.log(`  - ${validation.summaryText.duplicates}`);
+      } else {
+        console.log(`  - Missing activities: ${problems.totalMissing}`);
+        console.log(`  - Duplicate activities: ${problems.totalDuplicates}`);
+      }
+
+      if (problems.totalMissing > 0) {
+        console.log(`  - Missing details (first 3):`, validation.missingDetails.slice(0, 3));
+      }
+      if (problems.totalDuplicates > 0) {
+        console.log(`  - Duplicate details (first 3):`, validation.duplicateDetails.slice(0, 3));
+      }
+    }
+
     testResults.tests.push({
-      name: 'Report generation',
+      name: 'Report generation with validation',
       success: report.success,
-      details: `Report ${report.success ? 'generated' : 'failed'} (simplified)`,
+      details: `Report generated with ${report.summary.problemsIdentified.totalMissing} missing, ${report.summary.problemsIdentified.totalDuplicates} duplicates`,
       data: report
+    });
+
+    // Test 7: Validation accuracy verification
+    console.log('\n📋 Test 7: Validation accuracy verification');
+    const validationPassed = report.success &&
+                           typeof report.summary.problemsIdentified.totalMissing === 'number' &&
+                           typeof report.summary.problemsIdentified.totalDuplicates === 'number' &&
+                           report.summary.validationResults.coveragePercentage >= 0;
+
+    testResults.tests.push({
+      name: 'Validation accuracy',
+      success: validationPassed,
+      details: `Real validation data ${validationPassed ? 'successfully integrated' : 'integration failed'}`,
+      data: {
+        hasValidationResults: !!report.summary.validationResults,
+        hasProblemsIdentified: !!report.summary.problemsIdentified,
+        coveragePercentage: report.summary.validationResults?.coveragePercentage
+      }
     });
 
     // Calculate overall success rate
@@ -124,12 +167,32 @@ export function quickValidation() {
       console.log('✅ Simplified report generation: SUCCESS');
       console.log(`📋 Report summary:`, report.summary);
 
+      // Display validation results in quick validation
+      if (report.summary.validationResults) {
+        const problems = report.summary.problemsIdentified;
+        const validation = report.summary.validationResults;
+
+        console.log('\n🔍 Quick Validation Results:');
+        console.log(`  ✓ Coverage: ${validation.coveragePercentage.toFixed(1)}%`);
+
+        // Enhanced activity breakdown display
+        if (validation.summaryText) {
+          console.log(`  ✓ ${validation.summaryText.missing}`);
+          console.log(`  ✓ ${validation.summaryText.duplicates}`);
+        } else {
+          console.log(`  ✓ Missing activities: ${problems.totalMissing}`);
+          console.log(`  ✓ Duplicate activities: ${problems.totalDuplicates}`);
+        }
+      }
+
       return {
         valid: true,
         simplified: true,
         executionTime: result.statistics.executionTime,
         doctorsProcessed: result.statistics.doctorsProcessed,
-        periodsGenerated: result.statistics.periodsGenerated
+        periodsGenerated: result.statistics.periodsGenerated,
+        validationResults: report.summary.problemsIdentified,
+        coveragePercentage: report.summary.validationResults?.coveragePercentage
       };
     } else {
       console.log('❌ Simplified algorithm execution: FAILED');

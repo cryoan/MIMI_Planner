@@ -1,5 +1,6 @@
 import { doctorProfiles, generateDoctorRotations } from './doctorSchedules.js';
 import { expectedActivities } from './schedule.jsx';
+import { validateSchedule } from './simplifiedRoundRobinPlanner.js';
 
 // Custom Planning Logic - Algorithme de Planification Médical Progressif et Fiable
 // Implémentation en 3 phases selon les spécifications utilisateur
@@ -11,6 +12,201 @@ console.log('Custom Planning Logic Module Loaded');
  */
 const TIME_SLOTS = ['9am-1pm', '2pm-6pm'];
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+/**
+ * Convert custom planning result to calendar format (same as UI)
+ */
+function convertCustomToCalendarFormat(customScheduleData) {
+  const calendarFormat = {
+    2024: { Month1: {} },
+    2025: { Month1: {} }
+  };
+
+  if (customScheduleData.success) {
+    // Priority 1: Use final adjusted schedule for first weeks
+    if (customScheduleData.finalSchedule) {
+      const firstWeeks = ['Week44', 'Week45', 'Week46', 'Week47'];
+      firstWeeks.forEach(weekKey => {
+        calendarFormat[2024].Month1[weekKey] = customScheduleData.finalSchedule;
+      });
+    }
+
+    // Priority 2: Use periodic variations for following weeks
+    if (customScheduleData.periodicSchedule) {
+      const periods = Object.keys(customScheduleData.periodicSchedule);
+      periods.slice(0, 6).forEach((periodName, index) => {
+        const weekNumber = 48 + index;
+        const year = weekNumber > 52 ? 2025 : 2024;
+        const adjustedWeekNumber = weekNumber > 52 ? weekNumber - 52 : weekNumber;
+        const weekKey = `Week${adjustedWeekNumber}`;
+
+        if (customScheduleData.periodicSchedule[periodName].schedule) {
+          if (year === 2024) {
+            calendarFormat[2024].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+          } else {
+            calendarFormat[2025].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+          }
+        }
+      });
+    }
+
+    // Fallback: If no final schedule, use only periodic
+    if (!customScheduleData.finalSchedule && customScheduleData.periodicSchedule) {
+      const periods = Object.keys(customScheduleData.periodicSchedule);
+      periods.slice(0, 10).forEach((periodName, index) => {
+        const weekNumber = 44 + index;
+        const year = weekNumber > 52 ? 2025 : 2024;
+        const adjustedWeekNumber = weekNumber > 52 ? weekNumber - 52 : weekNumber;
+        const weekKey = `Week${adjustedWeekNumber}`;
+
+        if (customScheduleData.periodicSchedule[periodName].schedule) {
+          if (year === 2024) {
+            calendarFormat[2024].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+          } else {
+            calendarFormat[2025].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+          }
+        }
+      });
+    }
+  }
+
+  return calendarFormat;
+}
+
+/**
+ * Validate calendar format and count total missing/duplicates (same as UI checkAssignments)
+ */
+function validateCalendarFormat(schedule, expectedActivities) {
+  const duplicateActivities = ['EMIT', 'HDJ', 'AMI', 'HTC1', 'HTC2', 'EMATIT'];
+  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const timeSlots = ['9am-1pm', '2pm-6pm'];
+
+  let totalMissing = 0;
+  let totalDuplicates = 0;
+  let totalSlots = 0;
+  let validSlots = 0;
+
+  const problems = {
+    missing: [],
+    duplicates: []
+  };
+
+  // Track activity counts for detailed breakdown
+  const missingActivityCounts = {};
+  const duplicateActivityCounts = {};
+
+  Object.keys(schedule).forEach((year) => {
+    Object.keys(schedule[year]).forEach((month) => {
+      Object.keys(schedule[year][month]).forEach((week) => {
+        daysOfWeek.forEach((day) => {
+          timeSlots.forEach((slot) => {
+            totalSlots++;
+
+            const assigned = [];
+
+            // Collect all activities assigned by all doctors for this slot
+            Object.keys(schedule[year][month][week]).forEach((doctor) => {
+              if (
+                schedule[year][month][week][doctor][day] &&
+                schedule[year][month][week][doctor][day][slot]
+              ) {
+                assigned.push(...schedule[year][month][week][doctor][day][slot]);
+              }
+            });
+
+            const expected = expectedActivities[day]?.[slot] || [];
+
+            // Check for missing activities
+            expected.forEach((activity) => {
+              if (!assigned.includes(activity)) {
+                totalMissing++;
+                problems.missing.push({
+                  year, month, week, day, slot, activity
+                });
+
+                // Count by activity type
+                if (!missingActivityCounts[activity]) {
+                  missingActivityCounts[activity] = 0;
+                }
+                missingActivityCounts[activity]++;
+              }
+            });
+
+            // Check for duplicate activities
+            const activityCounts = {};
+            assigned.forEach((activity) => {
+              if (duplicateActivities.includes(activity)) {
+                if (!activityCounts[activity]) {
+                  activityCounts[activity] = 0;
+                }
+                activityCounts[activity]++;
+              }
+            });
+
+            const duplicates = Object.entries(activityCounts)
+              .filter(([activity, count]) => count > 1)
+              .map(([activity, count]) => `${activity} (${count})`);
+
+            if (duplicates.length > 0) {
+              totalDuplicates += duplicates.length;
+              problems.duplicates.push({
+                year, month, week, day, slot, duplicates
+              });
+
+              // Count by activity type for duplicates
+              Object.entries(activityCounts)
+                .filter(([activity, count]) => count > 1)
+                .forEach(([activity, count]) => {
+                  if (!duplicateActivityCounts[activity]) {
+                    duplicateActivityCounts[activity] = 0;
+                  }
+                  duplicateActivityCounts[activity] += 1; // Count each duplicate instance
+                });
+            }
+
+            // Check if slot is valid (no missing and no duplicates)
+            if (expected.every(activity => assigned.includes(activity)) && duplicates.length === 0) {
+              validSlots++;
+            }
+          });
+        });
+      });
+    });
+  });
+
+  // Create formatted summary strings
+  const formatActivityBreakdown = (activityCounts, total) => {
+    if (total === 0) return '';
+
+    const sortedActivities = Object.entries(activityCounts)
+      .sort(([,a], [,b]) => b - a) // Sort by count descending
+      .map(([activity, count]) => `${activity} ${count}`)
+      .join(', ');
+
+    return ` (${sortedActivities})`;
+  };
+
+  const missingSummary = `Missing total: ${totalMissing}${formatActivityBreakdown(missingActivityCounts, totalMissing)}`;
+  const duplicateSummary = `Duplicate total: ${totalDuplicates}${formatActivityBreakdown(duplicateActivityCounts, totalDuplicates)}`;
+
+  return {
+    totalMissing,
+    totalDuplicates,
+    totalSlots,
+    validSlots,
+    coveragePercentage: totalSlots > 0 ? (validSlots / totalSlots) * 100 : 0,
+    problems,
+    activityBreakdown: {
+      missing: missingActivityCounts,
+      duplicates: duplicateActivityCounts
+    },
+    summaryText: {
+      missing: missingSummary,
+      duplicates: duplicateSummary,
+      combined: `${missingSummary}\n${duplicateSummary}`
+    }
+  };
+}
 
 /**
  * Utilitaires de base
@@ -539,6 +735,14 @@ export function generateCustomPlanningReport(algorithmResult) {
     };
   }
 
+  // Convert to calendar format and perform UI-equivalent validation
+  const calendarFormat = convertCustomToCalendarFormat(algorithmResult);
+  const validation = validateCalendarFormat(calendarFormat, expectedActivities);
+  const realProblems = {
+    totalMissing: validation.totalMissing,
+    totalDuplicates: validation.totalDuplicates
+  };
+
   const report = {
     timestamp: new Date().toISOString(),
     algorithmType: 'Custom Planning Logic - Simplified 3 Phases',
@@ -547,10 +751,20 @@ export function generateCustomPlanningReport(algorithmResult) {
       totalDoctors: algorithmResult.statistics.doctorsProcessed,
       rigidDoctors: algorithmResult.statistics.rigidDoctors,
       flexibleDoctors: algorithmResult.statistics.flexibleDoctors,
-      problemsIdentified: { totalMissing: 0, totalDuplicates: 0 }, // Simplifiée - pas d'analyse
+      problemsIdentified: realProblems,
       periodsGenerated: algorithmResult.statistics.periodsGenerated,
       executionTime: `${algorithmResult.statistics.executionTime}ms`,
-      simplified: true
+      simplified: true,
+      validationResults: {
+        coveragePercentage: validation.coveragePercentage,
+        totalSlots: validation.totalSlots,
+        validSlots: validation.validSlots,
+        missingDetails: validation.problems.missing.slice(0, 5), // Show first 5 for debugging
+        duplicateDetails: validation.problems.duplicates.slice(0, 5), // Show first 5 for debugging
+        calendarFormatUsed: true, // Indicates this used the same validation as UI
+        summaryText: validation.summaryText, // Enhanced summary with activity breakdown
+        activityBreakdown: validation.activityBreakdown // Detailed counts by activity
+      }
     },
     phases: {
       phase1: {
@@ -561,7 +775,7 @@ export function generateCustomPlanningReport(algorithmResult) {
       },
       phase2: {
         description: 'Phase 2 simplifiée - Pas de résolution automatique des conflits',
-        problemsSummary: { totalMissing: 0, totalDuplicates: 0 },
+        problemsSummary: realProblems,
         conflictsResolved: 0
       },
       phase3: {

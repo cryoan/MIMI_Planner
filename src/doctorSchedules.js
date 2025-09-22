@@ -567,7 +567,7 @@ export const doctorProfiles = {
       Tuesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Thursday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["EMIT"] },
-      Friday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["Staff"] },
+      Friday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["EMIT"] },
     },
     skills: ["EMIT", "EMATIT"],
     rotationSetting: ["EMIT"],
@@ -614,7 +614,7 @@ function mergeTemplateWithBackbone(templateName, backbone) {
         const remainingCapacity = 4 - currentDuration; // Each time slot is 4 hours
 
         // Check if we're in HTC rotation with HTC activities
-        const hasHTCActivities = templateActivities.some(activity =>
+        const hasHTCActivities = templateActivities.some((activity) =>
           htcActivities.includes(activity)
         );
 
@@ -624,7 +624,7 @@ function mergeTemplateWithBackbone(templateName, backbone) {
         if (isHTCRotation && hasHTCActivities && !hasTP) {
           // Special case: HTC rotation with HTC activities, but NOT when TP is present
           // Add HTC activities regardless of capacity constraints, except when doctor has TP
-          const htcActivitiesToAdd = templateActivities.filter(activity =>
+          const htcActivitiesToAdd = templateActivities.filter((activity) =>
             htcActivities.includes(activity)
           );
 
@@ -636,8 +636,8 @@ function mergeTemplateWithBackbone(templateName, backbone) {
           }
 
           // Also add non-HTC activities if there's capacity
-          const nonHTCActivities = templateActivities.filter(activity =>
-            !htcActivities.includes(activity)
+          const nonHTCActivities = templateActivities.filter(
+            (activity) => !htcActivities.includes(activity)
           );
 
           if (nonHTCActivities.length > 0 && remainingCapacity > 0) {
