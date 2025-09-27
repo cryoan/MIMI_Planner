@@ -1,5 +1,5 @@
 import React from 'react';
-import { doctorProfiles, rotationTemplates, docActivities } from './doctorSchedules.js';
+import { doctorProfiles, wantedActivities, docActivities } from './doctorSchedules.js';
 import { activityColors } from './schedule.jsx';
 import { Pie } from 'react-chartjs-2';
 import {
@@ -63,90 +63,20 @@ const ETAWorkloadInfographic = () => {
       }
     });
 
-    // Add HTC1 and HTC2 template activities
-    // HTC1 Template: 1 instance (10 total slots)
-    if (rotationTemplates.HTC1) {
-      Object.values(rotationTemplates.HTC1).forEach(daySchedule => {
+    // Add wanted activities templates dynamically
+    // Process all templates from wantedActivities (includes Chefferie, excludes MPO)
+    Object.entries(wantedActivities).forEach(([templateName, template]) => {
+      Object.values(template).forEach(daySchedule => {
         Object.values(daySchedule).forEach(timeSlotActivities => {
           timeSlotActivities.forEach(activity => {
-            // Count 1 instance of HTC1 template
+            // Count 1 instance of each template
             activityCounts[activity] = (activityCounts[activity] || 0) + 1;
             const hours = getActivityHours(activity);
             activityHours[activity] = (activityHours[activity] || 0) + hours;
           });
         });
       });
-    }
-
-    // HTC2 Template: 1 instance (10 total slots)  
-    if (rotationTemplates.HTC2) {
-      Object.values(rotationTemplates.HTC2).forEach(daySchedule => {
-        Object.values(daySchedule).forEach(timeSlotActivities => {
-          timeSlotActivities.forEach(activity => {
-            // Count 1 instance of HTC2 template
-            activityCounts[activity] = (activityCounts[activity] || 0) + 1;
-            const hours = getActivityHours(activity);
-            activityHours[activity] = (activityHours[activity] || 0) + hours;
-          });
-        });
-      });
-    }
-
-    // HDJ Template: 1 instance (6 active slots - Tue/Thu/Fri)
-    if (rotationTemplates.HDJ) {
-      Object.values(rotationTemplates.HDJ).forEach(daySchedule => {
-        Object.values(daySchedule).forEach(timeSlotActivities => {
-          timeSlotActivities.forEach(activity => {
-            // Count 1 instance of HDJ template
-            activityCounts[activity] = (activityCounts[activity] || 0) + 1;
-            const hours = getActivityHours(activity);
-            activityHours[activity] = (activityHours[activity] || 0) + hours;
-          });
-        });
-      });
-    }
-
-    // EMIT Template: 1 instance (10 total slots)
-    if (rotationTemplates.EMIT) {
-      Object.values(rotationTemplates.EMIT).forEach(daySchedule => {
-        Object.values(daySchedule).forEach(timeSlotActivities => {
-          timeSlotActivities.forEach(activity => {
-            // Count 1 instance of EMIT template
-            activityCounts[activity] = (activityCounts[activity] || 0) + 1;
-            const hours = getActivityHours(activity);
-            activityHours[activity] = (activityHours[activity] || 0) + hours;
-          });
-        });
-      });
-    }
-
-    // EMATIT Template: 1 instance (10 total slots)
-    if (rotationTemplates.EMATIT) {
-      Object.values(rotationTemplates.EMATIT).forEach(daySchedule => {
-        Object.values(daySchedule).forEach(timeSlotActivities => {
-          timeSlotActivities.forEach(activity => {
-            // Count 1 instance of EMATIT template
-            activityCounts[activity] = (activityCounts[activity] || 0) + 1;
-            const hours = getActivityHours(activity);
-            activityHours[activity] = (activityHours[activity] || 0) + hours;
-          });
-        });
-      });
-    }
-
-    // AMI Template: 1 instance (10 total slots)
-    if (rotationTemplates.AMI) {
-      Object.values(rotationTemplates.AMI).forEach(daySchedule => {
-        Object.values(daySchedule).forEach(timeSlotActivities => {
-          timeSlotActivities.forEach(activity => {
-            // Count 1 instance of AMI template
-            activityCounts[activity] = (activityCounts[activity] || 0) + 1;
-            const hours = getActivityHours(activity);
-            activityHours[activity] = (activityHours[activity] || 0) + hours;
-          });
-        });
-      });
-    }
+    });
 
     // Add TeleCs from weekly needs
     if (totalTeleCsHours > 0) {
@@ -263,24 +193,68 @@ const ETAWorkloadInfographic = () => {
   // Create hourArray based on custom activity order
   const createCustomHourArray = () => {
     const hourArray = [];
-    
+    const overflowActivities = {};
+    let totalRequiredHours = 0;
+
+    // Calculate total required hours for all activities
+    activityOrder.forEach(activity => {
+      const totalHours = activityHours[activity] || 0;
+      totalRequiredHours += totalHours;
+    });
+
     // Add each activity based on custom order and hour duration
     activityOrder.forEach(activity => {
       const totalHours = activityHours[activity] || 0;
       for (let i = 0; i < totalHours; i++) {
-        hourArray.push(activity);
+        if (hourArray.length < totalHours) {
+          hourArray.push(activity);
+        } else {
+          // Track overflow activities
+          if (!overflowActivities[activity]) {
+            overflowActivities[activity] = 0;
+          }
+          overflowActivities[activity]++;
+        }
       }
     });
 
-    // Fill remaining hours with "Available" 
-    for (let i = 0; i < remainingHours; i++) {
-      hourArray.push('Available');
+    // Calculate overflow statistics
+    const totalOverflowHours = Math.max(0, totalRequiredHours - totalHours);
+    const hasOverflow = totalOverflowHours > 0;
+
+    // If we have overflow, extend the array to show all activities
+    if (hasOverflow) {
+      // Clear and rebuild array to show all activities
+      hourArray.length = 0;
+      activityOrder.forEach(activity => {
+        const totalHours = activityHours[activity] || 0;
+        for (let i = 0; i < totalHours; i++) {
+          hourArray.push(activity);
+        }
+      });
+    } else {
+      // Fill remaining hours with "Available" only if no overflow
+      for (let i = 0; i < remainingHours; i++) {
+        hourArray.push('Available');
+      }
     }
 
-    return hourArray;
+    return {
+      hourArray,
+      overflowActivities,
+      totalOverflowHours,
+      hasOverflow,
+      totalRequiredHours
+    };
   };
 
-  const hourArray = createCustomHourArray();
+  const {
+    hourArray,
+    overflowActivities,
+    totalOverflowHours,
+    hasOverflow,
+    totalRequiredHours
+  } = createCustomHourArray();
 
   // Get color for activity
   const getActivityColor = (activity) => {
@@ -393,15 +367,23 @@ const ETAWorkloadInfographic = () => {
   const createGridData = () => {
     const grid = [];
     const hoursPerRow = 40; // 40 hours = 10 slots of 4 hours each
-    
-    // Initialize empty grid
-    for (let row = 0; row < totalDoctors; row++) {
+    const totalArrayHours = hourArray.length;
+
+    // Calculate how many rows we need (standard doctors + overflow rows)
+    const standardHours = totalDoctors * hoursPerRow;
+    const needsExtraRows = totalArrayHours > standardHours;
+    const extraHours = Math.max(0, totalArrayHours - standardHours);
+    const extraRows = Math.ceil(extraHours / hoursPerRow);
+    const totalRows = totalDoctors + extraRows;
+
+    // Initialize grid with calculated rows
+    for (let row = 0; row < totalRows; row++) {
       grid.push(new Array(hoursPerRow).fill('Available'));
     }
-    
+
     // Fill from bottom to top, left to right using hour array
     let hourIndex = 0;
-    for (let row = totalDoctors - 1; row >= 0; row--) {
+    for (let row = totalRows - 1; row >= 0; row--) {
       for (let col = 0; col < hoursPerRow; col++) {
         if (hourIndex < hourArray.length) {
           grid[row][col] = hourArray[hourIndex];
@@ -409,25 +391,42 @@ const ETAWorkloadInfographic = () => {
         }
       }
     }
-    
-    return grid;
+
+    return {
+      grid,
+      totalRows,
+      extraRows,
+      needsExtraRows,
+      standardRows: totalDoctors
+    };
   };
 
-  const gridData = createGridData();
+  const {
+    grid: gridData,
+    totalRows,
+    extraRows,
+    needsExtraRows,
+    standardRows
+  } = createGridData();
 
   // Get color for activity (moved up to fix initialization order)
 
   // Render simple hour-based cell
-  const renderHourCell = (activity) => {
+  const renderHourCell = (activity, isOverflowRow = false) => {
     const color = getActivityColor(activity);
+    const isOverflowActivity = isOverflowRow && activity !== 'Available';
+
     return (
-      <div 
-        className="eta-hour-cell" 
-        style={{ 
+      <div
+        className="eta-hour-cell"
+        style={{
           backgroundColor: color,
           width: '100%',
           height: '100%',
-          borderRadius: '1px'
+          borderRadius: '1px',
+          opacity: isOverflowActivity ? 0.8 : 1,
+          border: isOverflowActivity ? '1px solid #dc3545' : 'none',
+          boxSizing: 'border-box'
         }}
       />
     );
@@ -464,39 +463,94 @@ const ETAWorkloadInfographic = () => {
             <span>Slots: {((activityArray.filter(a => a !== 'Available').length / totalHalfDays) * 100).toFixed(1)}%</span>
             <span>Hours: {((totalUsedHours / totalHours) * 100).toFixed(1)}%</span>
           </div>
+          {hasOverflow && (
+            <div className="stats-section overflow-warning" style={{ backgroundColor: '#f8d7da', border: '1px solid #f5c2c7', borderRadius: '4px', padding: '8px' }}>
+              <strong style={{ color: '#842029' }}>⚠️ CAPACITY EXCEEDED:</strong>
+              <span style={{ color: '#842029' }}>Required: {totalRequiredHours}h ({(totalRequiredHours / 40).toFixed(1)} ETP)</span>
+              <span style={{ color: '#842029' }}>Excess: +{totalOverflowHours}h (+{(totalOverflowHours / 40).toFixed(1)} ETP)</span>
+              <span style={{ color: '#842029' }}>Extra rows added: {extraRows}</span>
+            </div>
+          )}
         </div>
       </div>
       
+      {hasOverflow && (
+        <div style={{
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: '6px',
+          padding: '12px',
+          margin: '10px 0',
+          fontSize: '14px'
+        }}>
+          <div style={{ fontWeight: 'bold', color: '#856404', marginBottom: '8px' }}>
+            🔄 Grid Extended to Show All Activities
+          </div>
+          <div style={{ color: '#856404', fontSize: '13px' }}>
+            Standard capacity exceeded. Additional {extraRows} row{extraRows > 1 ? 's' : ''} added to display all {totalRequiredHours} required hours.
+            Overflow section marked by orange dashed line separator. Overflow activities have red borders and light red background.
+          </div>
+        </div>
+      )}
+
       <div className="eta-grid-container">
         <div className="eta-grid">
-          {gridData.map((row, rowIndex) => (
-            <div key={rowIndex} className="eta-row">
-              <div className="eta-row-cells">
-                {row.map((activity, hourIndex) => {
-                  // Calculate slot position and hour within slot
-                  const slotNumber = Math.floor(hourIndex / 4) + 1;
-                  const hourInSlot = (hourIndex % 4) + 1;
-                  const isSlotBoundary = (hourIndex + 1) % 4 === 0;
-                  const isSlotStart = hourIndex % 4 === 0;
-                  
-                  // Build CSS classes
-                  let cellClasses = "eta-cell";
-                  if (isSlotBoundary && hourIndex < 39) cellClasses += " slot-boundary";
-                  if (isSlotStart && hourIndex > 0) cellClasses += " slot-start";
-                  
-                  return (
-                    <div
-                      key={hourIndex}
-                      className={cellClasses}
-                      title={`${activity} | Hour ${hourIndex + 1} | ${(1/40).toFixed(3)} ETP`}
-                    >
-                      {renderHourCell(activity)}
-                    </div>
-                  );
-                })}
+          {gridData.map((row, rowIndex) => {
+            const isOverflowRow = rowIndex < extraRows;
+            const isFirstStandardRow = !isOverflowRow && rowIndex === extraRows;
+            const displayRowIndex = isOverflowRow ? `Overflow ${extraRows - rowIndex}` : `Doctor ${rowIndex - extraRows + 1}`;
+
+            return (
+              <div key={rowIndex}>
+                {/* Visual separator before first standard row (between overflow and standard sections) */}
+                {isFirstStandardRow && (
+                  <div style={{
+                    height: '4px',
+                    background: 'repeating-linear-gradient(to right, #ff9500 0, #ff9500 8px, transparent 8px, transparent 16px)',
+                    margin: '8px 0',
+                    borderRadius: '2px',
+                    boxShadow: '0 1px 3px rgba(255, 149, 0, 0.3)'
+                  }} />
+                )}
+
+                <div className="eta-row" style={{
+                  backgroundColor: isOverflowRow ? '#fff5f5' : 'transparent',
+                  border: isOverflowRow ? '1px solid #fecaca' : 'none',
+                  borderRadius: isOverflowRow ? '4px' : '0',
+                  padding: isOverflowRow ? '2px' : '0'
+                }}>
+                  <div className="eta-row-cells">
+                  {row.map((activity, hourIndex) => {
+                    // Calculate slot position and hour within slot
+                    const slotNumber = Math.floor(hourIndex / 4) + 1;
+                    const hourInSlot = (hourIndex % 4) + 1;
+                    const isSlotBoundary = (hourIndex + 1) % 4 === 0;
+                    const isSlotStart = hourIndex % 4 === 0;
+
+                    // Build CSS classes
+                    let cellClasses = "eta-cell";
+                    if (isSlotBoundary && hourIndex < 39) cellClasses += " slot-boundary";
+                    if (isSlotStart && hourIndex > 0) cellClasses += " slot-start";
+
+                    const tooltipText = isOverflowRow
+                      ? `${activity} | OVERFLOW | Hour ${hourIndex + 1} | ${(1/40).toFixed(3)} ETP | EXCEEDS CAPACITY`
+                      : `${activity} | Hour ${hourIndex + 1} | ${(1/40).toFixed(3)} ETP`;
+
+                    return (
+                      <div
+                        key={hourIndex}
+                        className={cellClasses}
+                        title={tooltipText}
+                      >
+                        {renderHourCell(activity, isOverflowRow)}
+                      </div>
+                    );
+                  })}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         
         <div className="eta-legend">
@@ -559,6 +613,40 @@ const ETAWorkloadInfographic = () => {
               </div>
             );
           })}
+          {hasOverflow && (
+            <div style={{
+              marginTop: '15px',
+              padding: '10px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              border: '1px solid #dee2e6'
+            }}>
+              <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '8px', color: '#495057' }}>
+                Overflow Indicators:
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <div style={{
+                  width: '16px',
+                  height: '12px',
+                  backgroundColor: '#fff5f5',
+                  border: '1px solid #fecaca',
+                  borderRadius: '2px'
+                }}></div>
+                <span style={{ fontSize: '11px', color: '#6c757d' }}>Light red background = Overflow row</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  width: '16px',
+                  height: '12px',
+                  backgroundColor: '#007bff',
+                  border: '1px solid #dc3545',
+                  borderRadius: '2px',
+                  opacity: 0.8
+                }}></div>
+                <span style={{ fontSize: '11px', color: '#6c757d' }}>Red border + reduced opacity = Exceeding activity</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

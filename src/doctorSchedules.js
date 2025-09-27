@@ -68,8 +68,8 @@ export const docActivities = {
   },
 };
 
-// Standard rotation templates - complete weekly schedules
-export const rotationTemplates = {
+// Wanted activities for workload infographic - excludes MPO but includes all other templates
+export const wantedActivities = {
   HTC1: {
     Monday: { "9am-1pm": ["HTC1"], "2pm-6pm": ["HTC1"] },
     Tuesday: { "9am-1pm": ["HTC1_visite"], "2pm-6pm": ["HTC1"] },
@@ -118,19 +118,25 @@ export const rotationTemplates = {
     Friday: { "9am-1pm": ["AMI"], "2pm-6pm": ["AMI"] },
   },
 
-  MPO: {
-    Monday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
-    Tuesday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
-    Wednesday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
-    Thursday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
-    Friday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
-  },
   Chefferie: {
     Monday: { "9am-1pm": [], "2pm-6pm": [] },
     Tuesday: { "9am-1pm": [], "2pm-6pm": [] },
     Wednesday: { "9am-1pm": [], "2pm-6pm": [] },
     Thursday: { "9am-1pm": [], "2pm-6pm": [] },
     Friday: { "9am-1pm": ["Chefferie"], "2pm-6pm": ["Chefferie"] },
+  },
+};
+
+// Standard rotation templates - computed from wantedActivities + MPO
+// This eliminates code duplication by deriving rotationTemplates from wantedActivities
+export const rotationTemplates = {
+  ...wantedActivities,
+  MPO: {
+    Monday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+    Tuesday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+    Wednesday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+    Thursday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+    Friday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
   },
 };
 
