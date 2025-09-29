@@ -4,7 +4,7 @@ import { executeCustomPlanningAlgorithm } from './customPlanningLogic.js';
 
 export const ScheduleContext = createContext();
 
-export const ScheduleProvider = ({ children, selectedRotationCycle = "honeymoon_NS_noHDJ" }) => {
+export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
   const { doc, loading } = useDocSchedule();
   const [customScheduleData, setCustomScheduleData] = useState(null);
 
