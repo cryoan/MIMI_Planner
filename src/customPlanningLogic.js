@@ -1,16 +1,261 @@
-import { doctorProfiles, generateDoctorRotations } from './doctorSchedules.js';
-import { expectedActivities } from './schedule.jsx';
+import { doctorProfiles, generateDoctorRotations } from "./doctorSchedules.js";
+import { expectedActivities } from "./schedule.jsx";
 
 // Custom Planning Logic - Algorithme de Planification Médical Progressif et Fiable
 // Implémentation en 3 phases selon les spécifications utilisateur
 
-console.log('Custom Planning Logic Module Loaded');
+console.log("Custom Planning Logic Module Loaded");
 
 /**
  * Configuration de l'algorithme
  */
-const TIME_SLOTS = ['9am-1pm', '2pm-6pm'];
-const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const TIME_SLOTS = ["9am-1pm", "2pm-6pm"];
+const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+/**
+ * Activity-centric rotation cycles with descriptions and metadata
+ * Each cycle includes a description and periods array for better documentation
+ */
+export const rotation_cycles = {
+  honeymoon_NS_noHDJ: {
+    description: "NS 100% et sans HDJ",
+    periods: [
+      {
+        period: 1,
+        HTC1: "FL",
+        HDJ: "CL",
+        AMI: "NS",
+        HTC2: "MG",
+        EMIT: "MDLC",
+        EMATIT: "RNV",
+      },
+      {
+        period: 2,
+        HTC1: "CL",
+        HDJ: "FL",
+        AMI: "NS",
+        HTC2: "MDLC",
+        EMIT: "RNV",
+        EMATIT: "MG",
+      },
+      {
+        period: 3,
+        HTC1: "NS",
+        HDJ: "FL",
+        AMI: "CL",
+        HTC2: "RNV",
+        EMIT: "MG",
+        EMATIT: "MDLC",
+      },
+      {
+        period: 4,
+        HTC1: "FL",
+        HDJ: "CL",
+        AMI: "NS",
+        HTC2: "MG",
+        EMIT: "MDLC",
+        EMATIT: "RNV",
+      },
+      {
+        period: 5,
+        HTC1: "CL",
+        HDJ: "FL",
+        AMI: "NS",
+        HTC2: "MDLC",
+        EMIT: "RNV",
+        EMATIT: "MG",
+      },
+      {
+        period: 6,
+        HTC1: "NS",
+        HDJ: "CL",
+        AMI: "FL",
+        HTC2: "RNV",
+        EMIT: "MG",
+        EMATIT: "MDLC",
+      },
+    ],
+  },
+  honeymoon_NS_HDJ: {
+    description: "NS 100% et avec HDJ",
+    periods: [
+      {
+        period: 1,
+        HTC1: "FL",
+        HDJ: "CL",
+        AMI: "NS",
+        HTC2: "MG",
+        EMIT: "MDLC",
+        EMATIT: "RNV",
+      },
+      {
+        period: 2,
+        HTC1: "CL",
+        HDJ: "NS",
+        AMI: "FL",
+        HTC2: "MDLC",
+        EMIT: "RNV",
+        EMATIT: "MG",
+      },
+      {
+        period: 3,
+        HTC1: "NS",
+        HDJ: "FL",
+        AMI: "CL",
+        HTC2: "RNV",
+        EMIT: "MG",
+        EMATIT: "MDLC",
+      },
+      {
+        period: 4,
+        HTC1: "FL",
+        HDJ: "CL",
+        AMI: "NS",
+        HTC2: "MG",
+        EMIT: "MDLC",
+        EMATIT: "RNV",
+      },
+      {
+        period: 5,
+        HTC1: "CL",
+        HDJ: "NS",
+        AMI: "FL",
+        HTC2: "MDLC",
+        EMIT: "RNV",
+        EMATIT: "MG",
+      },
+      {
+        period: 6,
+        HTC1: "NS",
+        HDJ: "FL",
+        AMI: "CL",
+        HTC2: "RNV",
+        EMIT: "MG",
+        EMATIT: "MDLC",
+      },
+    ],
+  },
+  summer: {
+    description:
+      "Alternative cycle for summer vacation periods with adjusted coverage patterns",
+    periods: [
+      {
+        period: 1,
+        HTC1: "CL",
+        HDJ: "FL",
+        AMI: "NS",
+        HTC2: "MDLC",
+        EMIT: "RNV",
+        EMATIT: "MG",
+      },
+      {
+        period: 2,
+        HTC1: "NS",
+        HDJ: "CL",
+        AMI: "FL",
+        HTC2: "RNV",
+        EMIT: "MG",
+        EMATIT: "MDLC",
+      },
+      {
+        period: 3,
+        HTC1: "FL",
+        HDJ: "NS",
+        AMI: "CL",
+        HTC2: "MG",
+        EMIT: "MDLC",
+        EMATIT: "RNV",
+      },
+      {
+        period: 4,
+        HTC1: "CL",
+        HDJ: "FL",
+        AMI: "NS",
+        HTC2: "MDLC",
+        EMIT: "RNV",
+        EMATIT: "MG",
+      },
+      {
+        period: 5,
+        HTC1: "NS",
+        HDJ: "CL",
+        AMI: "FL",
+        HTC2: "RNV",
+        EMIT: "MG",
+        EMATIT: "MDLC",
+      },
+      {
+        period: 6,
+        HTC1: "FL",
+        HDJ: "NS",
+        AMI: "CL",
+        HTC2: "MG",
+        EMIT: "MDLC",
+        EMATIT: "RNV",
+      },
+    ],
+  },
+  emergency: {
+    description:
+      "Emergency coverage cycle with reduced rotations and minimal changes for crisis situations",
+    periods: [
+      {
+        period: 1,
+        HTC1: "FL",
+        HDJ: "CL",
+        AMI: "NS",
+        HTC2: "MG",
+        EMIT: "MDLC",
+        EMATIT: "RNV",
+      },
+      {
+        period: 2,
+        HTC1: "FL",
+        HDJ: "CL",
+        AMI: "NS",
+        HTC2: "MG",
+        EMIT: "MDLC",
+        EMATIT: "RNV",
+      },
+      {
+        period: 3,
+        HTC1: "CL",
+        HDJ: "FL",
+        AMI: "NS",
+        HTC2: "MDLC",
+        EMIT: "RNV",
+        EMATIT: "MG",
+      },
+      {
+        period: 4,
+        HTC1: "CL",
+        HDJ: "FL",
+        AMI: "NS",
+        HTC2: "MDLC",
+        EMIT: "RNV",
+        EMATIT: "MG",
+      },
+      {
+        period: 5,
+        HTC1: "NS",
+        HDJ: "FL",
+        AMI: "CL",
+        HTC2: "RNV",
+        EMIT: "MG",
+        EMATIT: "MDLC",
+      },
+      {
+        period: 6,
+        HTC1: "NS",
+        HDJ: "FL",
+        AMI: "CL",
+        HTC2: "RNV",
+        EMIT: "MG",
+        EMATIT: "MDLC",
+      },
+    ],
+  },
+};
 
 /**
  * Convert custom planning result to calendar format (same as UI)
@@ -18,14 +263,14 @@ const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 function convertCustomToCalendarFormat(customScheduleData) {
   const calendarFormat = {
     2024: { Month1: {} },
-    2025: { Month1: {} }
+    2025: { Month1: {} },
   };
 
   if (customScheduleData.success) {
     // Priority 1: Use final adjusted schedule for first weeks
     if (customScheduleData.finalSchedule) {
-      const firstWeeks = ['Week44', 'Week45', 'Week46', 'Week47'];
-      firstWeeks.forEach(weekKey => {
+      const firstWeeks = ["Week44", "Week45", "Week46", "Week47"];
+      firstWeeks.forEach((weekKey) => {
         calendarFormat[2024].Month1[weekKey] = customScheduleData.finalSchedule;
       });
     }
@@ -36,33 +281,42 @@ function convertCustomToCalendarFormat(customScheduleData) {
       periods.slice(0, 6).forEach((periodName, index) => {
         const weekNumber = 48 + index;
         const year = weekNumber > 52 ? 2025 : 2024;
-        const adjustedWeekNumber = weekNumber > 52 ? weekNumber - 52 : weekNumber;
+        const adjustedWeekNumber =
+          weekNumber > 52 ? weekNumber - 52 : weekNumber;
         const weekKey = `Week${adjustedWeekNumber}`;
 
         if (customScheduleData.periodicSchedule[periodName].schedule) {
           if (year === 2024) {
-            calendarFormat[2024].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+            calendarFormat[2024].Month1[weekKey] =
+              customScheduleData.periodicSchedule[periodName].schedule;
           } else {
-            calendarFormat[2025].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+            calendarFormat[2025].Month1[weekKey] =
+              customScheduleData.periodicSchedule[periodName].schedule;
           }
         }
       });
     }
 
     // Fallback: If no final schedule, use only periodic
-    if (!customScheduleData.finalSchedule && customScheduleData.periodicSchedule) {
+    if (
+      !customScheduleData.finalSchedule &&
+      customScheduleData.periodicSchedule
+    ) {
       const periods = Object.keys(customScheduleData.periodicSchedule);
       periods.slice(0, 10).forEach((periodName, index) => {
         const weekNumber = 44 + index;
         const year = weekNumber > 52 ? 2025 : 2024;
-        const adjustedWeekNumber = weekNumber > 52 ? weekNumber - 52 : weekNumber;
+        const adjustedWeekNumber =
+          weekNumber > 52 ? weekNumber - 52 : weekNumber;
         const weekKey = `Week${adjustedWeekNumber}`;
 
         if (customScheduleData.periodicSchedule[periodName].schedule) {
           if (year === 2024) {
-            calendarFormat[2024].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+            calendarFormat[2024].Month1[weekKey] =
+              customScheduleData.periodicSchedule[periodName].schedule;
           } else {
-            calendarFormat[2025].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+            calendarFormat[2025].Month1[weekKey] =
+              customScheduleData.periodicSchedule[periodName].schedule;
           }
         }
       });
@@ -76,9 +330,17 @@ function convertCustomToCalendarFormat(customScheduleData) {
  * Validate calendar format and count total missing/duplicates (same as UI checkAssignments)
  */
 function validateCalendarFormat(schedule, expectedActivities) {
-  const duplicateActivities = ['EMIT', 'HDJ', 'AMI', 'HTC1', 'HTC2', 'EMATIT'];
-  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const timeSlots = ['9am-1pm', '2pm-6pm'];
+  const duplicateActivities = ["EMIT", "HDJ", "AMI", "HTC1", "HTC2", "EMATIT"];
+  const daysOfWeek = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ];
+  const timeSlots = ["9am-1pm", "2pm-6pm"];
 
   let totalMissing = 0;
   let totalDuplicates = 0;
@@ -87,7 +349,7 @@ function validateCalendarFormat(schedule, expectedActivities) {
 
   const problems = {
     missing: [],
-    duplicates: []
+    duplicates: [],
   };
 
   // Track activity counts for detailed breakdown
@@ -109,7 +371,9 @@ function validateCalendarFormat(schedule, expectedActivities) {
                 schedule[year][month][week][doctor][day] &&
                 schedule[year][month][week][doctor][day][slot]
               ) {
-                assigned.push(...schedule[year][month][week][doctor][day][slot]);
+                assigned.push(
+                  ...schedule[year][month][week][doctor][day][slot]
+                );
               }
             });
 
@@ -120,7 +384,12 @@ function validateCalendarFormat(schedule, expectedActivities) {
               if (!assigned.includes(activity)) {
                 totalMissing++;
                 problems.missing.push({
-                  year, month, week, day, slot, activity
+                  year,
+                  month,
+                  week,
+                  day,
+                  slot,
+                  activity,
                 });
 
                 // Count by activity type
@@ -149,7 +418,12 @@ function validateCalendarFormat(schedule, expectedActivities) {
             if (duplicates.length > 0) {
               totalDuplicates += duplicates.length;
               problems.duplicates.push({
-                year, month, week, day, slot, duplicates
+                year,
+                month,
+                week,
+                day,
+                slot,
+                duplicates,
               });
 
               // Count by activity type for duplicates
@@ -164,7 +438,10 @@ function validateCalendarFormat(schedule, expectedActivities) {
             }
 
             // Check if slot is valid (no missing and no duplicates)
-            if (expected.every(activity => assigned.includes(activity)) && duplicates.length === 0) {
+            if (
+              expected.every((activity) => assigned.includes(activity)) &&
+              duplicates.length === 0
+            ) {
               validSlots++;
             }
           });
@@ -175,18 +452,24 @@ function validateCalendarFormat(schedule, expectedActivities) {
 
   // Create formatted summary strings
   const formatActivityBreakdown = (activityCounts, total) => {
-    if (total === 0) return '';
+    if (total === 0) return "";
 
     const sortedActivities = Object.entries(activityCounts)
-      .sort(([,a], [,b]) => b - a) // Sort by count descending
+      .sort(([, a], [, b]) => b - a) // Sort by count descending
       .map(([activity, count]) => `${activity} ${count}`)
-      .join(', ');
+      .join(", ");
 
     return ` (${sortedActivities})`;
   };
 
-  const missingSummary = `Missing total: ${totalMissing}${formatActivityBreakdown(missingActivityCounts, totalMissing)}`;
-  const duplicateSummary = `Duplicate total: ${totalDuplicates}${formatActivityBreakdown(duplicateActivityCounts, totalDuplicates)}`;
+  const missingSummary = `Missing total: ${totalMissing}${formatActivityBreakdown(
+    missingActivityCounts,
+    totalMissing
+  )}`;
+  const duplicateSummary = `Duplicate total: ${totalDuplicates}${formatActivityBreakdown(
+    duplicateActivityCounts,
+    totalDuplicates
+  )}`;
 
   return {
     totalMissing,
@@ -197,13 +480,13 @@ function validateCalendarFormat(schedule, expectedActivities) {
     problems,
     activityBreakdown: {
       missing: missingActivityCounts,
-      duplicates: duplicateActivityCounts
+      duplicates: duplicateActivityCounts,
     },
     summaryText: {
       missing: missingSummary,
       duplicates: duplicateSummary,
-      combined: `${missingSummary}\n${duplicateSummary}`
-    }
+      combined: `${missingSummary}\n${duplicateSummary}`,
+    },
   };
 }
 
@@ -226,13 +509,17 @@ const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
 // Vérifier si un médecin a une seule rotation possible
 const hasSingleRotation = (doctorCode) => {
   const profile = doctorProfiles[doctorCode];
-  return profile && profile.rotationSetting && profile.rotationSetting.length === 1;
+  return (
+    profile && profile.rotationSetting && profile.rotationSetting.length === 1
+  );
 };
 
 // Vérifier si un médecin a plusieurs rotations possibles
 const hasMultipleRotations = (doctorCode) => {
   const profile = doctorProfiles[doctorCode];
-  return profile && profile.rotationSetting && profile.rotationSetting.length > 1;
+  return (
+    profile && profile.rotationSetting && profile.rotationSetting.length > 1
+  );
 };
 
 /**
@@ -248,7 +535,7 @@ const hasMultipleRotations = (doctorCode) => {
  * @returns {Object} Planning avec médecins rigides assignés
  */
 export function assignRigidDoctors() {
-  console.log('Phase 1.1: Assignation des médecins rigides...');
+  console.log("Phase 1.1: Assignation des médecins rigides...");
 
   const rigidSchedule = {};
   const availableDoctors = Object.keys(doctorProfiles);
@@ -256,10 +543,10 @@ export function assignRigidDoctors() {
   // Identifier les médecins avec une seule rotation
   const rigidDoctors = availableDoctors.filter(hasSingleRotation);
 
-  console.log('Médecins rigides identifiés:', rigidDoctors);
+  console.log("Médecins rigides identifiés:", rigidDoctors);
 
   // Pour chaque médecin rigide, utiliser sa seule rotation disponible
-  rigidDoctors.forEach(doctorCode => {
+  rigidDoctors.forEach((doctorCode) => {
     const profile = doctorProfiles[doctorCode];
     const rotationName = profile.rotationSetting[0]; // Seule rotation disponible
 
@@ -269,9 +556,13 @@ export function assignRigidDoctors() {
 
       if (generatedRotations[rotationName]) {
         rigidSchedule[doctorCode] = deepClone(generatedRotations[rotationName]);
-        console.log(`✅ ${doctorCode} assigné à rotation ${rotationName} (rigide)`);
+        console.log(
+          `✅ ${doctorCode} assigné à rotation ${rotationName} (rigide)`
+        );
       } else {
-        console.warn(`⚠️ Rotation ${rotationName} non trouvée pour ${doctorCode}`);
+        console.warn(
+          `⚠️ Rotation ${rotationName} non trouvée pour ${doctorCode}`
+        );
       }
     } catch (error) {
       console.error(`❌ Erreur lors de l'assignation de ${doctorCode}:`, error);
@@ -284,7 +575,7 @@ export function assignRigidDoctors() {
     rotationAssignments: rigidDoctors.reduce((acc, doctor) => {
       acc[doctor] = doctorProfiles[doctor].rotationSetting[0];
       return acc;
-    }, {})
+    }, {}),
   };
 }
 
@@ -293,7 +584,7 @@ export function assignRigidDoctors() {
  * @returns {Object} Dictionnaire {rotation: [docteurs correspondants]}
  */
 export function createRotationDict() {
-  console.log('Phase 1.2: Création du dictionnaire rotation -> docteurs...');
+  console.log("Phase 1.2: Création du dictionnaire rotation -> docteurs...");
 
   const rotationDict = {};
   const availableDoctors = Object.keys(doctorProfiles);
@@ -301,10 +592,10 @@ export function createRotationDict() {
   // Identifier les médecins avec plusieurs rotations
   const flexibleDoctors = availableDoctors.filter(hasMultipleRotations);
 
-  flexibleDoctors.forEach(doctorCode => {
+  flexibleDoctors.forEach((doctorCode) => {
     const profile = doctorProfiles[doctorCode];
 
-    profile.rotationSetting.forEach(rotation => {
+    profile.rotationSetting.forEach((rotation) => {
       if (!rotationDict[rotation]) {
         rotationDict[rotation] = [];
       }
@@ -312,7 +603,7 @@ export function createRotationDict() {
     });
   });
 
-  console.log('Dictionnaire rotation -> docteurs:', rotationDict);
+  console.log("Dictionnaire rotation -> docteurs:", rotationDict);
   return rotationDict;
 }
 
@@ -322,8 +613,11 @@ export function createRotationDict() {
  * @param {Object} existingAssignments - Assignations existantes des médecins rigides
  * @returns {Object} Couples uniques doctor-rotation
  */
-export function selectUniqueRotationPairs(rotationDict, existingAssignments = {}) {
-  console.log('Phase 1.2: Sélection couples uniques doctor-rotation...');
+export function selectUniqueRotationPairs(
+  rotationDict,
+  existingAssignments = {}
+) {
+  console.log("Phase 1.2: Sélection couples uniques doctor-rotation...");
 
   const uniquePairs = { ...existingAssignments };
   const assignedDoctors = new Set(Object.keys(existingAssignments));
@@ -331,7 +625,9 @@ export function selectUniqueRotationPairs(rotationDict, existingAssignments = {}
   // Pour chaque rotation, choisir un médecin responsable
   Object.entries(rotationDict).forEach(([rotation, doctors]) => {
     // Filtrer les médecins déjà assignés
-    const availableDoctors = doctors.filter(doctor => !assignedDoctors.has(doctor));
+    const availableDoctors = doctors.filter(
+      (doctor) => !assignedDoctors.has(doctor)
+    );
 
     if (availableDoctors.length > 0) {
       // Pour l'instant, prendre le premier disponible
@@ -355,14 +651,17 @@ export function selectUniqueRotationPairs(rotationDict, existingAssignments = {}
  * @returns {Object} Planning concaténé complet
  */
 export function createBaseScheduling() {
-  console.log('Phase 1: Constitution du planning de base...');
+  console.log("Phase 1: Constitution du planning de base...");
 
   // Phase 1.1: Médecins rigides
   const rigidResult = assignRigidDoctors();
 
   // Phase 1.2: Médecins souples
   const rotationDict = createRotationDict();
-  const uniquePairs = selectUniqueRotationPairs(rotationDict, rigidResult.rotationAssignments);
+  const uniquePairs = selectUniqueRotationPairs(
+    rotationDict,
+    rigidResult.rotationAssignments
+  );
 
   // Générer le planning complet à partir des couples uniques
   const completeSchedule = { ...rigidResult.schedule };
@@ -373,11 +672,18 @@ export function createBaseScheduling() {
         const generatedRotations = generateDoctorRotations(doctorCode);
 
         if (generatedRotations[rotationName]) {
-          completeSchedule[doctorCode] = deepClone(generatedRotations[rotationName]);
-          console.log(`✅ ${doctorCode} assigné à rotation ${rotationName} (souple)`);
+          completeSchedule[doctorCode] = deepClone(
+            generatedRotations[rotationName]
+          );
+          console.log(
+            `✅ ${doctorCode} assigné à rotation ${rotationName} (souple)`
+          );
         }
       } catch (error) {
-        console.error(`❌ Erreur lors de l'assignation de ${doctorCode}:`, error);
+        console.error(
+          `❌ Erreur lors de l'assignation de ${doctorCode}:`,
+          error
+        );
       }
     }
   });
@@ -386,9 +692,9 @@ export function createBaseScheduling() {
     schedule: completeSchedule,
     rotationAssignments: uniquePairs,
     rigidDoctors: rigidResult.assignedDoctors,
-    flexibleDoctors: Object.keys(uniquePairs).filter(doctor =>
-      !rigidResult.assignedDoctors.includes(doctor)
-    )
+    flexibleDoctors: Object.keys(uniquePairs).filter(
+      (doctor) => !rigidResult.assignedDoctors.includes(doctor)
+    ),
   };
 }
 
@@ -411,20 +717,20 @@ export function createBaseScheduling() {
  * @returns {Array} Périodes de rotation
  */
 export function calculateRotationPeriods() {
-  console.log('Phase 3: Calcul des périodes de rotation...');
+  console.log("Phase 3: Calcul des périodes de rotation...");
 
   // Utiliser la logique existante des vacances scolaires
   // Pour l'instant, définir des périodes fixes de 3-4 semaines
   const rotationPeriods = [
-    { name: 'Période 1', startWeek: 44, endWeek: 47, year: 2024 },
-    { name: 'Période 2', startWeek: 48, endWeek: 51, year: 2024 },
-    { name: 'Période 3', startWeek: 52, endWeek: 3, year: 2025 },
-    { name: 'Période 4', startWeek: 4, endWeek: 7, year: 2025 },
-    { name: 'Période 5', startWeek: 8, endWeek: 11, year: 2025 },
-    { name: 'Période 6', startWeek: 12, endWeek: 15, year: 2025 },
+    { name: "Période 1", startWeek: 44, endWeek: 47, year: 2024 },
+    { name: "Période 2", startWeek: 48, endWeek: 51, year: 2024 },
+    { name: "Période 3", startWeek: 52, endWeek: 3, year: 2025 },
+    { name: "Période 4", startWeek: 4, endWeek: 7, year: 2025 },
+    { name: "Période 5", startWeek: 8, endWeek: 11, year: 2025 },
+    { name: "Période 6", startWeek: 12, endWeek: 15, year: 2025 },
   ];
 
-  console.log('Périodes de rotation calculées:', rotationPeriods.length);
+  console.log("Périodes de rotation calculées:", rotationPeriods.length);
   return rotationPeriods;
 }
 
@@ -432,10 +738,15 @@ export function calculateRotationPeriods() {
  * Créer les variations périodiques des rotations avec round-robin contraint
  * @param {Object} baseSchedule - Planning de base
  * @param {Object} rotationAssignments - Assignations des rotations
+ * @param {string} cycleType - Type de cycle de rotation à utiliser
  * @returns {Object} Planning avec variations périodiques
  */
-export function createPeriodicVariations(baseSchedule, rotationAssignments) {
-  console.log('Phase 3: Création des variations périodiques...');
+export function createPeriodicVariations(
+  baseSchedule,
+  rotationAssignments,
+  cycleType = "honeymoon"
+) {
+  console.log("Phase 3: Création des variations périodiques...");
 
   const rotationPeriods = calculateRotationPeriods();
   const periodicSchedule = {};
@@ -453,43 +764,59 @@ export function createPeriodicVariations(baseSchedule, rotationAssignments) {
     }
   });
 
-  // Extraire les activités de base des médecins flexibles (Période 1)
-  const baseFlexibleAssignments = flexibleDoctors.map(doctor => ({
-    doctor,
-    activity: rotationAssignments[doctor]
-  }));
+  console.log(`🔍 Rigid doctors:`, rigidDoctors);
+  console.log(`🔍 Flexible doctors:`, flexibleDoctors);
+  console.log(`🔍 All rotation assignments:`, rotationAssignments);
 
-  console.log('Base flexible assignments:', baseFlexibleAssignments);
+  // Valider le premier cycle disponible avant utilisation
+  const firstCycle = Object.values(rotation_cycles)[0];
+  const cycleValidation = validateHoneyMoonCycle(firstCycle.periods);
+  if (!cycleValidation.valid) {
+    console.warn("⚠️ Cycle invalide:", cycleValidation.missing);
+  }
+  console.log("🍯 Cycle validation:", cycleValidation);
+  console.log("📝 Cycle description:", firstCycle.description);
 
   rotationPeriods.forEach((period, periodIndex) => {
     console.log(`Génération ${period.name}...`);
     const periodSchedule = {};
 
     // 1. Garder les médecins rigides inchangés
-    rigidDoctors.forEach(doctorCode => {
+    rigidDoctors.forEach((doctorCode) => {
       if (baseSchedule[doctorCode]) {
         periodSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
         console.log(`  🔒 ${doctorCode}: planning rigide conservé`);
       }
     });
 
-    // 2. Appliquer le round-robin contraint pour les médecins flexibles
-    const newFlexibleAssignments = applyConstraintAwareRoundRobin(
-      baseFlexibleAssignments,
-      periodIndex
+    // 2. Appliquer le système HoneyMoon pour les médecins flexibles
+    const newFlexibleAssignments = applyHoneyMoonRotation(
+      periodIndex,
+      cycleType // Utiliser le cycle sélectionné
     );
+    console.log(`🔍 ${period.name} - Flexible assignments to apply:`, newFlexibleAssignments);
 
     // 3. Générer les plannings pour les nouvelles assignations
     newFlexibleAssignments.forEach(({ doctor, activity }) => {
+      console.log(`🔍 Processing assignment: ${doctor} → ${activity}`);
       try {
         const generatedRotations = generateDoctorRotations(doctor);
+        console.log(`🔍 ${doctor} available rotations:`, Object.keys(generatedRotations));
+
         if (generatedRotations[activity]) {
           periodSchedule[doctor] = deepClone(generatedRotations[activity]);
-          console.log(`  🔄 ${doctor}: ${rotationAssignments[doctor]} → ${activity}`);
+          console.log(`  ✅ ${doctor}: assigned to ${activity} rotation`);
+          console.log(`  🔍 ${doctor} schedule sample:`, {
+            Monday: periodSchedule[doctor]?.Monday || 'undefined',
+            Tuesday: periodSchedule[doctor]?.Tuesday || 'undefined'
+          });
         } else {
           // Fallback: garder le planning de base
           periodSchedule[doctor] = deepClone(baseSchedule[doctor]);
-          console.log(`  ⚠️ Rotation ${activity} non trouvée pour ${doctor} - planning de base conservé`);
+          console.log(
+            `  ⚠️ Rotation ${activity} non trouvée pour ${doctor} - planning de base conservé`
+          );
+          console.log(`🔍 ${doctor} available rotations were:`, Object.keys(generatedRotations));
         }
       } catch (error) {
         console.error(`❌ Erreur rotation ${doctor}:`, error);
@@ -498,14 +825,20 @@ export function createPeriodicVariations(baseSchedule, rotationAssignments) {
     });
 
     // 4. Gestion spéciale pour DL avec 2 backbones
-    if (rotationAssignments['DL'] && doctorProfiles['DL']?.rotationSetting?.length === 2) {
+    if (
+      rotationAssignments["DL"] &&
+      doctorProfiles["DL"]?.rotationSetting?.length === 2
+    ) {
       const backboneIndex = periodIndex % 2;
-      const selectedRotation = doctorProfiles['DL'].rotationSetting[backboneIndex];
+      const selectedRotation =
+        doctorProfiles["DL"].rotationSetting[backboneIndex];
 
       try {
-        const generatedRotations = generateDoctorRotations('DL');
+        const generatedRotations = generateDoctorRotations("DL");
         if (generatedRotations[selectedRotation]) {
-          periodSchedule['DL'] = deepClone(generatedRotations[selectedRotation]);
+          periodSchedule["DL"] = deepClone(
+            generatedRotations[selectedRotation]
+          );
           console.log(`  🏥 DL backbone alternance: ${selectedRotation}`);
         }
       } catch (error) {
@@ -513,9 +846,11 @@ export function createPeriodicVariations(baseSchedule, rotationAssignments) {
       }
     }
 
+    console.log(`🔍 Final ${period.name} schedule doctors:`, Object.keys(periodSchedule));
+
     periodicSchedule[period.name] = {
       period,
-      schedule: periodSchedule
+      schedule: periodSchedule,
     };
   });
 
@@ -523,124 +858,97 @@ export function createPeriodicVariations(baseSchedule, rotationAssignments) {
 }
 
 /**
- * Appliquer un round-robin par groupe de médecins partageant les mêmes rotations
- * @param {Array} baseAssignments - Assignations de base [{doctor, activity}]
+ * Activity-centric rotation logic
+ * Replaces complex round-robin with direct activity-to-doctor mapping
  * @param {number} periodIndex - Index de la période (0 = période 1)
- * @returns {Array} Nouvelles assignations respectant les contraintes
+ * @param {string} cycleType - Type de cycle ('honeymoon', 'summer', 'emergency')
+ * @returns {Array} Nouvelles assignations selon le cycle spécifié
  */
-function applyConstraintAwareRoundRobin(baseAssignments, periodIndex) {
-  if (periodIndex === 0) {
-    // Période 1: retourner les assignations de base
-    return baseAssignments;
+function applyHoneyMoonRotation(periodIndex, cycleType = "honeymoon") {
+  console.log(
+    `  🍯 Rotation pour période ${
+      periodIndex + 1
+    } (cycle: ${cycleType}):`
+  );
+
+  // Sélectionner le cycle de rotation approprié
+  let rotationCycleData = rotation_cycles[cycleType];
+  if (!rotationCycleData) {
+    const firstAvailable = Object.keys(rotation_cycles)[0];
+    console.warn(
+      `⚠️ Cycle ${cycleType} non trouvé, utilisation du premier cycle disponible: ${firstAvailable}`
+    );
+    rotationCycleData = rotation_cycles[firstAvailable];
+  } else {
+    console.log(`✅ Utilisation du cycle: ${cycleType}`);
   }
 
-  console.log(`  Round-robin par groupe pour période ${periodIndex + 1}:`);
+  // Afficher la description du cycle pour le débogage
+  console.log(`    📝 Description: ${rotationCycleData.description}`);
 
-  // 1. Grouper les médecins par leurs rotationSettings
-  const doctorGroups = groupDoctorsByRotations(baseAssignments);
+  // Obtenir les assignations pour cette période (cycle si nécessaire)
+  const rotationCycle = rotationCycleData.periods;
+  const currentPeriod = rotationCycle[periodIndex % rotationCycle.length];
 
-  // 2. Appliquer round-robin au sein de chaque groupe
-  const allNewAssignments = [];
-
-  doctorGroups.forEach((group, groupIndex) => {
-    console.log(`    Groupe ${groupIndex + 1} (rotations: [${group.rotations.join(', ')}]):`);
-
-    const groupAssignments = rotateWithinGroup(group, periodIndex);
-    allNewAssignments.push(...groupAssignments);
-
-    groupAssignments.forEach(assignment => {
-      console.log(`      🔄 ${assignment.doctor} → ${assignment.activity}`);
-    });
-  });
-
-  return allNewAssignments;
-}
-
-/**
- * Grouper les médecins par leurs rotationSettings identiques
- * @param {Array} baseAssignments - Assignations de base
- * @returns {Array} Groupes de médecins [{doctors: [], rotations: [], baseAssignments: []}]
- */
-function groupDoctorsByRotations(baseAssignments) {
-  const groups = [];
-
-  baseAssignments.forEach(assignment => {
-    const doctor = assignment.doctor;
-    const profile = doctorProfiles[doctor];
-    const rotations = profile?.rotationSetting || [];
-
-    // Trouver un groupe existant avec les mêmes rotations
-    let existingGroup = groups.find(group =>
-      arraysEqual(group.rotations, rotations)
-    );
-
-    if (existingGroup) {
-      existingGroup.doctors.push(doctor);
-      existingGroup.baseAssignments.push(assignment);
-    } else {
-      // Créer un nouveau groupe
-      groups.push({
-        doctors: [doctor],
-        rotations: [...rotations],
-        baseAssignments: [assignment]
+  // Convertir les assignations en format {doctor, activity}
+  const assignments = [];
+  console.log(`🔍 Current period data:`, currentPeriod);
+  Object.entries(currentPeriod).forEach(([activity, doctor]) => {
+    if (activity !== "period") {
+      // Exclure le champ 'period'
+      assignments.push({
+        doctor,
+        activity,
       });
+      console.log(`    🍯 ${activity} → ${doctor}`);
     }
   });
 
-  console.log(`    Groupes créés: ${groups.length}`);
-  groups.forEach((group, index) => {
-    console.log(`      Groupe ${index + 1}: [${group.doctors.join(', ')}] → [${group.rotations.join(', ')}]`);
+  console.log(`🔍 Period ${periodIndex + 1} final assignments:`, assignments);
+  return assignments;
+}
+
+/**
+ * Valider qu'un cycle de rotation couvre toutes les activités requises
+ * @param {Array} rotationCycle - Cycle de rotation à valider
+ * @param {Array} requiredActivities - Activités requises
+ * @returns {Object} Résultat de validation {valid: boolean, missing: [], extras: []}
+ */
+function validateHoneyMoonCycle(
+  rotationCycle,
+  requiredActivities = ["HTC1", "HTC2", "HDJ", "AMI", "EMIT", "EMATIT"]
+) {
+  const validation = {
+    valid: true,
+    missing: [],
+    extras: [],
+    periods: rotationCycle.length,
+  };
+
+  rotationCycle.forEach((period, index) => {
+    const periodActivities = Object.keys(period).filter(
+      (key) => key !== "period"
+    );
+
+    // Vérifier les activités manquantes
+    const missing = requiredActivities.filter(
+      (activity) => !periodActivities.includes(activity)
+    );
+    if (missing.length > 0) {
+      validation.valid = false;
+      validation.missing.push(`Période ${index + 1}: ${missing.join(", ")}`);
+    }
+
+    // Vérifier les activités supplémentaires
+    const extras = periodActivities.filter(
+      (activity) => !requiredActivities.includes(activity)
+    );
+    if (extras.length > 0) {
+      validation.extras.push(`Période ${index + 1}: ${extras.join(", ")}`);
+    }
   });
 
-  return groups;
-}
-
-/**
- * Appliquer la rotation au sein d'un groupe de médecins
- * @param {Object} group - Groupe de médecins {doctors, rotations, baseAssignments}
- * @param {number} periodIndex - Index de la période
- * @returns {Array} Nouvelles assignations pour ce groupe
- */
-function rotateWithinGroup(group, periodIndex) {
-  const { doctors, rotations, baseAssignments } = group;
-
-  if (rotations.length <= 1) {
-    // Groupe avec une seule rotation possible - pas de changement
-    return baseAssignments;
-  }
-
-  // Extraire les activités actuelles du groupe dans l'ordre des médecins
-  const currentActivities = baseAssignments.map(assignment => assignment.activity);
-
-  // Appliquer la rotation des activités au sein du groupe
-  const rotatedActivities = [...currentActivities];
-  for (let i = 0; i < periodIndex; i++) {
-    rotatedActivities.unshift(rotatedActivities.pop());
-  }
-
-  // Créer les nouvelles assignations
-  const newAssignments = doctors.map((doctor, index) => ({
-    doctor,
-    activity: rotatedActivities[index]
-  }));
-
-  return newAssignments;
-}
-
-/**
- * Vérifier si deux tableaux sont identiques
- * @param {Array} arr1 - Premier tableau
- * @param {Array} arr2 - Deuxième tableau
- * @returns {boolean} True si identiques
- */
-function arraysEqual(arr1, arr2) {
-  if (arr1.length !== arr2.length) return false;
-
-  // Trier les deux tableaux pour comparer le contenu
-  const sorted1 = [...arr1].sort();
-  const sorted2 = [...arr2].sort();
-
-  return sorted1.every((value, index) => value === sorted2[index]);
+  return validation;
 }
 
 /**
@@ -649,11 +957,13 @@ function arraysEqual(arr1, arr2) {
 
 /**
  * Exécuter l'algorithme complet de planification personnalisée
- * @param {Object} options - Options de configuration
+ * @param {string} cycleType - Type de cycle de rotation ('honeymoon', 'summer', 'emergency')
  * @returns {Object} Résultat complet de la planification
  */
-export function executeCustomPlanningAlgorithm() {
-  console.log('🚀 Démarrage algorithme de planification personnalisée...');
+export function executeCustomPlanningAlgorithm(cycleType = "honeymoon") {
+  console.log(
+    `🚀 Démarrage algorithme de planification personnalisée (cycle: ${cycleType})...`
+  );
 
   const startTime = Date.now();
   const result = {
@@ -662,29 +972,31 @@ export function executeCustomPlanningAlgorithm() {
     finalSchedule: {},
     periodicSchedule: {},
     statistics: {},
-    errors: []
+    errors: [],
   };
 
   try {
     // PHASE 1: Constitution progressive
-    console.log('\n📋 PHASE 1: Constitution progressive du planning');
+    console.log("\n📋 PHASE 1: Constitution progressive du planning");
     const phase1Result = createBaseScheduling();
     result.phases.phase1 = phase1Result;
 
     // PHASE 2: Simplifiée - Pas de résolution automatique des conflits
-    console.log('\n✅ PHASE 2: Simplifiée - Planning de base conservé');
+    console.log("\n✅ PHASE 2: Simplifiée - Planning de base conservé");
     const adjustedSchedule = phase1Result.schedule; // Garder le planning tel quel
 
     result.phases.phase2 = {
-      description: 'Phase 2 simplifiée - pas de résolution automatique des conflits',
-      adjustedSchedule
+      description:
+        "Phase 2 simplifiée - pas de résolution automatique des conflits",
+      adjustedSchedule,
     };
 
     // PHASE 3: Variation périodique
-    console.log('\n🔄 PHASE 3: Création des variations périodiques');
+    console.log("\n🔄 PHASE 3: Création des variations périodiques");
     const periodicSchedule = createPeriodicVariations(
       adjustedSchedule,
-      phase1Result.rotationAssignments
+      phase1Result.rotationAssignments,
+      cycleType
     );
 
     result.phases.phase3 = periodicSchedule;
@@ -699,14 +1011,13 @@ export function executeCustomPlanningAlgorithm() {
       rigidDoctors: phase1Result.rigidDoctors.length,
       flexibleDoctors: phase1Result.flexibleDoctors.length,
       periodsGenerated: Object.keys(periodicSchedule).length,
-      simplified: true // Marqueur pour indiquer la version simplifiée
+      simplified: true, // Marqueur pour indiquer la version simplifiée
     };
 
-    console.log('✅ Algorithme terminé avec succès');
-    console.log('📊 Statistiques:', result.statistics);
-
+    console.log("✅ Algorithme terminé avec succès");
+    console.log("📊 Statistiques:", result.statistics);
   } catch (error) {
-    console.error('❌ Erreur dans l\'algorithme:', error);
+    console.error("❌ Erreur dans l'algorithme:", error);
     result.success = false;
     result.errors.push(error.message);
   }
@@ -724,13 +1035,13 @@ export function executeCustomPlanningAlgorithm() {
  * @returns {Object} Rapport détaillé
  */
 export function generateCustomPlanningReport(algorithmResult) {
-  console.log('📋 Génération du rapport de planification personnalisée...');
+  console.log("📋 Génération du rapport de planification personnalisée...");
 
   if (!algorithmResult.success) {
     return {
       success: false,
-      error: 'Algorithme a échoué',
-      errors: algorithmResult.errors
+      error: "Algorithme a échoué",
+      errors: algorithmResult.errors,
     };
   }
 
@@ -739,12 +1050,12 @@ export function generateCustomPlanningReport(algorithmResult) {
   const validation = validateCalendarFormat(calendarFormat, expectedActivities);
   const realProblems = {
     totalMissing: validation.totalMissing,
-    totalDuplicates: validation.totalDuplicates
+    totalDuplicates: validation.totalDuplicates,
   };
 
   const report = {
     timestamp: new Date().toISOString(),
-    algorithmType: 'Custom Planning Logic - Simplified 3 Phases',
+    algorithmType: "Custom Planning Logic - Simplified 3 Phases",
     success: true,
     summary: {
       totalDoctors: algorithmResult.statistics.doctorsProcessed,
@@ -762,48 +1073,50 @@ export function generateCustomPlanningReport(algorithmResult) {
         duplicateDetails: validation.problems.duplicates.slice(0, 5), // Show first 5 for debugging
         calendarFormatUsed: true, // Indicates this used the same validation as UI
         summaryText: validation.summaryText, // Enhanced summary with activity breakdown
-        activityBreakdown: validation.activityBreakdown // Detailed counts by activity
-      }
+        activityBreakdown: validation.activityBreakdown, // Detailed counts by activity
+      },
     },
     phases: {
       phase1: {
-        description: 'Constitution progressive - Rigides puis souples',
+        description: "Constitution progressive - Rigides puis souples",
         rigidAssignments: algorithmResult.phases.phase1?.rigidDoctors || [],
-        flexibleAssignments: algorithmResult.phases.phase1?.flexibleDoctors || [],
-        rotationPairs: algorithmResult.phases.phase1?.rotationAssignments || {}
+        flexibleAssignments:
+          algorithmResult.phases.phase1?.flexibleDoctors || [],
+        rotationPairs: algorithmResult.phases.phase1?.rotationAssignments || {},
       },
       phase2: {
-        description: 'Phase 2 simplifiée - Pas de résolution automatique des conflits',
+        description:
+          "Phase 2 simplifiée - Pas de résolution automatique des conflits",
         problemsSummary: realProblems,
-        conflictsResolved: 0
+        conflictsResolved: 0,
       },
       phase3: {
-        description: 'Variation périodique des rotations',
+        description: "Variation périodique des rotations",
         periodsCreated: Object.keys(algorithmResult.periodicSchedule).length,
-        rotationCycles: 'Basé sur rotationSettings et unités de temps'
-      }
+        rotationCycles: "Basé sur rotationSettings et unités de temps",
+      },
     },
-    recommendations: []
+    recommendations: [],
   };
 
   // Ajouter des recommandations pour la version simplifiée
   if (report.summary.flexibleDoctors === 0) {
     report.recommendations.push(
-      'Aucun médecin flexible détecté - envisager d\'ajouter des rotations multiples'
+      "Aucun médecin flexible détecté - envisager d'ajouter des rotations multiples"
     );
   }
 
   if (report.summary.rigidDoctors > report.summary.flexibleDoctors) {
     report.recommendations.push(
-      'Plus de médecins rigides que flexibles - consider adding more rotation options'
+      "Plus de médecins rigides que flexibles - consider adding more rotation options"
     );
   }
 
   report.recommendations.push(
-    'Version simplifiée - Phase 2 de résolution des conflits désactivée pour une approche plus directe'
+    "Version simplifiée - Phase 2 de résolution des conflits désactivée pour une approche plus directe"
   );
 
-  console.log('📊 Rapport généré avec succès');
+  console.log("📊 Rapport généré avec succès");
   return report;
 }
 
@@ -814,42 +1127,50 @@ export function generateCustomPlanningReport(algorithmResult) {
  * @param {Object} originalResult - Résultat du système original (optionnel)
  * @returns {Object} Comparaison détaillée
  */
-export function compareWithOtherSystems(customResult, simplifiedResult = null, originalResult = null) {
-  console.log('🔄 Comparaison avec les autres systèmes...');
+export function compareWithOtherSystems(
+  customResult,
+  simplifiedResult = null,
+  originalResult = null
+) {
+  console.log("🔄 Comparaison avec les autres systèmes...");
 
   const comparison = {
     customLogic: {
-      name: 'Custom Planning Logic',
+      name: "Custom Planning Logic",
       coverage: calculateCoverage(customResult.finalSchedule),
-      flexibility: 'Haute - 3 phases distinctes',
-      transparency: 'Très haute - chaque étape explicite',
-      maintenance: 'Bonne - code structuré'
+      flexibility: "Haute - 3 phases distinctes",
+      transparency: "Très haute - chaque étape explicite",
+      maintenance: "Bonne - code structuré",
     },
-    simplified: simplifiedResult ? {
-      name: 'Simplified Round Robin',
-      coverage: calculateCoverage(simplifiedResult),
-      flexibility: 'Moyenne - cycles prédéfinis',
-      transparency: 'Moyenne',
-      maintenance: 'Moyenne'
-    } : null,
-    original: originalResult ? {
-      name: 'Original System',
-      coverage: calculateCoverage(originalResult),
-      flexibility: 'Faible - statique',
-      transparency: 'Faible',
-      maintenance: 'Difficile'
-    } : null,
+    simplified: simplifiedResult
+      ? {
+          name: "Simplified Round Robin",
+          coverage: calculateCoverage(simplifiedResult),
+          flexibility: "Moyenne - cycles prédéfinis",
+          transparency: "Moyenne",
+          maintenance: "Moyenne",
+        }
+      : null,
+    original: originalResult
+      ? {
+          name: "Original System",
+          coverage: calculateCoverage(originalResult),
+          flexibility: "Faible - statique",
+          transparency: "Faible",
+          maintenance: "Difficile",
+        }
+      : null,
     advantages: [
-      'Résolution automatique des conflits',
-      'Respect strict des backbones',
-      'Variation périodique intelligente',
-      'Traçabilité complète des décisions'
+      "Résolution automatique des conflits",
+      "Respect strict des backbones",
+      "Variation périodique intelligente",
+      "Traçabilité complète des décisions",
     ],
     limitations: [
-      'Complexité accrue',
-      'Temps d\'exécution plus long',
-      'Nécessite configuration précise des rotationSettings'
-    ]
+      "Complexité accrue",
+      "Temps d'exécution plus long",
+      "Nécessite configuration précise des rotationSettings",
+    ],
   };
 
   return comparison;
@@ -866,11 +1187,15 @@ function calculateCoverage(schedule) {
   let totalSlots = 0;
   let coveredSlots = 0;
 
-  Object.keys(schedule).forEach(doctor => {
-    DAYS_OF_WEEK.forEach(day => {
-      TIME_SLOTS.forEach(slot => {
+  Object.keys(schedule).forEach((doctor) => {
+    DAYS_OF_WEEK.forEach((day) => {
+      TIME_SLOTS.forEach((slot) => {
         totalSlots++;
-        if (schedule[doctor][day] && schedule[doctor][day][slot] && schedule[doctor][day][slot].length > 0) {
+        if (
+          schedule[doctor][day] &&
+          schedule[doctor][day][slot] &&
+          schedule[doctor][day][slot].length > 0
+        ) {
           coveredSlots++;
         }
       });

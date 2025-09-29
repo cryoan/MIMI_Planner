@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './DoctorSchedule.css';
-import { docActivities, rotationTemplates, buildDoctorSchedule, doctorProfiles, generateDoctorRotations } from './doctorSchedules.js';
+import { docActivities, rotationTemplates, doctorProfiles, generateDoctorRotations } from './doctorSchedules.js';
 import { activityColors } from './schedule';
 
 // Custom function to merge rotation template with backbone constraints
