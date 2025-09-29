@@ -9,6 +9,7 @@ const PlanningOverview = ({
 }) => {
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const timeSlots = ['9am-1pm', '2pm-6pm'];
+  const [showDetailedBreakdown, setShowDetailedBreakdown] = React.useState(false);
 
   // Get periods directly from custom planning logic results
   const getPeriods = () => {
@@ -140,6 +141,90 @@ const PlanningOverview = ({
     return null;
   };
 
+  // Get global summary across all periods
+  const getGlobalSummary = () => {
+    const periods = getPeriods();
+    let totalMissing = 0;
+    let totalDuplicates = 0;
+    let totalSlots = 0;
+    let validSlots = 0;
+    let affectedPeriods = 0;
+
+    periods.forEach(period => {
+      const validation = aggregateValidationForPeriod(period);
+      totalMissing += validation.totalMissing;
+      totalDuplicates += validation.totalDuplicates;
+      totalSlots += validation.totalSlots;
+      validSlots += validation.validSlots;
+
+      if (validation.totalMissing > 0 || validation.totalDuplicates > 0) {
+        affectedPeriods++;
+      }
+    });
+
+    const healthStatus = totalMissing + totalDuplicates === 0 ? 'good' :
+                        totalMissing + totalDuplicates < 10 ? 'warning' : 'error';
+
+    return {
+      totalMissing,
+      totalDuplicates,
+      totalSlots,
+      validSlots,
+      affectedPeriods,
+      totalPeriods: periods.length,
+      healthStatus
+    };
+  };
+
+  // Get detailed breakdown of missing and duplicate activities by type
+  const getDetailedBreakdown = () => {
+    const periods = getPeriods();
+    const missingByActivity = {};
+    const duplicatesByActivity = {};
+    const periodBreakdown = {};
+
+    periods.forEach(period => {
+      const scheduleData = getPeriodScheduleData(period);
+      const periodMissing = {};
+      const periodDuplicates = {};
+
+      if (scheduleData) {
+        days.forEach(day => {
+          const fullDay = dayMap[day];
+          timeSlots.forEach(slot => {
+            const validation = validateScheduleData(scheduleData, fullDay, slot);
+
+            // Count missing activities
+            validation.missing.forEach(activity => {
+              missingByActivity[activity] = (missingByActivity[activity] || 0) + 1;
+              periodMissing[activity] = (periodMissing[activity] || 0) + 1;
+            });
+
+            // Count duplicate activities
+            validation.duplicates.forEach(activity => {
+              duplicatesByActivity[activity] = (duplicatesByActivity[activity] || 0) + 1;
+              periodDuplicates[activity] = (periodDuplicates[activity] || 0) + 1;
+            });
+          });
+        });
+      }
+
+      // Store period-specific breakdown only if there are issues
+      if (Object.keys(periodMissing).length > 0 || Object.keys(periodDuplicates).length > 0) {
+        periodBreakdown[period.name] = {
+          missing: periodMissing,
+          duplicates: periodDuplicates
+        };
+      }
+    });
+
+    return {
+      missingByActivity,
+      duplicatesByActivity,
+      periodBreakdown
+    };
+  };
+
   // Simple date generation for display purposes
   const getDisplayDates = () => {
     // Generate dates for Monday-Friday display
@@ -152,6 +237,133 @@ const PlanningOverview = ({
       date.setDate(monday.getDate() + i);
       return date;
     });
+  };
+
+  // Render global summary component
+  const renderGlobalSummary = () => {
+    const summary = getGlobalSummary();
+
+    return (
+      <div className="global-summary-container">
+        <div className="summary-card">
+          <div className="summary-header">
+            <h4>📊 Récapitulatif Global</h4>
+            <div className={`summary-health-badge ${summary.healthStatus}`}>
+              {summary.healthStatus === 'good' ? '✅ OK' :
+               summary.healthStatus === 'warning' ? '⚠️ Attention' : '❌ Critique'}
+            </div>
+          </div>
+
+          <div className="summary-stats">
+            <div className="stat-item">
+              <span className="stat-number">{summary.totalMissing + summary.totalDuplicates}</span>
+              <span className="stat-label">Problèmes totaux</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-number">{summary.totalMissing}</span>
+              <span className="stat-label">Activités manquantes</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-number">{summary.totalDuplicates}</span>
+              <span className="stat-label">Activités dupliquées</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-number">{summary.affectedPeriods}/{summary.totalPeriods}</span>
+              <span className="stat-label">Périodes affectées</span>
+            </div>
+          </div>
+
+          {(summary.totalMissing > 0 || summary.totalDuplicates > 0) && (
+            <button
+              className="breakdown-toggle"
+              onClick={() => setShowDetailedBreakdown(!showDetailedBreakdown)}
+            >
+              {showDetailedBreakdown ? '🔼 Masquer le détail' : '🔽 Voir le détail par activité'}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Render detailed breakdown component
+  const renderDetailedBreakdown = () => {
+    if (!showDetailedBreakdown) return null;
+
+    const breakdown = getDetailedBreakdown();
+    const hasIssues = Object.keys(breakdown.missingByActivity).length > 0 ||
+                     Object.keys(breakdown.duplicatesByActivity).length > 0;
+
+    if (!hasIssues) return null;
+
+    return (
+      <div className="detailed-breakdown-container">
+        <div className="breakdown-content">
+          {Object.keys(breakdown.missingByActivity).length > 0 && (
+            <div className="breakdown-section">
+              <h5>❌ Activités manquantes par type</h5>
+              <div className="activity-counts">
+                {Object.entries(breakdown.missingByActivity).map(([activity, count]) => (
+                  <div key={`missing-${activity}`} className="activity-count-item missing">
+                    <span className="activity-name" style={{
+                      backgroundColor: activityColors[activity] || '#f0f0f0',
+                      color: activityColors[activity] ? 'white' : 'black'
+                    }}>
+                      {activity}
+                    </span>
+                    <span className="activity-count">{count} fois</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {Object.keys(breakdown.duplicatesByActivity).length > 0 && (
+            <div className="breakdown-section">
+              <h5>⚠️ Activités dupliquées par type</h5>
+              <div className="activity-counts">
+                {Object.entries(breakdown.duplicatesByActivity).map(([activity, count]) => (
+                  <div key={`duplicate-${activity}`} className="activity-count-item duplicate">
+                    <span className="activity-name" style={{
+                      backgroundColor: activityColors[activity] || '#f0f0f0',
+                      color: activityColors[activity] ? 'white' : 'black'
+                    }}>
+                      {activity}
+                    </span>
+                    <span className="activity-count">{count} fois</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {Object.keys(breakdown.periodBreakdown).length > 0 && (
+            <div className="breakdown-section">
+              <h5>📅 Détail par période</h5>
+              <div className="period-breakdown">
+                {Object.entries(breakdown.periodBreakdown).map(([periodName, periodData]) => (
+                  <div key={periodName} className="period-breakdown-item">
+                    <strong>{periodName}:</strong>
+                    {Object.keys(periodData.missing).length > 0 && (
+                      <span className="period-issues missing">
+                        Manquants: {Object.entries(periodData.missing).map(([activity, count]) =>
+                          `${activity}(${count})`).join(', ')}
+                      </span>
+                    )}
+                    {Object.keys(periodData.duplicates).length > 0 && (
+                      <span className="period-issues duplicate">
+                        Doublons: {Object.entries(periodData.duplicates).map(([activity, count]) =>
+                          `${activity}(${count})`).join(', ')}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   // Render a mini calendar for a period
@@ -286,6 +498,9 @@ const PlanningOverview = ({
         <h3>📋 Vue d'ensemble par périodes</h3>
         <p>Aperçu des périodes de rotation avec indicateurs de validation</p>
       </div>
+
+      {renderGlobalSummary()}
+      {renderDetailedBreakdown()}
 
       <div className="period-grid">
         {periods.map(period => {
