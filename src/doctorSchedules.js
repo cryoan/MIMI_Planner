@@ -64,7 +64,7 @@ export const docActivities = {
   },
   Staff: {
     name: "Staff",
-    duration: 3,
+    duration: 2,
   },
 };
 

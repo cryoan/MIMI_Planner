@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
-import './DoctorSchedule.css';
-import { docActivities, rotationTemplates, doctorProfiles, generateDoctorRotations } from './doctorSchedules.js';
-import { activityColors } from './schedule';
+import React, { useState } from "react";
+import "./DoctorSchedule.css";
+import {
+  docActivities,
+  rotationTemplates,
+  doctorProfiles,
+  generateDoctorRotations,
+} from "./doctorSchedules.js";
+import { activityColors } from "./schedule";
+import RotationCycleSelector from "./RotationCycleSelector";
 
 // Custom function to merge rotation template with backbone constraints
 // Backbone always takes precedence (overrides template when conflicts occur)
@@ -19,8 +25,11 @@ const mergeTemplateWithBackbone = (templateName, backbone) => {
   Object.entries(template).forEach(([day, slots]) => {
     Object.entries(slots).forEach(([timeSlot, activities]) => {
       // Only fill template activities if backbone slot is empty
-      if (mergedSchedule[day] && mergedSchedule[day][timeSlot] && 
-          mergedSchedule[day][timeSlot].length === 0) {
+      if (
+        mergedSchedule[day] &&
+        mergedSchedule[day][timeSlot] &&
+        mergedSchedule[day][timeSlot].length === 0
+      ) {
         mergedSchedule[day][timeSlot] = [...activities]; // Copy activities
       }
       // If backbone has activities, they take precedence (template is ignored for this slot)
@@ -30,33 +39,48 @@ const mergeTemplateWithBackbone = (templateName, backbone) => {
   return mergedSchedule;
 };
 
-const DoctorSettings = () => {
-  const [activeTab, setActiveTab] = useState('doctors');
+const DoctorSettings = ({
+  selectedRotationCycle,
+  setSelectedRotationCycle,
+}) => {
+  const [activeTab, setActiveTab] = useState("doctors");
 
   return (
     <div className="doctor-settings-container">
       <h2>Schedule Settings</h2>
-      
+
       {/* Main Tabs */}
       <div className="main-tabs">
-        <button 
-          className={activeTab === 'doctors' ? 'active' : ''}
-          onClick={() => setActiveTab('doctors')}
+        <button
+          className={activeTab === "doctors" ? "active" : ""}
+          onClick={() => setActiveTab("doctors")}
         >
-          Doctors
+          Médecins
         </button>
-        <button 
-          className={activeTab === 'templates' ? 'active' : ''}
-          onClick={() => setActiveTab('templates')}
+        <button
+          className={activeTab === "templates" ? "active" : ""}
+          onClick={() => setActiveTab("templates")}
         >
-          Rotation Templates
+          Activités
+        </button>
+        <button
+          className={activeTab === "rotation-cycles" ? "active" : ""}
+          onClick={() => setActiveTab("rotation-cycles")}
+        >
+          Rotations
         </button>
       </div>
 
       {/* Tab Content */}
       <div className="main-tab-content">
-        {activeTab === 'doctors' && <DoctorsManager />}
-        {activeTab === 'templates' && <RotationTemplatesManager />}
+        {activeTab === "doctors" && <DoctorsManager />}
+        {activeTab === "templates" && <RotationTemplatesManager />}
+        {activeTab === "rotation-cycles" && (
+          <RotationCycleSelector
+            selectedRotationCycle={selectedRotationCycle}
+            setSelectedRotationCycle={setSelectedRotationCycle}
+          />
+        )}
       </div>
     </div>
   );
@@ -74,16 +98,21 @@ const transformDoctorProfilesToUIState = () => {
     if (profile.rotationSetting) {
       try {
         computedRotations = generateDoctorRotations(doctorCode);
-        
+
         // Use only computed rotations
-        Object.entries(computedRotations).forEach(([rotationName, rotationData]) => {
-          allRotations[rotationName] = rotationData;
-          
-          // All computed rotations are template-based
-          rotationTypes[rotationName] = 'template';
-        });
+        Object.entries(computedRotations).forEach(
+          ([rotationName, rotationData]) => {
+            allRotations[rotationName] = rotationData;
+
+            // All computed rotations are template-based
+            rotationTypes[rotationName] = "template";
+          }
+        );
       } catch (error) {
-        console.warn(`Error generating computed rotations for ${doctorCode}:`, error);
+        console.warn(
+          `Error generating computed rotations for ${doctorCode}:`,
+          error
+        );
       }
     }
 
@@ -96,16 +125,21 @@ const transformDoctorProfilesToUIState = () => {
       rotationSetting: profile.rotationSetting || [],
       computedRotations,
       rotationTypes,
-      isImported: true // Flag to distinguish imported doctors from custom ones
+      isImported: true, // Flag to distinguish imported doctors from custom ones
     };
   });
 };
 
 // Add Doctor Form Component
-const AddDoctorForm = ({ newDoctorName, setNewDoctorName, onAdd, onCancel }) => {
+const AddDoctorForm = ({
+  newDoctorName,
+  setNewDoctorName,
+  onAdd,
+  onCancel,
+}) => {
   const handleSubmit = () => {
     if (!newDoctorName.trim()) {
-      alert('Please enter a doctor name');
+      alert("Please enter a doctor name");
       return;
     }
     onAdd();
@@ -115,13 +149,13 @@ const AddDoctorForm = ({ newDoctorName, setNewDoctorName, onAdd, onCancel }) => 
     <div className="add-doctor-form">
       <h4>Add Custom Doctor</h4>
       <p>Add additional doctors beyond the system-imported ones.</p>
-      
+
       <input
         type="text"
         placeholder="Enter doctor name"
         value={newDoctorName}
         onChange={(e) => setNewDoctorName(e.target.value)}
-        onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
+        onKeyPress={(e) => e.key === "Enter" && handleSubmit()}
       />
 
       <div className="form-actions">
@@ -140,18 +174,20 @@ const DoctorsManager = () => {
     // Initialize with existing doctor data from doctorSchedules.js
     return transformDoctorProfilesToUIState();
   });
-  const [newDoctorName, setNewDoctorName] = useState('');
+  const [newDoctorName, setNewDoctorName] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
 
   const addDoctor = () => {
     if (newDoctorName.trim()) {
       // Check if doctor name already exists
-      const nameExists = doctors.some(doc => 
-        doc.name.toLowerCase() === newDoctorName.trim().toLowerCase()
+      const nameExists = doctors.some(
+        (doc) => doc.name.toLowerCase() === newDoctorName.trim().toLowerCase()
       );
-      
+
       if (nameExists) {
-        alert('A doctor with this name already exists. Please choose a different name.');
+        alert(
+          "A doctor with this name already exists. Please choose a different name."
+        );
         return;
       }
 
@@ -167,44 +203,50 @@ const DoctorsManager = () => {
         },
         skills: [],
         rotations: {},
-        isImported: false // Mark as custom doctor
+        isImported: false, // Mark as custom doctor
       };
       setDoctors([...doctors, newDoctor]);
-      setNewDoctorName('');
+      setNewDoctorName("");
       setShowAddForm(false);
     }
   };
 
   const deleteDoctor = (doctorId) => {
-    setDoctors(doctors.filter(doc => doc.id !== doctorId));
+    setDoctors(doctors.filter((doc) => doc.id !== doctorId));
   };
 
   const updateDoctor = (doctorId, updatedDoctor) => {
-    setDoctors(doctors.map(doc => 
-      doc.id === doctorId ? { ...doc, ...updatedDoctor } : doc
-    ));
+    setDoctors(
+      doctors.map((doc) =>
+        doc.id === doctorId ? { ...doc, ...updatedDoctor } : doc
+      )
+    );
   };
 
   const refreshComputedRotations = (doctorId) => {
-    setDoctors(doctors.map(doc => {
-      if (doc.id === doctorId && doc.isImported) {
-        // Re-generate computed rotations using the latest data
-        const freshDoctorData = transformDoctorProfilesToUIState().find(d => d.id === doctorId);
-        if (freshDoctorData) {
-          return {
-            ...doc,
-            rotations: freshDoctorData.rotations,
-            computedRotations: freshDoctorData.computedRotations,
-            rotationTypes: freshDoctorData.rotationTypes
-          };
+    setDoctors(
+      doctors.map((doc) => {
+        if (doc.id === doctorId && doc.isImported) {
+          // Re-generate computed rotations using the latest data
+          const freshDoctorData = transformDoctorProfilesToUIState().find(
+            (d) => d.id === doctorId
+          );
+          if (freshDoctorData) {
+            return {
+              ...doc,
+              rotations: freshDoctorData.rotations,
+              computedRotations: freshDoctorData.computedRotations,
+              rotationTypes: freshDoctorData.rotationTypes,
+            };
+          }
         }
-      }
-      return doc;
-    }));
+        return doc;
+      })
+    );
   };
 
-  const importedDoctors = doctors.filter(doc => doc.isImported);
-  const customDoctors = doctors.filter(doc => !doc.isImported);
+  const importedDoctors = doctors.filter((doc) => doc.isImported);
+  const customDoctors = doctors.filter((doc) => !doc.isImported);
 
   return (
     <div className="doctors-manager">
@@ -213,11 +255,13 @@ const DoctorsManager = () => {
         <h3>Doctors Management</h3>
         <p>
           <span className="summary-item">
-            <strong>{importedDoctors.length}</strong> doctors imported from system data
+            <strong>{importedDoctors.length}</strong> doctors imported from
+            system data
           </span>
           {customDoctors.length > 0 && (
             <span className="summary-item">
-              <strong>{customDoctors.length}</strong> custom doctor{customDoctors.length > 1 ? 's' : ''} added
+              <strong>{customDoctors.length}</strong> custom doctor
+              {customDoctors.length > 1 ? "s" : ""} added
             </span>
           )}
         </p>
@@ -225,27 +269,27 @@ const DoctorsManager = () => {
 
       {/* Add New Doctor Section */}
       {!showAddForm ? (
-        <button 
-          onClick={() => setShowAddForm(true)} 
+        <button
+          onClick={() => setShowAddForm(true)}
           className="add-doctor-button"
         >
           Add Custom Doctor
         </button>
       ) : (
-        <AddDoctorForm 
+        <AddDoctorForm
           newDoctorName={newDoctorName}
           setNewDoctorName={setNewDoctorName}
           onAdd={addDoctor}
           onCancel={() => {
             setShowAddForm(false);
-            setNewDoctorName('');
+            setNewDoctorName("");
           }}
         />
       )}
 
       {/* Doctor List */}
       <div className="doctors-list">
-        {doctors.map(doctor => (
+        {doctors.map((doctor) => (
           <DoctorCard
             key={doctor.id}
             doctor={doctor}
@@ -261,15 +305,15 @@ const DoctorsManager = () => {
 
 const DoctorCard = ({ doctor, onUpdate, onDelete, onRefreshRotations }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState('backbone');
+  const [activeTab, setActiveTab] = useState("backbone");
 
   const updateBackbone = (day, timeSlot, activities) => {
     const newBackbone = {
       ...doctor.backbone,
       [day]: {
         ...doctor.backbone[day],
-        [timeSlot]: activities
-      }
+        [timeSlot]: activities,
+      },
     };
     onUpdate({ backbone: newBackbone });
   };
@@ -281,7 +325,7 @@ const DoctorCard = ({ doctor, onUpdate, onDelete, onRefreshRotations }) => {
   const addRotation = (rotationName, rotationData) => {
     const newRotations = {
       ...doctor.rotations,
-      [rotationName]: rotationData
+      [rotationName]: rotationData,
     };
     onUpdate({ rotations: newRotations });
   };
@@ -295,7 +339,7 @@ const DoctorCard = ({ doctor, onUpdate, onDelete, onRefreshRotations }) => {
   const updateRotation = (rotationName, updatedRotationData) => {
     const newRotations = {
       ...doctor.rotations,
-      [rotationName]: updatedRotationData
+      [rotationName]: updatedRotationData,
     };
     onUpdate({ rotations: newRotations });
   };
@@ -306,7 +350,9 @@ const DoctorCard = ({ doctor, onUpdate, onDelete, onRefreshRotations }) => {
         <div className="doctor-info">
           <h3>{doctor.name}</h3>
           {doctor.isImported && (
-            <span className="doctor-type-badge imported">Imported from System</span>
+            <span className="doctor-type-badge imported">
+              Imported from System
+            </span>
           )}
           {!doctor.isImported && (
             <span className="doctor-type-badge custom">Custom Doctor</span>
@@ -314,13 +360,18 @@ const DoctorCard = ({ doctor, onUpdate, onDelete, onRefreshRotations }) => {
         </div>
         <div className="doctor-card-actions">
           <button onClick={() => setIsExpanded(!isExpanded)}>
-            {isExpanded ? 'Collapse' : 'Expand'}
+            {isExpanded ? "Collapse" : "Expand"}
           </button>
           {!doctor.isImported && (
-            <button onClick={onDelete} className="delete-button">Delete</button>
+            <button onClick={onDelete} className="delete-button">
+              Delete
+            </button>
           )}
           {doctor.isImported && (
-            <span className="imported-notice" title="Imported doctors cannot be deleted, but can be edited">
+            <span
+              className="imported-notice"
+              title="Imported doctors cannot be deleted, but can be edited"
+            >
               System Doctor
             </span>
           )}
@@ -330,41 +381,38 @@ const DoctorCard = ({ doctor, onUpdate, onDelete, onRefreshRotations }) => {
       {isExpanded && (
         <div className="doctor-card-content">
           <div className="tabs">
-            <button 
-              className={activeTab === 'backbone' ? 'active' : ''}
-              onClick={() => setActiveTab('backbone')}
+            <button
+              className={activeTab === "backbone" ? "active" : ""}
+              onClick={() => setActiveTab("backbone")}
             >
               Backbone
             </button>
-            <button 
-              className={activeTab === 'skills' ? 'active' : ''}
-              onClick={() => setActiveTab('skills')}
+            <button
+              className={activeTab === "skills" ? "active" : ""}
+              onClick={() => setActiveTab("skills")}
             >
               Skills
             </button>
-            <button 
-              className={activeTab === 'rotations' ? 'active' : ''}
-              onClick={() => setActiveTab('rotations')}
+            <button
+              className={activeTab === "rotations" ? "active" : ""}
+              onClick={() => setActiveTab("rotations")}
             >
               Rotations ({Object.keys(doctor.rotations || {}).length})
             </button>
           </div>
 
           <div className="tab-content">
-            {activeTab === 'backbone' && (
-              <BackboneEditor 
-                backbone={doctor.backbone} 
-                onUpdate={updateBackbone} 
+            {activeTab === "backbone" && (
+              <BackboneEditor
+                backbone={doctor.backbone}
+                onUpdate={updateBackbone}
               />
             )}
-            {activeTab === 'skills' && (
-              <SkillsEditor 
-                skills={doctor.skills} 
-                onUpdate={updateSkills} 
-              />
+            {activeTab === "skills" && (
+              <SkillsEditor skills={doctor.skills} onUpdate={updateSkills} />
             )}
-            {activeTab === 'rotations' && (
-              <RotationsManager 
+            {activeTab === "rotations" && (
+              <RotationsManager
                 rotations={doctor.rotations}
                 rotationTypes={doctor.rotationTypes || {}}
                 backbone={doctor.backbone}
@@ -398,38 +446,45 @@ const BackboneEditor = ({ backbone, onUpdate }) => {
   return (
     <div className="backbone-editor">
       <h4>Backbone Schedule (Base Constraints)</h4>
-      <p>Click on a time slot to edit. Backbone activities take precedence over rotations.</p>
-      
+      <p>
+        Click on a time slot to edit. Backbone activities take precedence over
+        rotations.
+      </p>
+
       <div className="editable-schedule">
         <div className="header-row">
-          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => (
-            <div key={day} className="day-header">
-              <div>{day}</div>
-              <div className="am-pm-header">
-                <div>AM</div>
-                <div>PM</div>
+          {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
+            (day) => (
+              <div key={day} className="day-header">
+                <div>{day}</div>
+                <div className="am-pm-header">
+                  <div>AM</div>
+                  <div>PM</div>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          )}
         </div>
 
         <div className="schedule-columns">
-          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
-            <div key={day} className="day-column">
-              <EditableTimeSlot
-                day={day}
-                timeSlot="9am-1pm"
-                activities={backbone[day]["9am-1pm"]}
-                onClick={() => handleSlotClick(day, "9am-1pm")}
-              />
-              <EditableTimeSlot
-                day={day}
-                timeSlot="2pm-6pm"
-                activities={backbone[day]["2pm-6pm"]}
-                onClick={() => handleSlotClick(day, "2pm-6pm")}
-              />
-            </div>
-          ))}
+          {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
+            (day) => (
+              <div key={day} className="day-column">
+                <EditableTimeSlot
+                  day={day}
+                  timeSlot="9am-1pm"
+                  activities={backbone[day]["9am-1pm"]}
+                  onClick={() => handleSlotClick(day, "9am-1pm")}
+                />
+                <EditableTimeSlot
+                  day={day}
+                  timeSlot="2pm-6pm"
+                  activities={backbone[day]["2pm-6pm"]}
+                  onClick={() => handleSlotClick(day, "2pm-6pm")}
+                />
+              </div>
+            )
+          )}
         </div>
       </div>
 
@@ -447,7 +502,9 @@ const BackboneEditor = ({ backbone, onUpdate }) => {
 const EditableTimeSlot = ({ day, timeSlot, activities, onClick }) => {
   return (
     <div className="editable-timeslot" onClick={onClick}>
-      <div className="timeslot-label">{timeSlot.includes('9am') ? 'AM' : 'PM'}</div>
+      <div className="timeslot-label">
+        {timeSlot.includes("9am") ? "AM" : "PM"}
+      </div>
       <div className="timeslot-content">
         {activities.length > 0 ? (
           activities.map((activity, index) => (
@@ -455,8 +512,10 @@ const EditableTimeSlot = ({ day, timeSlot, activities, onClick }) => {
               key={index}
               className="activity-block"
               style={{
-                backgroundColor: activityColors[activity] || '#ccc',
-                height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
+                backgroundColor: activityColors[activity] || "#ccc",
+                height: `${
+                  ((docActivities[activity]?.duration || 1) / 4) * 90
+                }px`,
               }}
             >
               {activity}
@@ -472,12 +531,12 @@ const EditableTimeSlot = ({ day, timeSlot, activities, onClick }) => {
 
 const TimeSlotEditor = ({ slot, onSave, onCancel }) => {
   const [selectedActivities, setSelectedActivities] = useState(slot.activities);
-  
-  const backboneOptions = ['TP', 'Cs', 'Chefferie']; // Common backbone activities
-  
+
+  const backboneOptions = ["TP", "Cs", "Chefferie"]; // Common backbone activities
+
   const handleActivityToggle = (activity) => {
     if (selectedActivities.includes(activity)) {
-      setSelectedActivities(selectedActivities.filter(a => a !== activity));
+      setSelectedActivities(selectedActivities.filter((a) => a !== activity));
     } else {
       setSelectedActivities([...selectedActivities, activity]);
     }
@@ -490,21 +549,25 @@ const TimeSlotEditor = ({ slot, onSave, onCancel }) => {
   return (
     <div className="timeslot-editor-overlay">
       <div className="timeslot-editor">
-        <h4>Edit {slot.day} {slot.timeSlot}</h4>
-        
+        <h4>
+          Edit {slot.day} {slot.timeSlot}
+        </h4>
+
         <div className="activity-options">
           <div className="activity-section">
             <h5>Backbone Activities:</h5>
-            {backboneOptions.map(activity => (
+            {backboneOptions.map((activity) => (
               <label key={activity} className="activity-option">
                 <input
                   type="checkbox"
                   checked={selectedActivities.includes(activity)}
                   onChange={() => handleActivityToggle(activity)}
                 />
-                <span 
+                <span
                   className="activity-preview"
-                  style={{ backgroundColor: activityColors[activity] || '#ccc' }}
+                  style={{
+                    backgroundColor: activityColors[activity] || "#ccc",
+                  }}
                 >
                   {activity}
                 </span>
@@ -526,7 +589,7 @@ const TimeSlotEditor = ({ slot, onSave, onCancel }) => {
 const SkillsEditor = ({ skills, onUpdate }) => {
   const handleSkillToggle = (skill) => {
     if (skills.includes(skill)) {
-      onUpdate(skills.filter(s => s !== skill));
+      onUpdate(skills.filter((s) => s !== skill));
     } else {
       onUpdate([...skills, skill]);
     }
@@ -536,18 +599,18 @@ const SkillsEditor = ({ skills, onUpdate }) => {
     <div className="skills-editor">
       <h4>Doctor Skills</h4>
       <p>Select activities this doctor can perform:</p>
-      
+
       <div className="skills-grid">
-        {Object.keys(docActivities).map(activity => (
+        {Object.keys(docActivities).map((activity) => (
           <label key={activity} className="skill-option">
             <input
               type="checkbox"
               checked={skills.includes(activity)}
               onChange={() => handleSkillToggle(activity)}
             />
-            <span 
+            <span
               className="skill-preview"
-              style={{ backgroundColor: activityColors[activity] || '#ccc' }}
+              style={{ backgroundColor: activityColors[activity] || "#ccc" }}
             >
               {activity} ({docActivities[activity].duration}h)
             </span>
@@ -558,17 +621,26 @@ const SkillsEditor = ({ skills, onUpdate }) => {
   );
 };
 
-const RotationSettingEditor = ({ rotationSetting, computedRotations, backbone, doctorId, onUpdate, onRefresh }) => {
-  const [selectedTemplates, setSelectedTemplates] = useState([...rotationSetting]);
+const RotationSettingEditor = ({
+  rotationSetting,
+  computedRotations,
+  backbone,
+  doctorId,
+  onUpdate,
+  onRefresh,
+}) => {
+  const [selectedTemplates, setSelectedTemplates] = useState([
+    ...rotationSetting,
+  ]);
   const [previewRotations, setPreviewRotations] = useState(null);
 
   const handleTemplateToggle = (templateName) => {
     const newTemplates = selectedTemplates.includes(templateName)
-      ? selectedTemplates.filter(t => t !== templateName)
+      ? selectedTemplates.filter((t) => t !== templateName)
       : [...selectedTemplates, templateName];
-    
+
     setSelectedTemplates(newTemplates);
-    
+
     // Generate preview of what rotations would be created
     if (newTemplates.length > 0) {
       try {
@@ -576,12 +648,12 @@ const RotationSettingEditor = ({ rotationSetting, computedRotations, backbone, d
         const tempProfile = {
           backbone,
           skills: [], // Skills not needed for preview
-          rotationSetting: newTemplates
+          rotationSetting: newTemplates,
         };
-        
+
         // Mock generateDoctorRotations call
         const preview = {};
-        newTemplates.forEach(template => {
+        newTemplates.forEach((template) => {
           if (rotationTemplates[template]) {
             const merged = mergeTemplateWithBackbone(template, backbone);
             preview[template] = merged;
@@ -590,7 +662,7 @@ const RotationSettingEditor = ({ rotationSetting, computedRotations, backbone, d
         });
         setPreviewRotations(preview);
       } catch (error) {
-        console.error('Error generating preview:', error);
+        console.error("Error generating preview:", error);
         setPreviewRotations(null);
       }
     } else {
@@ -608,25 +680,32 @@ const RotationSettingEditor = ({ rotationSetting, computedRotations, backbone, d
   };
 
   const availableTemplates = Object.keys(rotationTemplates);
-  const hasChanges = JSON.stringify(selectedTemplates.sort()) !== JSON.stringify(rotationSetting.sort());
+  const hasChanges =
+    JSON.stringify(selectedTemplates.sort()) !==
+    JSON.stringify(rotationSetting.sort());
 
   return (
     <div className="rotation-setting-editor">
       <h4>Rotation Templates Configuration</h4>
-      <p>Select templates that will automatically generate rotations for this doctor. The system will create base rotations and common variations.</p>
+      <p>
+        Select templates that will automatically generate rotations for this
+        doctor. The system will create base rotations and common variations.
+      </p>
 
       <div className="current-settings">
         <h5>Current Templates:</h5>
         {rotationSetting.length > 0 ? (
           <div className="template-badges">
-            {rotationSetting.map(template => (
+            {rotationSetting.map((template) => (
               <span key={template} className="template-badge current">
                 {template}
               </span>
             ))}
           </div>
         ) : (
-          <p className="no-templates">No templates configured. Rotations are manually defined.</p>
+          <p className="no-templates">
+            No templates configured. Rotations are manually defined.
+          </p>
         )}
       </div>
 
@@ -634,9 +713,12 @@ const RotationSettingEditor = ({ rotationSetting, computedRotations, backbone, d
         <h5>Currently Generated Rotations:</h5>
         {Object.keys(computedRotations).length > 0 ? (
           <div className="rotation-summary">
-            <p><strong>{Object.keys(computedRotations).length}</strong> rotations automatically generated</p>
+            <p>
+              <strong>{Object.keys(computedRotations).length}</strong> rotations
+              automatically generated
+            </p>
             <div className="rotation-list">
-              {Object.keys(computedRotations).map(rotationName => (
+              {Object.keys(computedRotations).map((rotationName) => (
                 <span key={rotationName} className="rotation-badge">
                   {rotationName}
                 </span>
@@ -651,16 +733,14 @@ const RotationSettingEditor = ({ rotationSetting, computedRotations, backbone, d
       <div className="template-selector">
         <h5>Available Templates:</h5>
         <div className="templates-grid">
-          {availableTemplates.map(template => (
+          {availableTemplates.map((template) => (
             <label key={template} className="template-option">
               <input
                 type="checkbox"
                 checked={selectedTemplates.includes(template)}
                 onChange={() => handleTemplateToggle(template)}
               />
-              <span className="template-name">
-                {template}
-              </span>
+              <span className="template-name">{template}</span>
               <span className="template-description">
                 Base template + variations
               </span>
@@ -673,7 +753,7 @@ const RotationSettingEditor = ({ rotationSetting, computedRotations, backbone, d
         <div className="preview-section">
           <h5>Preview - Rotations that would be generated:</h5>
           <div className="preview-rotations">
-            {Object.keys(previewRotations).map(rotationName => (
+            {Object.keys(previewRotations).map((rotationName) => (
               <span key={rotationName} className="rotation-badge preview">
                 {rotationName}
               </span>
@@ -696,7 +776,8 @@ const RotationSettingEditor = ({ rotationSetting, computedRotations, backbone, d
         )}
         {hasChanges && (
           <p className="save-note">
-            Note: Changes will be saved and rotations will be automatically refreshed.
+            Note: Changes will be saved and rotations will be automatically
+            refreshed.
           </p>
         )}
       </div>
@@ -704,24 +785,48 @@ const RotationSettingEditor = ({ rotationSetting, computedRotations, backbone, d
   );
 };
 
-const RotationCard = ({ name, rotation, rotationType, backbone, skills, onDelete, onUpdate }) => {
+const RotationCard = ({
+  name,
+  rotation,
+  rotationType,
+  backbone,
+  skills,
+  onDelete,
+  onUpdate,
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   // Determine if rotation is template-based or custom
-  const isTemplate = typeof rotation === 'string';
-  
+  const isTemplate = typeof rotation === "string";
+
   // Get rotation type display info
   const getRotationTypeInfo = () => {
     switch (rotationType) {
-      case 'hardcoded':
-        return { label: 'Hard-coded', className: 'hardcoded', description: 'Manually defined rotation' };
-      case 'template':
-        return { label: 'Template', className: 'template', description: 'Generated from template' };
-      case 'generated':
-        return { label: 'Auto-generated', className: 'generated', description: 'Automatically created variation' };
+      case "hardcoded":
+        return {
+          label: "Hard-coded",
+          className: "hardcoded",
+          description: "Manually defined rotation",
+        };
+      case "template":
+        return {
+          label: "Template",
+          className: "template",
+          description: "Generated from template",
+        };
+      case "generated":
+        return {
+          label: "Auto-generated",
+          className: "generated",
+          description: "Automatically created variation",
+        };
       default:
-        return { label: isTemplate ? `Template: ${rotation}` : 'Custom', className: 'default', description: 'Custom rotation' };
+        return {
+          label: isTemplate ? `Template: ${rotation}` : "Custom",
+          className: "default",
+          description: "Custom rotation",
+        };
     }
   };
 
@@ -734,7 +839,7 @@ const RotationCard = ({ name, rotation, rotationType, backbone, skills, onDelete
       try {
         return mergeTemplateWithBackbone(rotation, backbone);
       } catch (error) {
-        console.error('Error building template schedule:', error);
+        console.error("Error building template schedule:", error);
         return backbone; // Fallback to backbone
       }
     } else {
@@ -750,24 +855,32 @@ const RotationCard = ({ name, rotation, rotationType, backbone, skills, onDelete
       <div className="rotation-card-header">
         <div className="rotation-info">
           <h5>{name}</h5>
-          <span className={`rotation-type ${typeInfo.className}`} title={typeInfo.description}>
+          <span
+            className={`rotation-type ${typeInfo.className}`}
+            title={typeInfo.description}
+          >
             {typeInfo.label}
           </span>
         </div>
         <div className="rotation-actions">
           <button onClick={() => setIsExpanded(!isExpanded)}>
-            {isExpanded ? 'Collapse' : 'View Schedule'}
+            {isExpanded ? "Collapse" : "View Schedule"}
           </button>
-          {!isTemplate && rotationType !== 'generated' && (
+          {!isTemplate && rotationType !== "generated" && (
             <button onClick={() => setIsEditing(!isEditing)}>
-              {isEditing ? 'Done Editing' : 'Edit'}
+              {isEditing ? "Done Editing" : "Edit"}
             </button>
           )}
-          {rotationType === 'hardcoded' && (
-            <button onClick={onDelete} className="delete-button">Delete</button>
+          {rotationType === "hardcoded" && (
+            <button onClick={onDelete} className="delete-button">
+              Delete
+            </button>
           )}
-          {rotationType === 'generated' && (
-            <span className="auto-generated-note" title="This rotation is automatically generated from templates">
+          {rotationType === "generated" && (
+            <span
+              className="auto-generated-note"
+              title="This rotation is automatically generated from templates"
+            >
               Auto-generated
             </span>
           )}
@@ -778,10 +891,15 @@ const RotationCard = ({ name, rotation, rotationType, backbone, skills, onDelete
         <div className="rotation-card-content">
           {isTemplate && (
             <div className="template-info">
-              <p><strong>Template-based rotation:</strong> This schedule is generated from the "{rotation}" template merged with your backbone constraints. To customize it, you can delete this rotation and create a custom one.</p>
+              <p>
+                <strong>Template-based rotation:</strong> This schedule is
+                generated from the "{rotation}" template merged with your
+                backbone constraints. To customize it, you can delete this
+                rotation and create a custom one.
+              </p>
             </div>
           )}
-          
+
           {isEditing && !isTemplate ? (
             <RotationScheduleEditor
               schedule={schedule}
@@ -792,64 +910,78 @@ const RotationCard = ({ name, rotation, rotationType, backbone, skills, onDelete
           ) : (
             <div className="rotation-schedule-display">
               <div className="header-row">
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => (
-                  <div key={day} className="day-header">
-                    <div>{day}</div>
-                    <div className="am-pm-header">
-                      <div>AM</div>
-                      <div>PM</div>
+                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
+                  (day) => (
+                    <div key={day} className="day-header">
+                      <div>{day}</div>
+                      <div className="am-pm-header">
+                        <div>AM</div>
+                        <div>PM</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
 
               <div className="schedule-columns">
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
-                  <div key={day} className="day-column">
-                    <div className="display-timeslot">
-                      <div className="timeslot-label">AM</div>
-                      <div className="timeslot-content">
-                        {schedule[day]["9am-1pm"].length > 0 ? (
-                          schedule[day]["9am-1pm"].map((activity, index) => (
-                            <div
-                              key={index}
-                              className="activity-block"
-                              style={{
-                                backgroundColor: activityColors[activity] || '#ccc',
-                                height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
-                              }}
-                            >
-                              {activity}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="no-schedule">Empty</div>
-                        )}
+                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
+                  (day) => (
+                    <div key={day} className="day-column">
+                      <div className="display-timeslot">
+                        <div className="timeslot-label">AM</div>
+                        <div className="timeslot-content">
+                          {schedule[day]["9am-1pm"].length > 0 ? (
+                            schedule[day]["9am-1pm"].map((activity, index) => (
+                              <div
+                                key={index}
+                                className="activity-block"
+                                style={{
+                                  backgroundColor:
+                                    activityColors[activity] || "#ccc",
+                                  height: `${
+                                    ((docActivities[activity]?.duration || 1) /
+                                      4) *
+                                    90
+                                  }px`,
+                                }}
+                              >
+                                {activity}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="no-schedule">Empty</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="display-timeslot">
+                        <div className="timeslot-label">PM</div>
+                        <div className="timeslot-content">
+                          {schedule[day]["2pm-6pm"].length > 0 ? (
+                            schedule[day]["2pm-6pm"].map((activity, index) => (
+                              <div
+                                key={index}
+                                className="activity-block"
+                                style={{
+                                  backgroundColor:
+                                    activityColors[activity] || "#ccc",
+                                  height: `${
+                                    ((docActivities[activity]?.duration || 1) /
+                                      4) *
+                                    90
+                                  }px`,
+                                }}
+                              >
+                                {activity}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="no-schedule">Empty</div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="display-timeslot">
-                      <div className="timeslot-label">PM</div>
-                      <div className="timeslot-content">
-                        {schedule[day]["2pm-6pm"].length > 0 ? (
-                          schedule[day]["2pm-6pm"].map((activity, index) => (
-                            <div
-                              key={index}
-                              className="activity-block"
-                              style={{
-                                backgroundColor: activityColors[activity] || '#ccc',
-                                height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
-                              }}
-                            >
-                              {activity}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="no-schedule">Empty</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             </div>
           )}
@@ -867,10 +999,10 @@ const RotationScheduleEditor = ({ schedule, skills, onUpdate, onCancel }) => {
   const [selectedSlot, setSelectedSlot] = useState(null);
 
   const handleSlotClick = (day, timeSlot) => {
-    setSelectedSlot({ 
-      day, 
-      timeSlot, 
-      activities: editingSchedule[day][timeSlot] 
+    setSelectedSlot({
+      day,
+      timeSlot,
+      activities: editingSchedule[day][timeSlot],
     });
   };
 
@@ -880,8 +1012,8 @@ const RotationScheduleEditor = ({ schedule, skills, onUpdate, onCancel }) => {
         ...editingSchedule,
         [selectedSlot.day]: {
           ...editingSchedule[selectedSlot.day],
-          [selectedSlot.timeSlot]: activities
-        }
+          [selectedSlot.timeSlot]: activities,
+        },
       };
       setEditingSchedule(newSchedule);
       setSelectedSlot(null);
@@ -896,38 +1028,45 @@ const RotationScheduleEditor = ({ schedule, skills, onUpdate, onCancel }) => {
   return (
     <div className="rotation-schedule-editor">
       <h5>Edit Rotation Schedule</h5>
-      <p>Click on any time slot to edit activities. You can assign any activity from the doctor's skills.</p>
-      
+      <p>
+        Click on any time slot to edit activities. You can assign any activity
+        from the doctor's skills.
+      </p>
+
       <div className="editable-schedule">
         <div className="header-row">
-          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => (
-            <div key={day} className="day-header">
-              <div>{day}</div>
-              <div className="am-pm-header">
-                <div>AM</div>
-                <div>PM</div>
+          {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
+            (day) => (
+              <div key={day} className="day-header">
+                <div>{day}</div>
+                <div className="am-pm-header">
+                  <div>AM</div>
+                  <div>PM</div>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          )}
         </div>
 
         <div className="schedule-columns">
-          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
-            <div key={day} className="day-column">
-              <EditableTimeSlot
-                day={day}
-                timeSlot="9am-1pm"
-                activities={editingSchedule[day]["9am-1pm"]}
-                onClick={() => handleSlotClick(day, "9am-1pm")}
-              />
-              <EditableTimeSlot
-                day={day}
-                timeSlot="2pm-6pm"
-                activities={editingSchedule[day]["2pm-6pm"]}
-                onClick={() => handleSlotClick(day, "2pm-6pm")}
-              />
-            </div>
-          ))}
+          {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
+            (day) => (
+              <div key={day} className="day-column">
+                <EditableTimeSlot
+                  day={day}
+                  timeSlot="9am-1pm"
+                  activities={editingSchedule[day]["9am-1pm"]}
+                  onClick={() => handleSlotClick(day, "9am-1pm")}
+                />
+                <EditableTimeSlot
+                  day={day}
+                  timeSlot="2pm-6pm"
+                  activities={editingSchedule[day]["2pm-6pm"]}
+                  onClick={() => handleSlotClick(day, "2pm-6pm")}
+                />
+              </div>
+            )
+          )}
         </div>
       </div>
 
@@ -950,10 +1089,10 @@ const RotationScheduleEditor = ({ schedule, skills, onUpdate, onCancel }) => {
 
 const RotationTimeSlotEditor = ({ slot, skills, onSave, onCancel }) => {
   const [selectedActivities, setSelectedActivities] = useState(slot.activities);
-  
+
   const handleActivityToggle = (activity) => {
     if (selectedActivities.includes(activity)) {
-      setSelectedActivities(selectedActivities.filter(a => a !== activity));
+      setSelectedActivities(selectedActivities.filter((a) => a !== activity));
     } else {
       setSelectedActivities([...selectedActivities, activity]);
     }
@@ -966,39 +1105,45 @@ const RotationTimeSlotEditor = ({ slot, skills, onSave, onCancel }) => {
   return (
     <div className="timeslot-editor-overlay">
       <div className="timeslot-editor">
-        <h4>Edit {slot.day} {slot.timeSlot}</h4>
-        
+        <h4>
+          Edit {slot.day} {slot.timeSlot}
+        </h4>
+
         <div className="activity-options">
           <div className="activity-section">
             <h5>Available Activities (from doctor's skills):</h5>
-            {skills.map(activity => (
+            {skills.map((activity) => (
               <label key={activity} className="activity-option">
                 <input
                   type="checkbox"
                   checked={selectedActivities.includes(activity)}
                   onChange={() => handleActivityToggle(activity)}
                 />
-                <span 
+                <span
                   className="activity-preview"
-                  style={{ backgroundColor: activityColors[activity] || '#ccc' }}
+                  style={{
+                    backgroundColor: activityColors[activity] || "#ccc",
+                  }}
                 >
                   {activity} ({docActivities[activity]?.duration || 1}h)
                 </span>
               </label>
             ))}
-            
+
             <div className="activity-section">
               <h5>Other Activities:</h5>
-              {['TP', 'Cs', 'Chefferie'].map(activity => (
+              {["TP", "Cs", "Chefferie"].map((activity) => (
                 <label key={activity} className="activity-option">
                   <input
                     type="checkbox"
                     checked={selectedActivities.includes(activity)}
                     onChange={() => handleActivityToggle(activity)}
                   />
-                  <span 
+                  <span
                     className="activity-preview"
-                    style={{ backgroundColor: activityColors[activity] || '#ccc' }}
+                    style={{
+                      backgroundColor: activityColors[activity] || "#ccc",
+                    }}
                   >
                     {activity}
                   </span>
@@ -1018,11 +1163,19 @@ const RotationTimeSlotEditor = ({ slot, skills, onSave, onCancel }) => {
   );
 };
 
-const RotationsManager = ({ rotations, rotationTypes, backbone, skills, onAdd, onDelete, onUpdate }) => {
+const RotationsManager = ({
+  rotations,
+  rotationTypes,
+  backbone,
+  skills,
+  onAdd,
+  onDelete,
+  onUpdate,
+}) => {
   const [showAddForm, setShowAddForm] = useState(false);
-  const [rotationMode, setRotationMode] = useState('template'); // 'template' or 'custom'
-  const [newRotationName, setNewRotationName] = useState('');
-  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [rotationMode, setRotationMode] = useState("template"); // 'template' or 'custom'
+  const [newRotationName, setNewRotationName] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState("");
   const [previewSchedule, setPreviewSchedule] = useState(null);
 
   // Generate preview when template is selected
@@ -1034,7 +1187,7 @@ const RotationsManager = ({ rotations, rotationTypes, backbone, skills, onAdd, o
         const preview = mergeTemplateWithBackbone(templateName, backbone);
         setPreviewSchedule(preview);
       } catch (error) {
-        console.error('Error generating preview:', error);
+        console.error("Error generating preview:", error);
         setPreviewSchedule(null);
       }
     } else {
@@ -1046,7 +1199,7 @@ const RotationsManager = ({ rotations, rotationTypes, backbone, skills, onAdd, o
     if (!newRotationName.trim()) return;
 
     let rotationData;
-    if (rotationMode === 'template' && selectedTemplate) {
+    if (rotationMode === "template" && selectedTemplate) {
       // Generate the actual schedule by merging template with backbone
       // Use the previewSchedule if available, otherwise generate fresh
       if (previewSchedule) {
@@ -1055,7 +1208,7 @@ const RotationsManager = ({ rotations, rotationTypes, backbone, skills, onAdd, o
         try {
           rotationData = mergeTemplateWithBackbone(selectedTemplate, backbone);
         } catch (error) {
-          console.error('Error creating rotation from template:', error);
+          console.error("Error creating rotation from template:", error);
           rotationData = { ...backbone }; // Fallback to backbone
         }
       }
@@ -1065,8 +1218,8 @@ const RotationsManager = ({ rotations, rotationTypes, backbone, skills, onAdd, o
     }
 
     onAdd(newRotationName, rotationData);
-    setNewRotationName('');
-    setSelectedTemplate('');
+    setNewRotationName("");
+    setSelectedTemplate("");
     setPreviewSchedule(null);
     setShowAddForm(false);
   };
@@ -1074,24 +1227,29 @@ const RotationsManager = ({ rotations, rotationTypes, backbone, skills, onAdd, o
   return (
     <div className="rotations-manager">
       <h4>Rotations</h4>
-      
+
       <div className="existing-rotations">
         {Object.entries(rotations).map(([name, rotation]) => (
           <RotationCard
             key={name}
             name={name}
             rotation={rotation}
-            rotationType={rotationTypes?.[name] || 'hardcoded'}
+            rotationType={rotationTypes?.[name] || "hardcoded"}
             backbone={backbone}
             skills={skills}
             onDelete={() => onDelete(name)}
-            onUpdate={(updatedRotation) => onUpdate && onUpdate(name, updatedRotation)}
+            onUpdate={(updatedRotation) =>
+              onUpdate && onUpdate(name, updatedRotation)
+            }
           />
         ))}
       </div>
 
       {!showAddForm ? (
-        <button onClick={() => setShowAddForm(true)} className="add-rotation-button">
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="add-rotation-button"
+        >
           Add New Rotation
         </button>
       ) : (
@@ -1102,13 +1260,13 @@ const RotationsManager = ({ rotations, rotationTypes, backbone, skills, onAdd, o
             value={newRotationName}
             onChange={(e) => setNewRotationName(e.target.value)}
           />
-          
+
           <div className="rotation-mode-selector">
             <label>
               <input
                 type="radio"
                 value="template"
-                checked={rotationMode === 'template'}
+                checked={rotationMode === "template"}
                 onChange={(e) => setRotationMode(e.target.value)}
               />
               Use Template
@@ -1117,31 +1275,39 @@ const RotationsManager = ({ rotations, rotationTypes, backbone, skills, onAdd, o
               <input
                 type="radio"
                 value="custom"
-                checked={rotationMode === 'custom'}
+                checked={rotationMode === "custom"}
                 onChange={(e) => setRotationMode(e.target.value)}
               />
               Custom (Start with Backbone)
             </label>
           </div>
 
-          {rotationMode === 'template' && (
+          {rotationMode === "template" && (
             <>
-              <select 
-                value={selectedTemplate} 
+              <select
+                value={selectedTemplate}
                 onChange={(e) => handleTemplateChange(e.target.value)}
               >
                 <option value="">Select template...</option>
-                {Object.keys(rotationTemplates).map(template => (
-                  <option key={template} value={template}>{template}</option>
+                {Object.keys(rotationTemplates).map((template) => (
+                  <option key={template} value={template}>
+                    {template}
+                  </option>
                 ))}
               </select>
-              
+
               {previewSchedule && (
                 <div className="template-preview">
                   <h5>Preview: {selectedTemplate} merged with your backbone</h5>
                   <div className="preview-schedule">
                     <div className="header-row">
-                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => (
+                      {[
+                        "Monday",
+                        "Tuesday",
+                        "Wednesday",
+                        "Thursday",
+                        "Friday",
+                      ].map((day) => (
                         <div key={day} className="day-header">
                           <div>{day}</div>
                           <div className="am-pm-header">
@@ -1152,40 +1318,62 @@ const RotationsManager = ({ rotations, rotationTypes, backbone, skills, onAdd, o
                       ))}
                     </div>
                     <div className="schedule-columns">
-                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
+                      {[
+                        "Monday",
+                        "Tuesday",
+                        "Wednesday",
+                        "Thursday",
+                        "Friday",
+                      ].map((day) => (
                         <div key={day} className="day-column">
                           <div className="preview-timeslot">
                             <div className="timeslot-label">AM</div>
                             <div className="timeslot-content">
-                              {previewSchedule[day]["9am-1pm"].map((activity, index) => (
-                                <div
-                                  key={index}
-                                  className="activity-block"
-                                  style={{
-                                    backgroundColor: activityColors[activity] || '#ccc',
-                                    height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
-                                  }}
-                                >
-                                  {activity}
-                                </div>
-                              ))}
+                              {previewSchedule[day]["9am-1pm"].map(
+                                (activity, index) => (
+                                  <div
+                                    key={index}
+                                    className="activity-block"
+                                    style={{
+                                      backgroundColor:
+                                        activityColors[activity] || "#ccc",
+                                      height: `${
+                                        ((docActivities[activity]?.duration ||
+                                          1) /
+                                          4) *
+                                        90
+                                      }px`,
+                                    }}
+                                  >
+                                    {activity}
+                                  </div>
+                                )
+                              )}
                             </div>
                           </div>
                           <div className="preview-timeslot">
                             <div className="timeslot-label">PM</div>
                             <div className="timeslot-content">
-                              {previewSchedule[day]["2pm-6pm"].map((activity, index) => (
-                                <div
-                                  key={index}
-                                  className="activity-block"
-                                  style={{
-                                    backgroundColor: activityColors[activity] || '#ccc',
-                                    height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
-                                  }}
-                                >
-                                  {activity}
-                                </div>
-                              ))}
+                              {previewSchedule[day]["2pm-6pm"].map(
+                                (activity, index) => (
+                                  <div
+                                    key={index}
+                                    className="activity-block"
+                                    style={{
+                                      backgroundColor:
+                                        activityColors[activity] || "#ccc",
+                                      height: `${
+                                        ((docActivities[activity]?.duration ||
+                                          1) /
+                                          4) *
+                                        90
+                                      }px`,
+                                    }}
+                                  >
+                                    {activity}
+                                  </div>
+                                )
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1198,14 +1386,19 @@ const RotationsManager = ({ rotations, rotationTypes, backbone, skills, onAdd, o
           )}
 
           <div className="form-actions">
-            <button onClick={handleAddRotation} disabled={rotationMode === 'template' && !selectedTemplate}>
+            <button
+              onClick={handleAddRotation}
+              disabled={rotationMode === "template" && !selectedTemplate}
+            >
               Add Rotation
             </button>
-            <button onClick={() => {
-              setShowAddForm(false);
-              setPreviewSchedule(null);
-              setSelectedTemplate('');
-            }}>
+            <button
+              onClick={() => {
+                setShowAddForm(false);
+                setPreviewSchedule(null);
+                setSelectedTemplate("");
+              }}
+            >
               Cancel
             </button>
           </div>
@@ -1227,22 +1420,22 @@ const RotationTemplatesManager = () => {
   const [showAddForm, setShowAddForm] = useState(false);
 
   const addTemplate = (templateName, templateData) => {
-    setTemplates(prev => ({
+    setTemplates((prev) => ({
       ...prev,
-      [templateName]: templateData
+      [templateName]: templateData,
     }));
     setShowAddForm(false);
   };
 
   const updateTemplate = (templateName, updatedTemplateData) => {
-    setTemplates(prev => ({
+    setTemplates((prev) => ({
       ...prev,
-      [templateName]: updatedTemplateData
+      [templateName]: updatedTemplateData,
     }));
   };
 
   const deleteTemplate = (templateName) => {
-    setTemplates(prev => {
+    setTemplates((prev) => {
       const updated = { ...prev };
       delete updated[templateName];
       return updated;
@@ -1253,19 +1446,22 @@ const RotationTemplatesManager = () => {
     <div className="rotation-templates-manager">
       <div className="templates-header">
         <h3>Rotation Templates</h3>
-        <p>Manage global rotation templates that can be used by doctors. These templates define weekly schedules for different types of rotations.</p>
+        <p>
+          Manage global rotation templates that can be used by doctors. These
+          templates define weekly schedules for different types of rotations.
+        </p>
       </div>
 
       {/* Add New Template Button */}
       {!showAddForm ? (
-        <button 
-          onClick={() => setShowAddForm(true)} 
+        <button
+          onClick={() => setShowAddForm(true)}
           className="add-template-button"
         >
           Add New Template
         </button>
       ) : (
-        <AddTemplateForm 
+        <AddTemplateForm
           onAdd={addTemplate}
           onCancel={() => setShowAddForm(false)}
           existingTemplates={Object.keys(templates)}
@@ -1279,7 +1475,9 @@ const RotationTemplatesManager = () => {
             key={templateName}
             templateName={templateName}
             templateData={templateData}
-            onUpdate={(updatedData) => updateTemplate(templateName, updatedData)}
+            onUpdate={(updatedData) =>
+              updateTemplate(templateName, updatedData)
+            }
             onDelete={() => deleteTemplate(templateName)}
           />
         ))}
@@ -1294,7 +1492,11 @@ const TemplateCard = ({ templateName, templateData, onUpdate, onDelete }) => {
   const [isEditing, setIsEditing] = useState(false);
 
   const handleDelete = () => {
-    if (window.confirm(`Are you sure you want to delete the "${templateName}" template? This action cannot be undone.`)) {
+    if (
+      window.confirm(
+        `Are you sure you want to delete the "${templateName}" template? This action cannot be undone.`
+      )
+    ) {
       onDelete();
     }
   };
@@ -1308,12 +1510,14 @@ const TemplateCard = ({ templateName, templateData, onUpdate, onDelete }) => {
         </div>
         <div className="template-actions">
           <button onClick={() => setIsExpanded(!isExpanded)}>
-            {isExpanded ? 'Collapse' : 'View Schedule'}
+            {isExpanded ? "Collapse" : "View Schedule"}
           </button>
           <button onClick={() => setIsEditing(!isEditing)}>
-            {isEditing ? 'Done Editing' : 'Edit'}
+            {isEditing ? "Done Editing" : "Edit"}
           </button>
-          <button onClick={handleDelete} className="delete-button">Delete</button>
+          <button onClick={handleDelete} className="delete-button">
+            Delete
+          </button>
         </div>
       </div>
 
@@ -1329,64 +1533,84 @@ const TemplateCard = ({ templateName, templateData, onUpdate, onDelete }) => {
           ) : (
             <div className="template-schedule-display">
               <div className="header-row">
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => (
-                  <div key={day} className="day-header">
-                    <div>{day}</div>
-                    <div className="am-pm-header">
-                      <div>AM</div>
-                      <div>PM</div>
+                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
+                  (day) => (
+                    <div key={day} className="day-header">
+                      <div>{day}</div>
+                      <div className="am-pm-header">
+                        <div>AM</div>
+                        <div>PM</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
 
               <div className="schedule-columns">
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
-                  <div key={day} className="day-column">
-                    <div className="display-timeslot">
-                      <div className="timeslot-label">AM</div>
-                      <div className="timeslot-content">
-                        {templateData[day]["9am-1pm"].length > 0 ? (
-                          templateData[day]["9am-1pm"].map((activity, index) => (
-                            <div
-                              key={index}
-                              className="activity-block"
-                              style={{
-                                backgroundColor: activityColors[activity] || '#ccc',
-                                height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
-                              }}
-                            >
-                              {activity}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="no-schedule">Empty</div>
-                        )}
+                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
+                  (day) => (
+                    <div key={day} className="day-column">
+                      <div className="display-timeslot">
+                        <div className="timeslot-label">AM</div>
+                        <div className="timeslot-content">
+                          {templateData[day]["9am-1pm"].length > 0 ? (
+                            templateData[day]["9am-1pm"].map(
+                              (activity, index) => (
+                                <div
+                                  key={index}
+                                  className="activity-block"
+                                  style={{
+                                    backgroundColor:
+                                      activityColors[activity] || "#ccc",
+                                    height: `${
+                                      ((docActivities[activity]?.duration ||
+                                        1) /
+                                        4) *
+                                      90
+                                    }px`,
+                                  }}
+                                >
+                                  {activity}
+                                </div>
+                              )
+                            )
+                          ) : (
+                            <div className="no-schedule">Empty</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="display-timeslot">
+                        <div className="timeslot-label">PM</div>
+                        <div className="timeslot-content">
+                          {templateData[day]["2pm-6pm"].length > 0 ? (
+                            templateData[day]["2pm-6pm"].map(
+                              (activity, index) => (
+                                <div
+                                  key={index}
+                                  className="activity-block"
+                                  style={{
+                                    backgroundColor:
+                                      activityColors[activity] || "#ccc",
+                                    height: `${
+                                      ((docActivities[activity]?.duration ||
+                                        1) /
+                                        4) *
+                                      90
+                                    }px`,
+                                  }}
+                                >
+                                  {activity}
+                                </div>
+                              )
+                            )
+                          ) : (
+                            <div className="no-schedule">Empty</div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="display-timeslot">
-                      <div className="timeslot-label">PM</div>
-                      <div className="timeslot-content">
-                        {templateData[day]["2pm-6pm"].length > 0 ? (
-                          templateData[day]["2pm-6pm"].map((activity, index) => (
-                            <div
-                              key={index}
-                              className="activity-block"
-                              style={{
-                                backgroundColor: activityColors[activity] || '#ccc',
-                                height: `${((docActivities[activity]?.duration || 1) / 4) * 90}px`,
-                              }}
-                            >
-                              {activity}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="no-schedule">Empty</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             </div>
           )}
@@ -1398,18 +1622,18 @@ const TemplateCard = ({ templateName, templateData, onUpdate, onDelete }) => {
 
 // Add Template Form Component
 const AddTemplateForm = ({ onAdd, onCancel, existingTemplates }) => {
-  const [templateName, setTemplateName] = useState('');
-  const [selectedBaseTemplate, setSelectedBaseTemplate] = useState('');
+  const [templateName, setTemplateName] = useState("");
+  const [selectedBaseTemplate, setSelectedBaseTemplate] = useState("");
   const [isCustom, setIsCustom] = useState(false);
 
   const handleSubmit = () => {
     if (!templateName.trim()) {
-      alert('Please enter a template name');
+      alert("Please enter a template name");
       return;
     }
 
     if (existingTemplates.includes(templateName)) {
-      alert('A template with this name already exists');
+      alert("A template with this name already exists");
       return;
     }
 
@@ -1425,19 +1649,21 @@ const AddTemplateForm = ({ onAdd, onCancel, existingTemplates }) => {
       };
     } else {
       // Copy from existing template
-      templateData = JSON.parse(JSON.stringify(rotationTemplates[selectedBaseTemplate]));
+      templateData = JSON.parse(
+        JSON.stringify(rotationTemplates[selectedBaseTemplate])
+      );
     }
 
     onAdd(templateName, templateData);
-    setTemplateName('');
-    setSelectedBaseTemplate('');
+    setTemplateName("");
+    setSelectedBaseTemplate("");
     setIsCustom(false);
   };
 
   return (
     <div className="add-template-form">
       <h4>Add New Rotation Template</h4>
-      
+
       <input
         type="text"
         placeholder="Template name (e.g., 'New_Rotation')"
@@ -1465,21 +1691,25 @@ const AddTemplateForm = ({ onAdd, onCancel, existingTemplates }) => {
       </div>
 
       {!isCustom && (
-        <select 
-          value={selectedBaseTemplate} 
+        <select
+          value={selectedBaseTemplate}
           onChange={(e) => setSelectedBaseTemplate(e.target.value)}
         >
           <option value="">Select base template...</option>
-          {Object.keys(rotationTemplates).map(template => (
-            <option key={template} value={template}>{template}</option>
+          {Object.keys(rotationTemplates).map((template) => (
+            <option key={template} value={template}>
+              {template}
+            </option>
           ))}
         </select>
       )}
 
       <div className="form-actions">
-        <button 
+        <button
           onClick={handleSubmit}
-          disabled={!templateName.trim() || (!isCustom && !selectedBaseTemplate)}
+          disabled={
+            !templateName.trim() || (!isCustom && !selectedBaseTemplate)
+          }
         >
           Create Template
         </button>
@@ -1497,10 +1727,10 @@ const TemplateEditor = ({ templateName, templateData, onUpdate, onCancel }) => {
   const [selectedSlot, setSelectedSlot] = useState(null);
 
   const handleSlotClick = (day, timeSlot) => {
-    setSelectedSlot({ 
-      day, 
-      timeSlot, 
-      activities: editingSchedule[day][timeSlot] 
+    setSelectedSlot({
+      day,
+      timeSlot,
+      activities: editingSchedule[day][timeSlot],
     });
   };
 
@@ -1510,8 +1740,8 @@ const TemplateEditor = ({ templateName, templateData, onUpdate, onCancel }) => {
         ...editingSchedule,
         [selectedSlot.day]: {
           ...editingSchedule[selectedSlot.day],
-          [selectedSlot.timeSlot]: activities
-        }
+          [selectedSlot.timeSlot]: activities,
+        },
       };
       setEditingSchedule(newSchedule);
       setSelectedSlot(null);
@@ -1526,38 +1756,44 @@ const TemplateEditor = ({ templateName, templateData, onUpdate, onCancel }) => {
   return (
     <div className="template-editor">
       <h5>Edit Template: {templateName}</h5>
-      <p>Click on any time slot to edit activities for this rotation template.</p>
-      
+      <p>
+        Click on any time slot to edit activities for this rotation template.
+      </p>
+
       <div className="editable-schedule">
         <div className="header-row">
-          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => (
-            <div key={day} className="day-header">
-              <div>{day}</div>
-              <div className="am-pm-header">
-                <div>AM</div>
-                <div>PM</div>
+          {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
+            (day) => (
+              <div key={day} className="day-header">
+                <div>{day}</div>
+                <div className="am-pm-header">
+                  <div>AM</div>
+                  <div>PM</div>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          )}
         </div>
 
         <div className="schedule-columns">
-          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
-            <div key={day} className="day-column">
-              <EditableTimeSlot
-                day={day}
-                timeSlot="9am-1pm"
-                activities={editingSchedule[day]["9am-1pm"]}
-                onClick={() => handleSlotClick(day, "9am-1pm")}
-              />
-              <EditableTimeSlot
-                day={day}
-                timeSlot="2pm-6pm"
-                activities={editingSchedule[day]["2pm-6pm"]}
-                onClick={() => handleSlotClick(day, "2pm-6pm")}
-              />
-            </div>
-          ))}
+          {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
+            (day) => (
+              <div key={day} className="day-column">
+                <EditableTimeSlot
+                  day={day}
+                  timeSlot="9am-1pm"
+                  activities={editingSchedule[day]["9am-1pm"]}
+                  onClick={() => handleSlotClick(day, "9am-1pm")}
+                />
+                <EditableTimeSlot
+                  day={day}
+                  timeSlot="2pm-6pm"
+                  activities={editingSchedule[day]["2pm-6pm"]}
+                  onClick={() => handleSlotClick(day, "2pm-6pm")}
+                />
+              </div>
+            )
+          )}
         </div>
       </div>
 
@@ -1580,12 +1816,12 @@ const TemplateEditor = ({ templateName, templateData, onUpdate, onCancel }) => {
 // Template Time Slot Editor Component
 const TemplateTimeSlotEditor = ({ slot, onSave, onCancel }) => {
   const [selectedActivities, setSelectedActivities] = useState(slot.activities);
-  
+
   const allActivities = Object.keys(docActivities);
-  
+
   const handleActivityToggle = (activity) => {
     if (selectedActivities.includes(activity)) {
-      setSelectedActivities(selectedActivities.filter(a => a !== activity));
+      setSelectedActivities(selectedActivities.filter((a) => a !== activity));
     } else {
       setSelectedActivities([...selectedActivities, activity]);
     }
@@ -1598,39 +1834,45 @@ const TemplateTimeSlotEditor = ({ slot, onSave, onCancel }) => {
   return (
     <div className="timeslot-editor-overlay">
       <div className="timeslot-editor">
-        <h4>Edit Template {slot.day} {slot.timeSlot}</h4>
-        
+        <h4>
+          Edit Template {slot.day} {slot.timeSlot}
+        </h4>
+
         <div className="activity-options">
           <div className="activity-section">
             <h5>Available Activities:</h5>
-            {allActivities.map(activity => (
+            {allActivities.map((activity) => (
               <label key={activity} className="activity-option">
                 <input
                   type="checkbox"
                   checked={selectedActivities.includes(activity)}
                   onChange={() => handleActivityToggle(activity)}
                 />
-                <span 
+                <span
                   className="activity-preview"
-                  style={{ backgroundColor: activityColors[activity] || '#ccc' }}
+                  style={{
+                    backgroundColor: activityColors[activity] || "#ccc",
+                  }}
                 >
                   {activity} ({docActivities[activity]?.duration || 1}h)
                 </span>
               </label>
             ))}
-            
+
             <div className="activity-section">
               <h5>Other Activities:</h5>
-              {['TP', 'Cs', 'Chefferie'].map(activity => (
+              {["TP", "Cs", "Chefferie"].map((activity) => (
                 <label key={activity} className="activity-option">
                   <input
                     type="checkbox"
                     checked={selectedActivities.includes(activity)}
                     onChange={() => handleActivityToggle(activity)}
                   />
-                  <span 
+                  <span
                     className="activity-preview"
-                    style={{ backgroundColor: activityColors[activity] || '#ccc' }}
+                    style={{
+                      backgroundColor: activityColors[activity] || "#ccc",
+                    }}
                   >
                     {activity}
                   </span>

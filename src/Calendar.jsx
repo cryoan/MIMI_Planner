@@ -520,7 +520,6 @@ import {
   rotation_cycles
 } from './customPlanningLogic.js';
 import { testCustomPlanningLogic, quickValidation } from './testCustomLogic.js';
-import PlanningOverview from './PlanningOverview';
 import { realTimeDb } from './firebase';
 import { publicHolidays } from './publicHolidays.js'; // Import the holidays JSON file
 import { docActivities } from './doctorSchedules.js'; // Import activities for durations
@@ -682,12 +681,10 @@ const Calendar = ({ year = 2024, month = 'Month1', selectedRotationCycle, setSel
   const [astreinte, setAstreinte] = useState({});
   const [editingAstreinte, setEditingAstreinte] = useState(null);
   const [customScheduleData, setCustomScheduleData] = useState(null);
-  const [showPlanningOverview, setShowPlanningOverview] = useState(true);
 
   // Fallback to local state if props are not provided (for backward compatibility)
   const [localSelectedRotationCycle, setLocalSelectedRotationCycle] = useState(Object.keys(rotation_cycles)[0]);
   const currentSelectedRotationCycle = selectedRotationCycle || localSelectedRotationCycle;
-  const currentSetSelectedRotationCycle = setSelectedRotationCycle || setLocalSelectedRotationCycle;
 
   // Make test functions available in browser console for debugging
   React.useEffect(() => {
@@ -808,24 +805,6 @@ const Calendar = ({ year = 2024, month = 'Month1', selectedRotationCycle, setSel
 
   const formatDateInFrench = (date) => format(date, 'do MMMM', { locale: fr });
 
-  const handlePeriodClick = (periodOrName) => {
-    console.log('Period clicked:', periodOrName);
-
-    // Handle period name string (from PlanningOverview)
-    if (typeof periodOrName === 'string') {
-      // Additional period click handling for planning overview can be added here
-      return;
-    }
-
-    // Handle period object (from calendar scrolling)
-    if (periodOrName && periodOrName.startWeek) {
-      const weekElement = document.getElementById(`week-${periodOrName.startWeek}`);
-      if (weekElement) {
-        weekElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }
-  };
-
   const handleActivityClick = (week, doctor, day, slot, activity) => {
     setEditing({ week, doctor, day, slot, activity });
     setNewActivity(activity);
@@ -883,234 +862,7 @@ const Calendar = ({ year = 2024, month = 'Month1', selectedRotationCycle, setSel
           🧪 Test Custom Logic
         </button>
 
-        {/* Rotation Cycle Selector */}
-        <div style={{
-          marginTop: '15px',
-          marginBottom: '10px',
-          padding: '12px',
-          backgroundColor: '#f8f9fa',
-          border: '1px solid #e9ecef',
-          borderRadius: '6px'
-        }}>
-          <label htmlFor="rotation-cycle-select" style={{
-            display: 'block',
-            fontWeight: 'bold',
-            marginBottom: '8px',
-            color: '#495057'
-          }}>
-            🍯 Select Rotation Cycle:
-          </label>
-          <select
-            id="rotation-cycle-select"
-            value={currentSelectedRotationCycle}
-            onChange={(e) => {
-              console.log(`🔄 Rotation cycle changed to: ${e.target.value}`);
-              currentSetSelectedRotationCycle(e.target.value);
-            }}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #ced4da',
-              borderRadius: '4px',
-              fontSize: '14px',
-              backgroundColor: 'white'
-            }}
-          >
-            {Object.entries(rotation_cycles).map(([key, cycle]) => (
-              <option key={key} value={key}>
-                {key.charAt(0).toUpperCase() + key.slice(1)} - {cycle.description}
-              </option>
-            ))}
-          </select>
-          <div style={{
-            fontSize: '12px',
-            marginTop: '6px',
-            fontStyle: 'italic',
-            color: '#6c757d',
-            lineHeight: '1.4'
-          }}>
-            📝 {rotation_cycles[currentSelectedRotationCycle]?.description}
-          </div>
-
-          {/* Visual Display of Selected Rotation Cycle */}
-          <div style={{
-            marginTop: '12px',
-            backgroundColor: 'white',
-            border: '1px solid #dee2e6',
-            borderRadius: '4px',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              backgroundColor: '#f8f9fa',
-              padding: '8px 12px',
-              borderBottom: '1px solid #dee2e6',
-              fontSize: '13px',
-              fontWeight: 'bold',
-              color: '#495057'
-            }}>
-              🔄 Rotation Periods Overview
-            </div>
-
-            <div style={{ overflow: 'auto' }}>
-              <table style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: '11px'
-              }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f8f9fa' }}>
-                    <th style={{
-                      padding: '6px 8px',
-                      border: '1px solid #dee2e6',
-                      fontWeight: 'bold',
-                      textAlign: 'center',
-                      minWidth: '50px'
-                    }}>Period</th>
-                    <th style={{
-                      padding: '6px 8px',
-                      border: '1px solid #dee2e6',
-                      fontWeight: 'bold',
-                      textAlign: 'center',
-                      minWidth: '45px'
-                    }}>HTC1</th>
-                    <th style={{
-                      padding: '6px 8px',
-                      border: '1px solid #dee2e6',
-                      fontWeight: 'bold',
-                      textAlign: 'center',
-                      minWidth: '45px'
-                    }}>HDJ</th>
-                    <th style={{
-                      padding: '6px 8px',
-                      border: '1px solid #dee2e6',
-                      fontWeight: 'bold',
-                      textAlign: 'center',
-                      minWidth: '45px'
-                    }}>AMI</th>
-                    <th style={{
-                      padding: '6px 8px',
-                      border: '1px solid #dee2e6',
-                      fontWeight: 'bold',
-                      textAlign: 'center',
-                      minWidth: '45px'
-                    }}>HTC2</th>
-                    <th style={{
-                      padding: '6px 8px',
-                      border: '1px solid #dee2e6',
-                      fontWeight: 'bold',
-                      textAlign: 'center',
-                      minWidth: '45px'
-                    }}>EMIT</th>
-                    <th style={{
-                      padding: '6px 8px',
-                      border: '1px solid #dee2e6',
-                      fontWeight: 'bold',
-                      textAlign: 'center',
-                      minWidth: '55px'
-                    }}>EMATIT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {JSON.parse(JSON.stringify(rotation_cycles[currentSelectedRotationCycle]?.periods || [])).map((period, index) => (
-                    <tr key={period.period} style={{
-                      backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8f9fa'
-                    }}>
-                      <td style={{
-                        padding: '6px 8px',
-                        border: '1px solid #dee2e6',
-                        textAlign: 'center',
-                        fontWeight: 'bold',
-                        color: '#007bff'
-                      }}>
-                        {period.period}
-                      </td>
-                      <td style={{
-                        padding: '6px 8px',
-                        border: '1px solid #dee2e6',
-                        textAlign: 'center',
-                        backgroundColor: period.HTC1 === 'FL' ? '#e3f2fd' :
-                                       period.HTC1 === 'CL' ? '#f3e5f5' :
-                                       period.HTC1 === 'NS' ? '#e8f5e8' : '#fff3e0'
-                      }}>
-                        {period.HTC1}
-                      </td>
-                      <td style={{
-                        padding: '6px 8px',
-                        border: '1px solid #dee2e6',
-                        textAlign: 'center',
-                        backgroundColor: period.HDJ === 'FL' ? '#e3f2fd' :
-                                       period.HDJ === 'CL' ? '#f3e5f5' :
-                                       period.HDJ === 'NS' ? '#e8f5e8' : '#fff3e0'
-                      }}>
-                        {period.HDJ}
-                      </td>
-                      <td style={{
-                        padding: '6px 8px',
-                        border: '1px solid #dee2e6',
-                        textAlign: 'center',
-                        backgroundColor: period.AMI === 'FL' ? '#e3f2fd' :
-                                       period.AMI === 'CL' ? '#f3e5f5' :
-                                       period.AMI === 'NS' ? '#e8f5e8' : '#fff3e0'
-                      }}>
-                        {period.AMI}
-                      </td>
-                      <td style={{
-                        padding: '6px 8px',
-                        border: '1px solid #dee2e6',
-                        textAlign: 'center',
-                        backgroundColor: period.HTC2 === 'MG' ? '#fff3e0' :
-                                       period.HTC2 === 'MDLC' ? '#fce4ec' :
-                                       period.HTC2 === 'RNV' ? '#e0f2f1' : '#f3e5f5'
-                      }}>
-                        {period.HTC2}
-                      </td>
-                      <td style={{
-                        padding: '6px 8px',
-                        border: '1px solid #dee2e6',
-                        textAlign: 'center',
-                        backgroundColor: period.EMIT === 'MG' ? '#fff3e0' :
-                                       period.EMIT === 'MDLC' ? '#fce4ec' :
-                                       period.EMIT === 'RNV' ? '#e0f2f1' : '#f3e5f5'
-                      }}>
-                        {period.EMIT}
-                      </td>
-                      <td style={{
-                        padding: '6px 8px',
-                        border: '1px solid #dee2e6',
-                        textAlign: 'center',
-                        backgroundColor: period.EMATIT === 'MG' ? '#fff3e0' :
-                                       period.EMATIT === 'MDLC' ? '#fce4ec' :
-                                       period.EMATIT === 'RNV' ? '#e0f2f1' : '#f3e5f5'
-                      }}>
-                        {period.EMATIT}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <label style={{ marginLeft: '15px' }}>
-          <input
-            type="checkbox"
-            checked={showPlanningOverview}
-            onChange={(e) => setShowPlanningOverview(e.target.checked)}
-            style={{ marginRight: '5px' }}
-          />
-          Show Planning Overview
-        </label>
-
       </div>
-
-      {/* Planning Overview */}
-      {showPlanningOverview && (
-        <PlanningOverview
-          customScheduleData={customScheduleData}
-          onPeriodClick={handlePeriodClick}
-        />
-      )}
 
       <h2>{year} - Custom Logic</h2>
       {weeks.map((week) => {

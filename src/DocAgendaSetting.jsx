@@ -247,7 +247,6 @@ import { doc, docChunks } from './doctorSchedules.js'; // Importing both doc and
 import { activityColors } from './schedule';
 // import { activities } from './activities'; // Import the activities dictionary for durations
 import { docActivities } from './doctorSchedules.js'; // Import activities for durations
-import ETAWorkloadInfographic from './ETAWorkloadInfographic.jsx'; // Import the infographic component
 
 const DaySchedule = ({ day, schedule }) => {
   if (!schedule) return <div className="no-schedule">No schedule</div>;
@@ -475,9 +474,6 @@ export const DocAgendaSetting = () => {
 
   return (
     <div>
-      {/* ETA Workload Infographic - Always Visible */}
-      <ETAWorkloadInfographic />
-
       <button onClick={toggleAgenda}>
         {showAgenda ? 'Hide Agenda' : 'Show Agenda'}
       </button>

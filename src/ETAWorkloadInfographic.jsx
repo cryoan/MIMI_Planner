@@ -65,19 +65,25 @@ const ETAWorkloadInfographic = () => {
       }
     });
 
-    // Add wanted activities templates dynamically
+    // Add remaining rotation tasks from templates (excludes activities already covered by backbones)
     // Process all templates from wantedActivities (includes Chefferie, excludes MPO)
-    Object.entries(wantedActivities).forEach(([templateName, template]) => {
-      Object.values(template).forEach(daySchedule => {
-        Object.values(daySchedule).forEach(timeSlotActivities => {
-          timeSlotActivities.forEach(activity => {
-            // Count 1 instance of each template
-            activityCounts[activity] = (activityCounts[activity] || 0) + 1;
-            const hours = getActivityHours(activity);
-            activityHours[activity] = (activityHours[activity] || 0) + hours;
+    Object.keys(wantedActivities).forEach(templateName => {
+      try {
+        const remainingTasks = computeRemainingRotationTasks(templateName);
+
+        // Count remaining activities and their hours (avoiding double-counting with backbone)
+        Object.values(remainingTasks).forEach(daySchedule => {
+          Object.values(daySchedule).forEach(timeSlotActivities => {
+            timeSlotActivities.forEach(activity => {
+              activityCounts[activity] = (activityCounts[activity] || 0) + 1;
+              const hours = getActivityHours(activity);
+              activityHours[activity] = (activityHours[activity] || 0) + hours;
+            });
           });
         });
-      });
+      } catch (error) {
+        console.warn(`Error calculating remaining tasks for ${templateName}:`, error);
+      }
     });
 
     // Add TeleCs from weekly needs
@@ -236,7 +242,7 @@ const ETAWorkloadInfographic = () => {
 
   // State for sortable legend and drag operations
   const [activityOrder, setActivityOrder] = React.useState(() => {
-    // Initialize with custom order
+    // Initialize with custom priority order
     return getDefaultActivityOrder('custom');
   });
   
@@ -321,15 +327,48 @@ const ETAWorkloadInfographic = () => {
 
   // Function to generate bar chart data for activity durations
   const generateBarChartData = () => {
+    // Create combined activities object
+    const combinedActivities = {};
+    const activityBreakdown = {}; // Track individual components for tooltips
+
     // Filter out 'Available' activities and get activities with hours > 0
     const activities = activityOrder.filter(activity =>
       activity !== 'Available' && (activityHours[activity] || 0) > 0
     );
 
+    // Process all activities and group HTC activities
+    activities.forEach(activity => {
+      if (activity === 'HTC1' || activity === 'HTC1_visite') {
+        const combinedKey = 'HTC1 (Total)';
+        combinedActivities[combinedKey] = (combinedActivities[combinedKey] || 0) + (activityHours[activity] || 0);
+        if (!activityBreakdown[combinedKey]) activityBreakdown[combinedKey] = {};
+        activityBreakdown[combinedKey][activity] = activityHours[activity] || 0;
+      } else if (activity === 'HTC2' || activity === 'HTC2_visite') {
+        const combinedKey = 'HTC2 (Total)';
+        combinedActivities[combinedKey] = (combinedActivities[combinedKey] || 0) + (activityHours[activity] || 0);
+        if (!activityBreakdown[combinedKey]) activityBreakdown[combinedKey] = {};
+        activityBreakdown[combinedKey][activity] = activityHours[activity] || 0;
+      } else {
+        // Keep other activities as-is
+        combinedActivities[activity] = activityHours[activity] || 0;
+        activityBreakdown[activity] = { [activity]: activityHours[activity] || 0 };
+      }
+    });
+
+    // Sort by combined hours descending
+    const sortedActivities = Object.keys(combinedActivities)
+      .sort((a, b) => combinedActivities[b] - combinedActivities[a]);
+
     // Create data arrays
-    const labels = activities.map(activity => activity);
-    const data = activities.map(activity => activityHours[activity] || 0);
-    const backgroundColor = activities.map(activity => getActivityColor(activity));
+    const labels = sortedActivities;
+    const data = sortedActivities.map(activity => combinedActivities[activity]);
+    const backgroundColor = sortedActivities.map(activity => {
+      // Use HTC1 color for both HTC1 and HTC2 totals, or original color for others
+      if (activity.startsWith('HTC1') || activity.startsWith('HTC2')) {
+        return getActivityColor('HTC1'); // Both use same green color
+      }
+      return getActivityColor(activity.replace(' (Total)', ''));
+    });
 
     return {
       labels,
@@ -343,10 +382,11 @@ const ETAWorkloadInfographic = () => {
           hoverBackgroundColor: backgroundColor.map(color => color + '80'), // Add transparency on hover
         },
       ],
+      activityBreakdown, // Include breakdown data for tooltips
     };
   };
 
-  const barChartData = generateBarChartData();
+  const { activityBreakdown: mainActivityBreakdown, ...barChartData } = generateBarChartData();
 
   // Function to generate bar chart data for shared activity durations
   const generateSharedBarChartData = () => {
@@ -765,11 +805,26 @@ const ETAWorkloadInfographic = () => {
                         const hours = context.parsed.y;
                         const etpValue = (hours / 40).toFixed(1);
                         const percentage = ((hours / totalUsedHours) * 100).toFixed(1);
-                        return [
-                          `${activity}`,
-                          `${hours}h (${etpValue} ETP)`,
-                          `${percentage}% of total used time`
-                        ];
+
+                        const result = [`${activity}`];
+
+                        // Check if this is a combined activity
+                        if (mainActivityBreakdown[activity] && Object.keys(mainActivityBreakdown[activity]).length > 1) {
+                          // Combined activity - show breakdown
+                          result.push(`Total: ${hours}h (${etpValue} ETP)`);
+                          result.push('Breakdown:');
+                          Object.entries(mainActivityBreakdown[activity]).forEach(([subActivity, subHours]) => {
+                            if (subHours > 0) {
+                              result.push(`  • ${subActivity}: ${subHours}h`);
+                            }
+                          });
+                        } else {
+                          // Single activity - show standard info
+                          result.push(`${hours}h (${etpValue} ETP)`);
+                        }
+
+                        result.push(`${percentage}% of total used time`);
+                        return result;
                       }
                     }
                   }
