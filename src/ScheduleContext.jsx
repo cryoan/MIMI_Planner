@@ -1,20 +1,23 @@
 import React, { createContext, useEffect, useState } from 'react';
-import { useDocSchedule, combo } from './schedule';
+import { useDocSchedule } from './schedule';
+import { executeCustomPlanningAlgorithm } from './customPlanningLogic.js';
 
 export const ScheduleContext = createContext();
 
 export const ScheduleProvider = ({ children }) => {
   const { doc, loading } = useDocSchedule();
-  const [currentCombo, setCurrentCombo] = useState(null);
+  const [customScheduleData, setCustomScheduleData] = useState(null);
 
   useEffect(() => {
     if (doc) {
-      setCurrentCombo(combo(doc));
+      console.log('ScheduleContext: Executing custom planning algorithm...');
+      const customResult = executeCustomPlanningAlgorithm();
+      setCustomScheduleData(customResult);
     }
   }, [doc]);
 
   return (
-    <ScheduleContext.Provider value={{ loading, currentCombo }}>
+    <ScheduleContext.Provider value={{ loading, customScheduleData }}>
       {children}
     </ScheduleContext.Provider>
   );

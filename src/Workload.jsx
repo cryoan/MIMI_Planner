@@ -240,16 +240,56 @@ const aggregateActivities = (combo) => {
   return doctorActivities;
 };
 
+// New function to aggregate activities from custom planning data
+const aggregateActivitiesFromCustomData = (customSchedule) => {
+  const doctorActivities = {};
+
+  const processActivities = (activitiesList, doctor) => {
+    activitiesList.forEach((activity) => {
+      const activityData = activities[activity] || {};
+      const duration = activityData.duration || 1; // Default duration is 1 if not found
+
+      if (!doctorActivities[doctor]) {
+        doctorActivities[doctor] = {};
+      }
+      if (!doctorActivities[doctor][activity]) {
+        doctorActivities[doctor][activity] = 0;
+      }
+      doctorActivities[doctor][activity] += duration; // Accumulate duration for the activity
+    });
+  };
+
+  // Traverse the custom schedule data structure
+  // customSchedule format: { doctor: { day: { slot: [activities] } } }
+  Object.keys(customSchedule).forEach((doctor) => {
+    const doctorSchedule = customSchedule[doctor];
+    Object.keys(doctorSchedule).forEach((day) => {
+      const daySchedule = doctorSchedule[day];
+      Object.keys(daySchedule).forEach((slot) => {
+        const activitiesList = daySchedule[slot];
+        if (Array.isArray(activitiesList)) {
+          processActivities(activitiesList, doctor);
+        }
+      });
+    });
+  });
+
+  console.log('Aggregated Doctor Activities from Custom Data:', doctorActivities);
+  return doctorActivities;
+};
+
 const Workload = () => {
-  const { loading, currentCombo } = useContext(ScheduleContext);
+  const { loading, customScheduleData } = useContext(ScheduleContext);
   const [doctorActivities, setDoctorActivities] = useState({});
 
   useEffect(() => {
-    if (!loading && currentCombo) {
-      const activities = aggregateActivities(currentCombo);
+    if (!loading && customScheduleData && customScheduleData.success) {
+      // Use the finalSchedule from custom logic for workload calculation
+      const scheduleToAnalyze = customScheduleData.finalSchedule || {};
+      const activities = aggregateActivitiesFromCustomData(scheduleToAnalyze);
       setDoctorActivities(activities);
     }
-  }, [loading, currentCombo]);
+  }, [loading, customScheduleData]);
 
   useEffect(() => {
     console.log('Doctor Activities State:', doctorActivities);

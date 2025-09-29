@@ -511,7 +511,6 @@ import { fr } from 'date-fns/locale';
 import { ref, update, get } from 'firebase/database';
 import {
   useDocSchedule,
-  doctorsSchedule,
   expectedActivities,
   activityColors,
 } from './schedule';
@@ -681,7 +680,6 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
   const [newActivity, setNewActivity] = useState('');
   const [astreinte, setAstreinte] = useState({});
   const [editingAstreinte, setEditingAstreinte] = useState(null);
-  const [useCustomLogic, setUseCustomLogic] = useState(false);
   const [customLogicReport, setCustomLogicReport] = useState(null);
   const [customScheduleData, setCustomScheduleData] = useState(null);
   const [showPlanningOverview, setShowPlanningOverview] = useState(true);
@@ -712,33 +710,29 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
       2025: { Month1: {} }
     };
 
-    if (customScheduleData.success) {
-      // Use the final schedule for the first few weeks
-      if (customScheduleData.finalSchedule) {
-        const firstWeeks = ['Week44', 'Week45', 'Week46', 'Week47'];
-        firstWeeks.forEach(weekKey => {
-          calendarFormat[2024].Month1[weekKey] = customScheduleData.finalSchedule;
-        });
-      }
+    if (customScheduleData.success && customScheduleData.periodicSchedule) {
+      console.log('Converting custom schedule data to calendar format...');
 
-      // Use periodic variations for subsequent weeks
-      if (customScheduleData.periodicSchedule) {
-        const periods = Object.keys(customScheduleData.periodicSchedule);
-        periods.slice(0, 6).forEach((periodName, index) => {
-          const weekNumber = 48 + index;
-          const year = weekNumber > 52 ? 2025 : 2024;
-          const adjustedWeekNumber = weekNumber > 52 ? weekNumber - 52 : weekNumber;
-          const weekKey = `Week${adjustedWeekNumber}`;
+      // Map all 6 periods consecutively starting from Week44
+      const periods = Object.keys(customScheduleData.periodicSchedule);
+      console.log('Available periods:', periods);
 
-          if (customScheduleData.periodicSchedule[periodName].schedule) {
-            if (year === 2024) {
-              calendarFormat[2024].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
-            } else {
-              calendarFormat[2025].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
-            }
+      periods.slice(0, 6).forEach((periodName, index) => {
+        const weekNumber = 44 + index; // Start from Week44 and assign consecutively
+        const year = weekNumber > 52 ? 2025 : 2024;
+        const adjustedWeekNumber = weekNumber > 52 ? weekNumber - 52 : weekNumber;
+        const weekKey = `Week${adjustedWeekNumber}`;
+
+        console.log(`Mapping ${periodName} → ${year} ${weekKey}`);
+
+        if (customScheduleData.periodicSchedule[periodName].schedule) {
+          if (year === 2024) {
+            calendarFormat[2024].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+          } else {
+            calendarFormat[2025].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
           }
-        });
-      }
+        }
+      });
     }
 
     return calendarFormat;
@@ -747,25 +741,14 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
 
   useEffect(() => {
     if (!loading && doc) {
-      let originalSchedule;
-      let reportData = null;
-
-      if (useCustomLogic) {
-        console.log('Using Custom Planning Logic - 3 Phases Algorithm');
-        const customScheduleDataResult = executeCustomPlanningAlgorithm();
-        originalSchedule = convertCustomToCalendarFormat(customScheduleDataResult);
-        reportData = generateCustomPlanningReport(customScheduleDataResult);
-        console.log('originalSchedule (converted from custom logic)', originalSchedule);
-        console.log('Custom Planning Logic Report:', reportData);
-        setCustomLogicReport(reportData);
-        setCustomScheduleData(customScheduleDataResult);
-      } else {
-        console.log('Using Standard Doctor Schedule System');
-        originalSchedule = doctorsSchedule(doc);
-        console.log('originalSchedule', originalSchedule);
-        setCustomLogicReport(null);
-        setCustomScheduleData(null);
-      }
+      console.log('Using Custom Planning Logic - 3 Phases Algorithm');
+      const customScheduleDataResult = executeCustomPlanningAlgorithm();
+      const originalSchedule = convertCustomToCalendarFormat(customScheduleDataResult);
+      const reportData = generateCustomPlanningReport(customScheduleDataResult);
+      console.log('originalSchedule (converted from custom logic)', originalSchedule);
+      console.log('Custom Planning Logic Report:', reportData);
+      setCustomLogicReport(reportData);
+      setCustomScheduleData(customScheduleDataResult);
 
       const updatesRef = ref(realTimeDb, `schedules/`);
       get(updatesRef)
@@ -782,7 +765,7 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
           console.error('Error fetching updates:', error);
         });
     }
-  }, [doc, loading, year, month, useCustomLogic]);
+  }, [doc, loading, year, month]);
 
   const handleAstreinteChange = (week, day, e) => {
     const updatedAstreinte = { ...astreinte };
@@ -877,15 +860,6 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
     <div className="calendar-container">
       {/* Custom Logic Controls */}
       <div className="system-controls" style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '5px' }}>
-        <label style={{ marginRight: '10px' }}>
-          <input
-            type="checkbox"
-            checked={useCustomLogic}
-            onChange={(e) => setUseCustomLogic(e.target.checked)}
-            style={{ marginRight: '5px' }}
-          />
-          Use custom logic
-        </label>
 
         <button
           onClick={() => {
@@ -916,7 +890,7 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
           Show Planning Overview
         </label>
 
-        {useCustomLogic && customLogicReport && (
+        {customLogicReport && (
           <div style={{ marginTop: '10px', fontSize: '14px' }}>
             <strong>Custom Logic Report:</strong>
             <div>🚀 Algorithm: {customLogicReport.algorithmType}</div>
@@ -950,19 +924,12 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
       {/* Planning Overview */}
       {showPlanningOverview && (
         <PlanningOverview
-          schedule={schedule}
-          assignmentStatus={assignmentStatus}
-          year={year}
-          month={month}
-          getDateOfISOWeek={getDateOfISOWeek}
-          useCustomLogic={useCustomLogic}
-          customLogicReport={customLogicReport}
           customScheduleData={customScheduleData}
           onPeriodClick={handlePeriodClick}
         />
       )}
 
-      <h2>{year} - {useCustomLogic ? 'Custom Logic' : 'Standard Calendar'}</h2>
+      <h2>{year} - Custom Logic</h2>
       {weeks.map((week) => {
         const weekNumber = parseInt(week.replace('Week', ''));
         const dates = getDateOfISOWeek(weekNumber, year);

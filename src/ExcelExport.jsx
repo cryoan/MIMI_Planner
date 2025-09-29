@@ -2,7 +2,8 @@ import React from 'react';
 import ExcelJS from 'exceljs';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { useDocSchedule, doctorsSchedule } from './schedule';
+import { useDocSchedule } from './schedule';
+import { executeCustomPlanningAlgorithm } from './customPlanningLogic.js';
 import { publicHolidays } from './publicHolidays.js';
 
 export const activityColors = {
@@ -27,13 +28,50 @@ export const activityColors = {
   Chefferie: 'black'
 };
 
+// Convert custom planning algorithm data to calendar format for Excel export
+const convertCustomToCalendarFormat = (customScheduleData) => {
+  const calendarFormat = {
+    2024: { Month1: {} },
+    2025: { Month1: {} }
+  };
+
+  if (customScheduleData.success && customScheduleData.periodicSchedule) {
+    console.log('ExcelExport: Converting custom schedule data to calendar format...');
+
+    // Map all 6 periods consecutively starting from Week44
+    const periods = Object.keys(customScheduleData.periodicSchedule);
+    console.log('ExcelExport: Available periods:', periods);
+
+    periods.slice(0, 6).forEach((periodName, index) => {
+      const weekNumber = 44 + index; // Start from Week44 and assign consecutively
+      const year = weekNumber > 52 ? 2025 : 2024;
+      const adjustedWeekNumber = weekNumber > 52 ? weekNumber - 52 : weekNumber;
+      const weekKey = `Week${adjustedWeekNumber}`;
+
+      console.log(`ExcelExport: Mapping ${periodName} → ${year} ${weekKey}`);
+
+      if (customScheduleData.periodicSchedule[periodName].schedule) {
+        if (year === 2024) {
+          calendarFormat[2024].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+        } else {
+          calendarFormat[2025].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
+        }
+      }
+    });
+  }
+
+  return calendarFormat;
+};
+
 const ExcelExport = () => {
   const { doc, loading } = useDocSchedule();
 
   const exportToExcel = async () => {
     if (!doc) return;
 
-    const schedule = doctorsSchedule(doc);
+    console.log('ExcelExport: Executing custom planning algorithm for Excel export...');
+    const customScheduleDataResult = executeCustomPlanningAlgorithm();
+    const schedule = convertCustomToCalendarFormat(customScheduleDataResult);
     const workbook = new ExcelJS.Workbook();
 
     // Process each year
