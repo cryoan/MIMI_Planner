@@ -674,17 +674,20 @@ const checkAssignments = (schedule, expectedActivities) => {
   return assignmentStatus;
 };
 
-const Calendar = ({ year = 2024, month = 'Month1' }) => {
+const Calendar = ({ year = 2024, month = 'Month1', selectedRotationCycle, setSelectedRotationCycle }) => {
   const { doc, loading } = useDocSchedule();
   const [schedule, setSchedule] = useState(null);
   const [editing, setEditing] = useState(null);
   const [newActivity, setNewActivity] = useState('');
   const [astreinte, setAstreinte] = useState({});
   const [editingAstreinte, setEditingAstreinte] = useState(null);
-  const [customLogicReport, setCustomLogicReport] = useState(null);
   const [customScheduleData, setCustomScheduleData] = useState(null);
   const [showPlanningOverview, setShowPlanningOverview] = useState(true);
-  const [selectedRotationCycle, setSelectedRotationCycle] = useState(Object.keys(rotation_cycles)[0]);
+
+  // Fallback to local state if props are not provided (for backward compatibility)
+  const [localSelectedRotationCycle, setLocalSelectedRotationCycle] = useState(Object.keys(rotation_cycles)[0]);
+  const currentSelectedRotationCycle = selectedRotationCycle || localSelectedRotationCycle;
+  const currentSetSelectedRotationCycle = setSelectedRotationCycle || setLocalSelectedRotationCycle;
 
   // Make test functions available in browser console for debugging
   React.useEffect(() => {
@@ -743,14 +746,11 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
 
   useEffect(() => {
     if (!loading && doc) {
-      console.log(`🔄 Using Custom Planning Logic - 3 Phases Algorithm (${selectedRotationCycle} cycle)`);
+      console.log(`🔄 Using Custom Planning Logic - 3 Phases Algorithm (${currentSelectedRotationCycle} cycle)`);
       console.log(`🔄 Available cycles:`, Object.keys(rotation_cycles));
-      const customScheduleDataResult = executeCustomPlanningAlgorithm(selectedRotationCycle);
+      const customScheduleDataResult = executeCustomPlanningAlgorithm(currentSelectedRotationCycle);
       const originalSchedule = convertCustomToCalendarFormat(customScheduleDataResult);
-      const reportData = generateCustomPlanningReport(customScheduleDataResult);
       console.log('originalSchedule (converted from custom logic)', originalSchedule);
-      console.log('Custom Planning Logic Report:', reportData);
-      setCustomLogicReport(reportData);
       setCustomScheduleData(customScheduleDataResult);
 
       const updatesRef = ref(realTimeDb, `schedules/`);
@@ -768,7 +768,7 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
           console.error('Error fetching updates:', error);
         });
     }
-  }, [doc, loading, year, month, selectedRotationCycle]);
+  }, [doc, loading, year, month, currentSelectedRotationCycle]);
 
   const handleAstreinteChange = (week, day, e) => {
     const updatedAstreinte = { ...astreinte };
@@ -902,10 +902,10 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
           </label>
           <select
             id="rotation-cycle-select"
-            value={selectedRotationCycle}
+            value={currentSelectedRotationCycle}
             onChange={(e) => {
               console.log(`🔄 Rotation cycle changed to: ${e.target.value}`);
-              setSelectedRotationCycle(e.target.value);
+              currentSetSelectedRotationCycle(e.target.value);
             }}
             style={{
               width: '100%',
@@ -929,7 +929,7 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
             color: '#6c757d',
             lineHeight: '1.4'
           }}>
-            📝 {rotation_cycles[selectedRotationCycle]?.description}
+            📝 {rotation_cycles[currentSelectedRotationCycle]?.description}
           </div>
 
           {/* Visual Display of Selected Rotation Cycle */}
@@ -1011,7 +1011,7 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {JSON.parse(JSON.stringify(rotation_cycles[selectedRotationCycle]?.periods || [])).map((period, index) => (
+                  {JSON.parse(JSON.stringify(rotation_cycles[currentSelectedRotationCycle]?.periods || [])).map((period, index) => (
                     <tr key={period.period} style={{
                       backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8f9fa'
                     }}>
@@ -1102,35 +1102,6 @@ const Calendar = ({ year = 2024, month = 'Month1' }) => {
           Show Planning Overview
         </label>
 
-        {customLogicReport && (
-          <div style={{ marginTop: '10px', fontSize: '14px' }}>
-            <strong>Custom Logic Report:</strong>
-            <div>🚀 Algorithm: {customLogicReport.algorithmType}</div>
-            <div>👥 Doctors: {customLogicReport.summary.totalDoctors}</div>
-            <div>🔄 Periods Generated: {customLogicReport.summary.periodsGenerated}</div>
-            <div>⏱️ Execution Time: {customLogicReport.summary.executionTime}</div>
-
-            {customLogicReport.recommendations && customLogicReport.recommendations.length > 0 && (
-              <details style={{ marginTop: '5px' }}>
-                <summary>📋 Recommendations ({customLogicReport.recommendations.length})</summary>
-                <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
-                  {customLogicReport.recommendations.map((rec, idx) => (
-                    <li key={idx} style={{ fontSize: '12px' }}>{rec}</li>
-                  ))}
-                </ul>
-              </details>
-            )}
-
-            <details style={{ marginTop: '5px' }}>
-              <summary>🔍 3-Phase Details</summary>
-              <div style={{ margin: '5px 0', paddingLeft: '10px', fontSize: '12px' }}>
-                <div><strong>Phase 1:</strong> {customLogicReport.phases.phase1.description}</div>
-                <div><strong>Phase 2:</strong> {customLogicReport.phases.phase2.description}</div>
-                <div><strong>Phase 3:</strong> {customLogicReport.phases.phase3.description}</div>
-              </div>
-            </details>
-          </div>
-        )}
       </div>
 
       {/* Planning Overview */}
