@@ -1,6 +1,5 @@
 import { doctorProfiles, generateDoctorRotations } from './doctorSchedules.js';
 import { expectedActivities } from './schedule.jsx';
-import { validateSchedule } from './simplifiedRoundRobinPlanner.js';
 
 // Custom Planning Logic - Algorithme de Planification Médical Progressif et Fiable
 // Implémentation en 3 phases selon les spécifications utilisateur
@@ -867,27 +866,16 @@ function calculateCoverage(schedule) {
   let totalSlots = 0;
   let coveredSlots = 0;
 
-  DAYS_OF_WEEK.forEach(day => {
-    TIME_SLOTS.forEach(slot => {
-      const expected = expectedActivities[day]?.[slot] || [];
-      const assigned = [];
-
-      Object.values(schedule).forEach(doctorSchedule => {
-        const activities = doctorSchedule[day]?.[slot] || [];
-        assigned.push(...activities);
-      });
-
-      totalSlots += expected.length;
-      expected.forEach(activity => {
-        if (assigned.includes(activity)) {
+  Object.keys(schedule).forEach(doctor => {
+    DAYS_OF_WEEK.forEach(day => {
+      TIME_SLOTS.forEach(slot => {
+        totalSlots++;
+        if (schedule[doctor][day] && schedule[doctor][day][slot] && schedule[doctor][day][slot].length > 0) {
           coveredSlots++;
         }
       });
     });
   });
 
-  return totalSlots > 0 ? (coveredSlots / totalSlots) * 100 : 100;
+  return totalSlots > 0 ? (coveredSlots / totalSlots) * 100 : 0;
 }
-
-// Note: Toutes les fonctions principales sont déjà exportées individuellement avec 'export function'
-// Pas besoin d'export groupé supplémentaire pour éviter les duplications

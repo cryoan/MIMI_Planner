@@ -1,10 +1,9 @@
 import React from 'react';
 import { doctorProfiles, wantedActivities, docActivities, computeRemainingRotationTasks } from './doctorSchedules.js';
 import { activityColors } from './schedule.jsx';
-import { Pie, Bar } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
-  ArcElement,
   Tooltip,
   Legend,
   CategoryScale,
@@ -13,7 +12,7 @@ import {
 } from 'chart.js';
 
 // Register Chart.js components
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
+ChartJS.register(Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
 const ETAWorkloadInfographic = () => {
   // Helper function to get activity duration in hours
@@ -320,59 +319,6 @@ const ETAWorkloadInfographic = () => {
     return activityColors[activity] || '#ddd';
   };
 
-  // Function to group activities by their color and calculate pie chart data
-  const generatePieChartData = () => {
-    const colorGroups = {};
-    const colorLabels = {};
-    
-    // Group activities by their exact color
-    Object.entries(activityHours).forEach(([activity, hours]) => {
-      if (activity !== 'Available' && hours > 0) {
-        const color = getActivityColor(activity);
-        
-        if (!colorGroups[color]) {
-          colorGroups[color] = 0;
-          colorLabels[color] = [];
-        }
-        
-        colorGroups[color] += hours;
-        colorLabels[color].push(activity);
-      }
-    });
-
-    // Convert to arrays for Chart.js
-    const colors = Object.keys(colorGroups);
-    const data = colors.map(color => colorGroups[color]);
-    const labels = colors.map(color => {
-      const activities = colorLabels[color];
-      if (activities.length === 1) {
-        return activities[0];
-      } else {
-        // Group label with count
-        return `${activities.join(', ')} (${activities.length})`;
-      }
-    });
-
-    // Calculate percentages
-    const totalHours = Object.values(colorGroups).reduce((sum, hours) => sum + hours, 0);
-    const percentages = data.map(hours => ((hours / totalHours) * 100).toFixed(1));
-
-    return {
-      labels: labels.map((label, index) => `${label} (${percentages[index]}%)`),
-      datasets: [
-        {
-          data,
-          backgroundColor: colors,
-          borderColor: colors.map(color => color),
-          borderWidth: 1,
-          hoverOffset: 4,
-        },
-      ],
-    };
-  };
-
-  const pieChartData = generatePieChartData();
-
   // Function to generate bar chart data for activity durations
   const generateBarChartData = () => {
     // Filter out 'Available' activities and get activities with hours > 0
@@ -404,15 +350,45 @@ const ETAWorkloadInfographic = () => {
 
   // Function to generate bar chart data for shared activity durations
   const generateSharedBarChartData = () => {
-    // Get activities with shared hours > 0, sorted by hours descending
-    const activities = Object.keys(sharedActivityHours)
-      .filter(activity => activity !== 'Available' && (sharedActivityHours[activity] || 0) > 0)
-      .sort((a, b) => (sharedActivityHours[b] || 0) - (sharedActivityHours[a] || 0));
+    // Create combined activities object
+    const combinedActivities = {};
+    const activityBreakdown = {}; // Track individual components for tooltips
+
+    // Process all shared activities
+    Object.keys(sharedActivityHours).forEach(activity => {
+      if (activity === 'Available' || (sharedActivityHours[activity] || 0) === 0) return;
+
+      if (activity === 'HTC1' || activity === 'HTC1_visite') {
+        const combinedKey = 'HTC1 (Total)';
+        combinedActivities[combinedKey] = (combinedActivities[combinedKey] || 0) + (sharedActivityHours[activity] || 0);
+        if (!activityBreakdown[combinedKey]) activityBreakdown[combinedKey] = {};
+        activityBreakdown[combinedKey][activity] = sharedActivityHours[activity] || 0;
+      } else if (activity === 'HTC2' || activity === 'HTC2_visite') {
+        const combinedKey = 'HTC2 (Total)';
+        combinedActivities[combinedKey] = (combinedActivities[combinedKey] || 0) + (sharedActivityHours[activity] || 0);
+        if (!activityBreakdown[combinedKey]) activityBreakdown[combinedKey] = {};
+        activityBreakdown[combinedKey][activity] = sharedActivityHours[activity] || 0;
+      } else {
+        // Keep other activities as-is
+        combinedActivities[activity] = sharedActivityHours[activity] || 0;
+        activityBreakdown[activity] = { [activity]: sharedActivityHours[activity] || 0 };
+      }
+    });
+
+    // Sort by combined hours descending
+    const activities = Object.keys(combinedActivities)
+      .sort((a, b) => combinedActivities[b] - combinedActivities[a]);
 
     // Create data arrays
-    const labels = activities.map(activity => activity);
-    const data = activities.map(activity => sharedActivityHours[activity] || 0);
-    const backgroundColor = activities.map(activity => getActivityColor(activity));
+    const labels = activities;
+    const data = activities.map(activity => combinedActivities[activity]);
+    const backgroundColor = activities.map(activity => {
+      // Use HTC1 color for both HTC1 and HTC2 totals, or original color for others
+      if (activity.startsWith('HTC1') || activity.startsWith('HTC2')) {
+        return getActivityColor('HTC1'); // Both use same green color
+      }
+      return getActivityColor(activity.replace(' (Total)', ''));
+    });
 
     return {
       labels,
@@ -426,10 +402,11 @@ const ETAWorkloadInfographic = () => {
           hoverBackgroundColor: backgroundColor.map(color => color + '80'), // Add transparency on hover
         },
       ],
+      activityBreakdown, // Include breakdown data for tooltips
     };
   };
 
-  const sharedBarChartData = generateSharedBarChartData();
+  const { activityBreakdown, ...sharedBarChartData } = generateSharedBarChartData();
 
   // Drag and drop handlers
   const handleDragStart = (e, activity) => {
@@ -764,55 +741,6 @@ const ETAWorkloadInfographic = () => {
         </div>
       </div>
 
-      {/* Pie Chart Section */}
-      <div className="pie-chart-section" style={{ marginTop: '30px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
-        <h3 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
-          Activity Time Distribution by Color Groups
-        </h3>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
-          <div style={{ width: '400px', height: '400px' }}>
-            <Pie 
-              data={pieChartData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    position: 'right',
-                    labels: {
-                      boxWidth: 12,
-                      padding: 15,
-                      font: {
-                        size: 11
-                      }
-                    }
-                  },
-                  tooltip: {
-                    callbacks: {
-                      label: function(context) {
-                        const label = context.label;
-                        const value = context.parsed;
-                        const etpValue = (value / 40).toFixed(1);
-                        const percentage = ((value / totalUsedHours) * 100).toFixed(1);
-                        return [`${label}`, `${value}h (${etpValue} ETP)`, `${percentage}% of total`];
-                      }
-                    }
-                  }
-                }
-              }}
-            />
-          </div>
-        </div>
-        <div style={{ marginTop: '20px', fontSize: '14px', color: '#6c757d', textAlign: 'center' }}>
-          <p>
-            <strong>Total Used Time:</strong> {totalUsedHours}h ({(totalUsedHours / 40).toFixed(1)} ETP) • 
-            <strong> Available Time:</strong> {remainingHours}h ({(remainingHours / 40).toFixed(1)} ETP)
-          </p>
-          <p style={{ fontSize: '12px', fontStyle: 'italic' }}>
-            Activities with the same color are grouped together. Hover over slices for detailed information.
-          </p>
-        </div>
-      </div>
 
       {/* Bar Chart Section */}
       <div className="bar-chart-section" style={{ marginTop: '30px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
@@ -914,17 +842,41 @@ const ETAWorkloadInfographic = () => {
                       label: function(context) {
                         const activity = context.label;
                         const sharedHours = context.parsed.y;
-                        const totalHours = activityHours[activity] || 0;
-                        const backboneHours = totalHours - sharedHours;
                         const etpValue = (sharedHours / 40).toFixed(1);
                         const percentage = totalSharedHours > 0 ? ((sharedHours / totalSharedHours) * 100).toFixed(1) : '0';
-                        return [
-                          `${activity} - Shared Workload`,
-                          `Shared: ${sharedHours}h (${etpValue} ETP)`,
-                          `Backbone: ${backboneHours}h`,
-                          `Total: ${totalHours}h`,
-                          `${percentage}% of shared workload`
-                        ];
+
+                        const result = [`${activity} - Shared Workload`];
+
+                        // Check if this is a combined activity
+                        if (activityBreakdown[activity] && Object.keys(activityBreakdown[activity]).length > 1) {
+                          // Combined activity - show breakdown
+                          result.push(`Total Shared: ${sharedHours}h (${etpValue} ETP)`);
+                          result.push('Breakdown:');
+                          Object.entries(activityBreakdown[activity]).forEach(([subActivity, hours]) => {
+                            if (hours > 0) {
+                              result.push(`  • ${subActivity}: ${hours}h`);
+                            }
+                          });
+
+                          // Calculate total hours for backbone calculation
+                          const totalHours = Object.keys(activityBreakdown[activity]).reduce((sum, subActivity) => {
+                            return sum + (activityHours[subActivity] || 0);
+                          }, 0);
+                          const backboneHours = totalHours - sharedHours;
+                          result.push(`Total Backbone: ${backboneHours}h`);
+                          result.push(`Total Overall: ${totalHours}h`);
+                        } else {
+                          // Single activity - show standard info
+                          const originalActivity = activity.replace(' (Total)', '');
+                          const totalHours = activityHours[originalActivity] || 0;
+                          const backboneHours = totalHours - sharedHours;
+                          result.push(`Shared: ${sharedHours}h (${etpValue} ETP)`);
+                          result.push(`Backbone: ${backboneHours}h`);
+                          result.push(`Total: ${totalHours}h`);
+                        }
+
+                        result.push(`${percentage}% of shared workload`);
+                        return result;
                       }
                     }
                   }

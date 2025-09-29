@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import './DoctorSchedule.css';
 import { docActivities, rotationTemplates, buildDoctorSchedule, doctorProfiles, generateDoctorRotations } from './doctorSchedules.js';
 import { activityColors } from './schedule';
-import RoundRobinPlanner from './RoundRobinPlanner.jsx';
 
 // Custom function to merge rotation template with backbone constraints
 // Backbone always takes precedence (overrides template when conflicts occur)
@@ -52,19 +51,12 @@ const DoctorSettings = () => {
         >
           Rotation Templates
         </button>
-        <button 
-          className={activeTab === 'planner' ? 'active' : ''}
-          onClick={() => setActiveTab('planner')}
-        >
-          Round Robin Planner
-        </button>
       </div>
 
       {/* Tab Content */}
       <div className="main-tab-content">
         {activeTab === 'doctors' && <DoctorsManager />}
         {activeTab === 'templates' && <RotationTemplatesManager />}
-        {activeTab === 'planner' && <RoundRobinPlanner />}
       </div>
     </div>
   );
