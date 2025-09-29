@@ -1,16 +1,19 @@
 import React from 'react';
-import { doctorProfiles, wantedActivities, docActivities } from './doctorSchedules.js';
+import { doctorProfiles, wantedActivities, docActivities, computeRemainingRotationTasks } from './doctorSchedules.js';
 import { activityColors } from './schedule.jsx';
-import { Pie } from 'react-chartjs-2';
+import { Pie, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   ArcElement,
   Tooltip,
   Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
 } from 'chart.js';
 
 // Register Chart.js components
-ChartJS.register(ArcElement, Tooltip, Legend);
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
 const ETAWorkloadInfographic = () => {
   // Helper function to get activity duration in hours
@@ -117,18 +120,71 @@ const ETAWorkloadInfographic = () => {
     };
   };
 
-  const { 
-    activityArray, 
-    totalDoctors, 
-    totalHalfDays, 
+  // Calculate shared activity distribution using remaining rotation tasks
+  const calculateSharedWorkloadDistribution = () => {
+    const sharedActivityHours = {};
+    const sharedActivityCounts = {};
+
+    // Calculate TeleCs needs (same as before since TeleCs aren't backbone-assigned)
+    const { totalTeleCsHours, teleCsPerDoctor } = calculateTeleCsNeeds();
+
+    // Get remaining tasks for each template in wantedActivities
+    Object.keys(wantedActivities).forEach(templateName => {
+      try {
+        const remainingTasks = computeRemainingRotationTasks(templateName);
+
+        // Count remaining activities and their hours
+        Object.values(remainingTasks).forEach(daySchedule => {
+          Object.values(daySchedule).forEach(timeSlotActivities => {
+            timeSlotActivities.forEach(activity => {
+              sharedActivityCounts[activity] = (sharedActivityCounts[activity] || 0) + 1;
+              const hours = getActivityHours(activity);
+              sharedActivityHours[activity] = (sharedActivityHours[activity] || 0) + hours;
+            });
+          });
+        });
+      } catch (error) {
+        console.warn(`Error calculating remaining tasks for ${templateName}:`, error);
+      }
+    });
+
+    // Add TeleCs from weekly needs (unchanged)
+    if (totalTeleCsHours > 0) {
+      const teleCsSessions = totalTeleCsHours / docActivities.TeleCs.duration;
+      sharedActivityCounts['TeleCs'] = (sharedActivityCounts['TeleCs'] || 0) + teleCsSessions;
+      sharedActivityHours['TeleCs'] = (sharedActivityHours['TeleCs'] || 0) + totalTeleCsHours;
+    }
+
+    // Calculate total shared hours
+    const totalSharedHours = Object.values(sharedActivityHours).reduce((sum, hours) => sum + hours, 0);
+
+    return {
+      sharedActivityCounts,
+      sharedActivityHours,
+      totalSharedHours,
+      totalTeleCsHours,
+      teleCsPerDoctor
+    };
+  };
+
+  const {
+    activityArray,
+    totalDoctors,
+    totalHalfDays,
     totalHours,
-    activityCounts, 
+    activityCounts,
     activityHours,
     totalUsedHours,
     remainingHours,
     totalTeleCsHours,
     teleCsPerDoctor
   } = calculateWorkloadDistribution();
+
+  const {
+    sharedActivityCounts,
+    sharedActivityHours,
+    totalSharedHours
+  } = calculateSharedWorkloadDistribution();
 
   // Helper function to generate different sorting orders
   // Available options: 'hours-desc', 'hours-asc', 'count-desc', 'count-asc', 'alphabetical', 'color-groups', 'custom'
@@ -316,6 +372,64 @@ const ETAWorkloadInfographic = () => {
   };
 
   const pieChartData = generatePieChartData();
+
+  // Function to generate bar chart data for activity durations
+  const generateBarChartData = () => {
+    // Filter out 'Available' activities and get activities with hours > 0
+    const activities = activityOrder.filter(activity =>
+      activity !== 'Available' && (activityHours[activity] || 0) > 0
+    );
+
+    // Create data arrays
+    const labels = activities.map(activity => activity);
+    const data = activities.map(activity => activityHours[activity] || 0);
+    const backgroundColor = activities.map(activity => getActivityColor(activity));
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'Duration (hours)',
+          data,
+          backgroundColor,
+          borderColor: backgroundColor.map(color => color),
+          borderWidth: 1,
+          hoverBackgroundColor: backgroundColor.map(color => color + '80'), // Add transparency on hover
+        },
+      ],
+    };
+  };
+
+  const barChartData = generateBarChartData();
+
+  // Function to generate bar chart data for shared activity durations
+  const generateSharedBarChartData = () => {
+    // Get activities with shared hours > 0, sorted by hours descending
+    const activities = Object.keys(sharedActivityHours)
+      .filter(activity => activity !== 'Available' && (sharedActivityHours[activity] || 0) > 0)
+      .sort((a, b) => (sharedActivityHours[b] || 0) - (sharedActivityHours[a] || 0));
+
+    // Create data arrays
+    const labels = activities.map(activity => activity);
+    const data = activities.map(activity => sharedActivityHours[activity] || 0);
+    const backgroundColor = activities.map(activity => getActivityColor(activity));
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'Shared Duration (hours)',
+          data,
+          backgroundColor,
+          borderColor: backgroundColor.map(color => color),
+          borderWidth: 1,
+          hoverBackgroundColor: backgroundColor.map(color => color + '80'), // Add transparency on hover
+        },
+      ],
+    };
+  };
+
+  const sharedBarChartData = generateSharedBarChartData();
 
   // Drag and drop handlers
   const handleDragStart = (e, activity) => {
@@ -696,6 +810,161 @@ const ETAWorkloadInfographic = () => {
           </p>
           <p style={{ fontSize: '12px', fontStyle: 'italic' }}>
             Activities with the same color are grouped together. Hover over slices for detailed information.
+          </p>
+        </div>
+      </div>
+
+      {/* Bar Chart Section */}
+      <div className="bar-chart-section" style={{ marginTop: '30px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
+        <h3 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
+          Activity Duration Breakdown
+        </h3>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+          <div style={{ width: '800px', height: '400px' }}>
+            <Bar
+              data={barChartData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false, // Hide legend since colors are self-explanatory
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: function(context) {
+                        const activity = context.label;
+                        const hours = context.parsed.y;
+                        const etpValue = (hours / 40).toFixed(1);
+                        const percentage = ((hours / totalUsedHours) * 100).toFixed(1);
+                        return [
+                          `${activity}`,
+                          `${hours}h (${etpValue} ETP)`,
+                          `${percentage}% of total used time`
+                        ];
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  x: {
+                    title: {
+                      display: true,
+                      text: 'Activities'
+                    },
+                    ticks: {
+                      maxRotation: 45,
+                      minRotation: 45
+                    }
+                  },
+                  y: {
+                    title: {
+                      display: true,
+                      text: 'Duration (hours)'
+                    },
+                    beginAtZero: true,
+                    ticks: {
+                      callback: function(value) {
+                        return value + 'h';
+                      }
+                    }
+                  }
+                }
+              }}
+            />
+          </div>
+        </div>
+        <div style={{ fontSize: '14px', color: '#6c757d', textAlign: 'center' }}>
+          <p>
+            <strong>Individual Activity Duration:</strong> Each bar represents the total weekly hours for that activity.
+          </p>
+          <p style={{ fontSize: '12px', fontStyle: 'italic' }}>
+            Hover over bars for detailed information including ETP values and percentage of total time.
+          </p>
+        </div>
+      </div>
+
+      {/* Shared Activities Bar Chart Section */}
+      <div className="shared-bar-chart-section" style={{ marginTop: '30px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#f0f8ff' }}>
+        <h3 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
+          Shared Activities Duration Breakdown
+        </h3>
+        <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#e6f3ff', borderRadius: '6px', border: '1px solid #b3d9ff' }}>
+          <div style={{ fontSize: '14px', color: '#0066cc', fontWeight: 'bold', marginBottom: '5px' }}>
+            💡 About Shared Activities
+          </div>
+          <div style={{ fontSize: '13px', color: '#004499', lineHeight: '1.4' }}>
+            This chart shows <strong>remaining workload</strong> available for rotation assignments after subtracting activities already covered by doctor backbones.
+            For example, if BM's backbone covers EMIT on Thursday/Friday, those hours are excluded from shared EMIT workload.
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+          <div style={{ width: '800px', height: '400px' }}>
+            <Bar
+              data={sharedBarChartData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false, // Hide legend since colors are self-explanatory
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: function(context) {
+                        const activity = context.label;
+                        const sharedHours = context.parsed.y;
+                        const totalHours = activityHours[activity] || 0;
+                        const backboneHours = totalHours - sharedHours;
+                        const etpValue = (sharedHours / 40).toFixed(1);
+                        const percentage = totalSharedHours > 0 ? ((sharedHours / totalSharedHours) * 100).toFixed(1) : '0';
+                        return [
+                          `${activity} - Shared Workload`,
+                          `Shared: ${sharedHours}h (${etpValue} ETP)`,
+                          `Backbone: ${backboneHours}h`,
+                          `Total: ${totalHours}h`,
+                          `${percentage}% of shared workload`
+                        ];
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  x: {
+                    title: {
+                      display: true,
+                      text: 'Activities'
+                    },
+                    ticks: {
+                      maxRotation: 45,
+                      minRotation: 45
+                    }
+                  },
+                  y: {
+                    title: {
+                      display: true,
+                      text: 'Shared Duration (hours)'
+                    },
+                    beginAtZero: true,
+                    ticks: {
+                      callback: function(value) {
+                        return value + 'h';
+                      }
+                    }
+                  }
+                }
+              }}
+            />
+          </div>
+        </div>
+        <div style={{ fontSize: '14px', color: '#6c757d', textAlign: 'center' }}>
+          <p>
+            <strong>Total Shared Workload:</strong> {totalSharedHours}h ({(totalSharedHours / 40).toFixed(1)} ETP) •
+            <strong> Total Original Workload:</strong> {totalUsedHours}h ({(totalUsedHours / 40).toFixed(1)} ETP)
+          </p>
+          <p style={{ fontSize: '12px', fontStyle: 'italic' }}>
+            <strong>Reduction from Backbone Coverage:</strong> {(totalUsedHours - totalSharedHours)}h ({((totalUsedHours - totalSharedHours) / 40).toFixed(1)} ETP)
+            • Shows hours already handled by doctor backbones and not available for rotation assignments.
           </p>
         </div>
       </div>

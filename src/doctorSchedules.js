@@ -125,6 +125,14 @@ export const wantedActivities = {
     Thursday: { "9am-1pm": [], "2pm-6pm": [] },
     Friday: { "9am-1pm": ["Chefferie"], "2pm-6pm": ["Chefferie"] },
   },
+
+  MPO: {
+    Monday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+    Tuesday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+    Wednesday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+    Thursday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+    Friday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+  },
 };
 
 // Standard rotation templates - computed from wantedActivities + MPO
@@ -163,6 +171,108 @@ function calculateSlotDuration(activities) {
     );
     return total + 4;
   }, 0);
+}
+
+// Helper function to collect all backbone assignments across all doctors
+function collectAllBackboneAssignments() {
+  const assignments = {};
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const timeSlots = ["9am-1pm", "2pm-6pm"];
+
+  // Initialize structure
+  days.forEach((day) => {
+    assignments[day] = {};
+    timeSlots.forEach((timeSlot) => {
+      assignments[day][timeSlot] = {
+        activities: [], // All activities assigned in this slot
+        usedCapacity: 0, // Total duration used
+        remainingCapacity: 4, // Remaining duration available (4 hours per slot)
+      };
+    });
+  });
+
+  // Collect assignments from all doctor backbones
+  Object.entries(doctorProfiles).forEach(([doctorCode, doctor]) => {
+    if (doctor.backbone) {
+      days.forEach((day) => {
+        timeSlots.forEach((timeSlot) => {
+          const backboneActivities = doctor.backbone[day]?.[timeSlot];
+          if (
+            Array.isArray(backboneActivities) &&
+            backboneActivities.length > 0
+          ) {
+            // Add activities to assignments
+            assignments[day][timeSlot].activities.push(...backboneActivities);
+
+            // Calculate used capacity
+            const slotDuration = calculateSlotDuration(backboneActivities);
+            assignments[day][timeSlot].usedCapacity += slotDuration;
+            assignments[day][timeSlot].remainingCapacity = Math.max(
+              0,
+              assignments[day][timeSlot].remainingCapacity - slotDuration
+            );
+          }
+        });
+      });
+    }
+  });
+
+  return assignments;
+}
+
+// Compute remaining rotation tasks for a specific template after subtracting backbone assignments
+export function computeRemainingRotationTasks(templateName) {
+  // Get the base template from wantedActivities
+  const baseTemplate = wantedActivities[templateName];
+  if (!baseTemplate) {
+    console.error(`Template ${templateName} not found in wantedActivities`);
+    return {};
+  }
+
+  // Get all current backbone assignments
+  const backboneAssignments = collectAllBackboneAssignments();
+
+  // Create the remaining tasks template
+  const remainingTasks = deepClone(baseTemplate);
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const timeSlots = ["9am-1pm", "2pm-6pm"];
+
+  days.forEach((day) => {
+    timeSlots.forEach((timeSlot) => {
+      const templateActivities = baseTemplate[day]?.[timeSlot] || [];
+      const assignedActivities =
+        backboneAssignments[day]?.[timeSlot]?.activities || [];
+      const remainingCapacity =
+        backboneAssignments[day]?.[timeSlot]?.remainingCapacity || 4;
+
+      // Filter out activities that are already assigned in backbones
+      let remainingActivities = templateActivities.filter((activity) => {
+        // Only remove if the EXACT same activity is already assigned
+        return !assignedActivities.includes(activity);
+      });
+
+      // Also check if remaining activities fit in available capacity
+      let filteredActivities = [];
+      let usedCapacity = 0;
+
+      for (const activity of remainingActivities) {
+        const activityDuration = docActivities[activity]?.duration || 4;
+
+        // Only add if it fits in remaining capacity
+        if (usedCapacity + activityDuration <= remainingCapacity) {
+          filteredActivities.push(activity);
+          usedCapacity += activityDuration;
+        }
+      }
+
+      // Update the remaining tasks
+      if (remainingTasks[day] && remainingTasks[day][timeSlot]) {
+        remainingTasks[day][timeSlot] = filteredActivities;
+      }
+    });
+  });
+
+  return remainingTasks;
 }
 
 // Doctor profiles with backbone constraints, skills, rotations, and weekly needs
@@ -307,7 +417,7 @@ export const doctorProfiles = {
   GC: {
     backbone: {
       Monday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
+      Tuesday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["Cs"] },
       Wednesday: { "9am-1pm": ["Cs"], "2pm-6pm": [] },
       Thursday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Friday: { "9am-1pm": ["TeleCs"], "2pm-6pm": ["Staff"] },
@@ -396,14 +506,15 @@ export const doctorProfiles = {
 
   DL: {
     backbone: {
-      Monday: { "9am-1pm": ["Cs"], "2pm-6pm": ["Cs"] },
-      Tuesday: { "9am-1pm": [], "2pm-6pm": [] },
+      Monday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+      Tuesday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Thursday: { "9am-1pm": [], "2pm-6pm": [] },
-      Friday: { "9am-1pm": ["Cs"], "2pm-6pm": ["TeleCs"] },
+      Thursday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+      Friday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
     },
+
     skills: ["HDJ", "MPO"],
-    rotationSetting: ["MPO", "HDJ"],
+    rotationSetting: ["MPO"],
     weeklyNeeds: {
       TeleCs: {
         count: 2,
@@ -589,8 +700,13 @@ export const doctorProfiles = {
 // Function to merge rotation template with backbone constraints
 // Backbone always takes precedence and capacity-aware template merging
 // Special handling for HTC rotations: HTC activities are enforced alongside Cs activities
-function mergeTemplateWithBackbone(templateName, backbone) {
-  const template = rotationTemplates[templateName];
+function mergeTemplateWithBackbone(
+  templateName,
+  backbone,
+  computedRemainingTasks = null
+) {
+  // Use computed remaining tasks if provided, otherwise fall back to static template
+  const template = computedRemainingTasks || rotationTemplates[templateName];
   if (!template) {
     console.error(`Template ${templateName} not found`);
     return deepClone(backbone); // Return backbone if template not found
@@ -714,15 +830,22 @@ export function generateDoctorRotations(doctorCode) {
 
   const generatedRotations = {};
 
-  // Generate base rotations from templates
+  // Generate base rotations from remaining tasks (dynamic computation)
   rotationSetting.forEach((templateName) => {
-    if (rotationTemplates[templateName]) {
-      // Generate simple rotation from template + backbone
-      const baseRotation = mergeTemplateWithBackbone(templateName, backbone);
+    // Check if template exists in wantedActivities (we now use this instead of rotationTemplates)
+    if (wantedActivities[templateName]) {
+      // Compute remaining tasks for this template
+      const remainingTasks = computeRemainingRotationTasks(templateName);
+      // Generate rotation from remaining tasks + backbone
+      const baseRotation = mergeTemplateWithBackbone(
+        templateName,
+        backbone,
+        remainingTasks
+      );
       generatedRotations[templateName] = baseRotation;
     } else {
       console.warn(
-        `Template ${templateName} not found for doctor ${doctorCode}`
+        `Template ${templateName} not found in wantedActivities for doctor ${doctorCode}`
       );
     }
   });
@@ -909,6 +1032,89 @@ export function validateRotationSystem() {
     results.errors.push(`Critical error during validation: ${error.message}`);
     results.success = false;
   }
+
+  return results;
+}
+
+// Test function to verify the new dynamic rotation system
+export function testDynamicRotationSystem() {
+  const results = {
+    success: true,
+    tests: [],
+    errors: [],
+  };
+
+  try {
+    // Test 1: Verify BM backbone has EMIT on Thursday/Friday
+    const bmBackbone = doctorProfiles.BM.backbone;
+    const bmThursdayEmit =
+      bmBackbone.Thursday["9am-1pm"].includes("EMIT") &&
+      bmBackbone.Thursday["2pm-6pm"].includes("EMIT");
+    const bmFridayEmit =
+      bmBackbone.Friday["9am-1pm"].includes("EMIT") &&
+      bmBackbone.Friday["2pm-6pm"].includes("EMIT");
+
+    results.tests.push({
+      name: "BM backbone contains EMIT on Thursday/Friday",
+      passed: bmThursdayEmit && bmFridayEmit,
+      details: `Thursday: ${bmThursdayEmit}, Friday: ${bmFridayEmit}`,
+    });
+
+    // Test 2: Check EMIT remaining tasks after BM assignment
+    const emitRemainingTasks = computeRemainingRotationTasks("EMIT");
+    const thursdayEmitRemaining =
+      emitRemainingTasks.Thursday["9am-1pm"].length +
+      emitRemainingTasks.Thursday["2pm-6pm"].length;
+    const fridayEmitRemaining =
+      emitRemainingTasks.Friday["9am-1pm"].length +
+      emitRemainingTasks.Friday["2pm-6pm"].length;
+
+    results.tests.push({
+      name: "EMIT remaining tasks exclude Thursday/Friday (covered by BM)",
+      passed: thursdayEmitRemaining === 0 && fridayEmitRemaining === 0,
+      details: `Thursday remaining: ${thursdayEmitRemaining}, Friday remaining: ${fridayEmitRemaining}`,
+      remainingTasks: emitRemainingTasks,
+    });
+
+    // Test 3: Verify MG can generate EMIT rotation without Thursday/Friday (since BM covers those)
+    if (
+      doctorProfiles.MG.skills.includes("EMIT") &&
+      doctorProfiles.MG.rotationSetting.includes("EMIT")
+    ) {
+      const mgRotations = generateDoctorRotations("MG");
+      const mgEmitRotation = mgRotations.EMIT;
+      if (mgEmitRotation) {
+        const mgThursdayEmit = mgEmitRotation.Thursday
+          ? mgEmitRotation.Thursday["9am-1pm"].includes("EMIT") ||
+            mgEmitRotation.Thursday["2pm-6pm"].includes("EMIT")
+          : false;
+        const mgFridayEmit = mgEmitRotation.Friday
+          ? mgEmitRotation.Friday["9am-1pm"].includes("EMIT") ||
+            mgEmitRotation.Friday["2pm-6pm"].includes("EMIT")
+          : false;
+
+        results.tests.push({
+          name: "MG EMIT rotation excludes Thursday/Friday EMIT activities (covered by BM)",
+          passed: !mgThursdayEmit && !mgFridayEmit,
+          details: `MG Thursday EMIT: ${mgThursdayEmit}, MG Friday EMIT: ${mgFridayEmit}`,
+          mgEmitRotation: mgEmitRotation,
+        });
+      } else {
+        results.tests.push({
+          name: "MG EMIT rotation generation",
+          passed: false,
+          details: "MG EMIT rotation was not generated",
+        });
+      }
+    }
+  } catch (error) {
+    results.success = false;
+    results.errors.push(`Test error: ${error.message}`);
+  }
+
+  // Mark overall success if all tests passed
+  results.success =
+    results.tests.every((test) => test.passed) && results.errors.length === 0;
 
   return results;
 }
