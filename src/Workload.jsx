@@ -240,7 +240,148 @@ const aggregateActivities = (combo) => {
   return doctorActivities;
 };
 
-// New function to aggregate activities from custom planning data
+// New function to aggregate activities from all periodic schedules
+const aggregateActivitiesFromPeriodicData = (customScheduleData) => {
+  const doctorActivities = {};
+
+  const processActivities = (activitiesList, doctor, periodName, day, slot) => {
+    activitiesList.forEach((activity) => {
+      const activityData = activities[activity] || {};
+      const duration = activityData.duration || 1; // Default duration is 1 if not found
+
+      if (!doctorActivities[doctor]) {
+        doctorActivities[doctor] = {};
+      }
+      if (!doctorActivities[doctor][activity]) {
+        doctorActivities[doctor][activity] = 0;
+      }
+      doctorActivities[doctor][activity] += duration; // Accumulate duration for the activity
+
+      // Enhanced logging for HTC activities
+      if (activity.includes('HTC')) {
+        console.log(`    🎯 HTC Activity: ${doctor} gets ${duration}h of ${activity} in ${periodName} (${day} ${slot})`);
+      }
+    });
+  };
+
+  // Process all periodic schedules to get annual workload
+  if (customScheduleData.periodicSchedule) {
+    console.log('🔍 Processing periodic schedules for workload calculation...');
+    const periodNames = Object.keys(customScheduleData.periodicSchedule);
+    console.log(`📅 Found ${periodNames.length} periods:`, periodNames);
+
+    periodNames.forEach((periodName) => {
+      const periodData = customScheduleData.periodicSchedule[periodName];
+      if (periodData.schedule) {
+        const periodSchedule = periodData.schedule;
+        const doctorsInPeriod = Object.keys(periodSchedule);
+        console.log(`📋 ${periodName}: Processing ${doctorsInPeriod.length} doctors:`, doctorsInPeriod);
+
+        // Traverse each doctor's schedule for this period
+        doctorsInPeriod.forEach((doctor) => {
+          const doctorSchedule = periodSchedule[doctor];
+          Object.keys(doctorSchedule).forEach((day) => {
+            const daySchedule = doctorSchedule[day];
+            Object.keys(daySchedule).forEach((slot) => {
+              const activitiesList = daySchedule[slot];
+              if (Array.isArray(activitiesList)) {
+                if (activitiesList.length > 0) {
+                  console.log(`  🩺 ${doctor} - ${day} ${slot}: [${activitiesList.join(', ')}]`);
+                }
+                processActivities(activitiesList, doctor, periodName, day, slot);
+              }
+            });
+          });
+        });
+      }
+    });
+  }
+
+  // Note: Removed finalSchedule processing to avoid double counting
+  // periodicSchedule already contains all the data we need for workload calculation
+
+  console.log('📊 Final Aggregated Doctor Activities from Periodic Data:', doctorActivities);
+
+  // Enhanced logging and validation for HTC distribution
+  console.log('\n🔍 HTC DISTRIBUTION ANALYSIS:');
+
+  const htc1Doctors = ['FL', 'CL', 'NS'];
+  const htc2Doctors = ['MG', 'MDLC', 'RNV'];
+
+  console.log('\n📋 HTC1 Distribution:');
+  let htc1TotalHours = 0;
+  htc1Doctors.forEach(doctor => {
+    if (doctorActivities[doctor]) {
+      const htc1Activities = Object.keys(doctorActivities[doctor]).filter(activity =>
+        activity === 'HTC1' || activity === 'HTC1_visite'
+      );
+      const htc1Hours = htc1Activities.reduce((total, activity) =>
+        total + (doctorActivities[doctor][activity] || 0), 0
+      );
+      htc1TotalHours += htc1Hours;
+      console.log(`  🏥 ${doctor}: ${htc1Hours}h HTC1 total (${htc1Activities.map(activity =>
+        `${activity}:${doctorActivities[doctor][activity]}h`
+      ).join(', ') || 'None'})`);
+    } else {
+      console.log(`  ⚠️ ${doctor}: No activities found`);
+    }
+  });
+
+  console.log('\n📋 HTC2 Distribution:');
+  let htc2TotalHours = 0;
+  htc2Doctors.forEach(doctor => {
+    if (doctorActivities[doctor]) {
+      const htc2Activities = Object.keys(doctorActivities[doctor]).filter(activity =>
+        activity === 'HTC2' || activity === 'HTC2_visite'
+      );
+      const htc2Hours = htc2Activities.reduce((total, activity) =>
+        total + (doctorActivities[doctor][activity] || 0), 0
+      );
+      htc2TotalHours += htc2Hours;
+      console.log(`  🏥 ${doctor}: ${htc2Hours}h HTC2 total (${htc2Activities.map(activity =>
+        `${activity}:${doctorActivities[doctor][activity]}h`
+      ).join(', ') || 'None'})`);
+    } else {
+      console.log(`  ⚠️ ${doctor}: No activities found`);
+    }
+  });
+
+  // Distribution balance validation
+  console.log('\n⚖️ BALANCE VALIDATION:');
+  const htc1Average = htc1TotalHours / htc1Doctors.length;
+  const htc2Average = htc2TotalHours / htc2Doctors.length;
+  console.log(`  📊 HTC1 Average: ${htc1Average.toFixed(1)}h per doctor (Total: ${htc1TotalHours}h)`);
+  console.log(`  📊 HTC2 Average: ${htc2Average.toFixed(1)}h per doctor (Total: ${htc2TotalHours}h)`);
+
+  // Check for balance within each HTC group
+  htc1Doctors.forEach(doctor => {
+    if (doctorActivities[doctor]) {
+      const htc1Hours = ['HTC1', 'HTC1_visite'].reduce((total, activity) =>
+        total + (doctorActivities[doctor][activity] || 0), 0
+      );
+      const deviation = Math.abs(htc1Hours - htc1Average);
+      if (deviation > 2) { // More than 2 hours difference
+        console.log(`  ⚠️ HTC1 IMBALANCE: ${doctor} has ${htc1Hours}h (${deviation.toFixed(1)}h from average)`);
+      }
+    }
+  });
+
+  htc2Doctors.forEach(doctor => {
+    if (doctorActivities[doctor]) {
+      const htc2Hours = ['HTC2', 'HTC2_visite'].reduce((total, activity) =>
+        total + (doctorActivities[doctor][activity] || 0), 0
+      );
+      const deviation = Math.abs(htc2Hours - htc2Average);
+      if (deviation > 2) { // More than 2 hours difference
+        console.log(`  ⚠️ HTC2 IMBALANCE: ${doctor} has ${htc2Hours}h (${deviation.toFixed(1)}h from average)`);
+      }
+    }
+  });
+
+  return doctorActivities;
+};
+
+// Legacy function for backward compatibility
 const aggregateActivitiesFromCustomData = (customSchedule) => {
   const doctorActivities = {};
 
@@ -279,17 +420,17 @@ const aggregateActivitiesFromCustomData = (customSchedule) => {
 };
 
 const Workload = () => {
-  const { loading, customScheduleData } = useContext(ScheduleContext);
+  const { loading, customScheduleData, selectedRotationCycle } = useContext(ScheduleContext);
   const [doctorActivities, setDoctorActivities] = useState({});
 
   useEffect(() => {
     if (!loading && customScheduleData && customScheduleData.success) {
-      // Use the finalSchedule from custom logic for workload calculation
-      const scheduleToAnalyze = customScheduleData.finalSchedule || {};
-      const activities = aggregateActivitiesFromCustomData(scheduleToAnalyze);
+      console.log(`📊 Workload: Processing data for rotation cycle: ${selectedRotationCycle}`);
+      // Use all periodic schedules for comprehensive annual workload calculation
+      const activities = aggregateActivitiesFromPeriodicData(customScheduleData);
       setDoctorActivities(activities);
     }
-  }, [loading, customScheduleData]);
+  }, [loading, customScheduleData, selectedRotationCycle]);
 
   useEffect(() => {
     console.log('Doctor Activities State:', doctorActivities);
@@ -341,7 +482,7 @@ const Workload = () => {
       },
       title: {
         display: true,
-        text: 'Volume de travail médical (durée des tâches par poste et docteur)',
+        text: `Volume de travail médical (${selectedRotationCycle || 'honeymoon_NS_noHDJ'})`,
       },
     },
   };
