@@ -1,5 +1,5 @@
 import { doctorProfiles, generateDoctorRotations } from "./doctorSchedules.js";
-import { expectedActivities } from "./schedule.jsx";
+import { expectedActivities as staticExpectedActivities } from "./schedule.jsx";
 
 // Custom Planning Logic - Algorithme de Planification Médical Progressif et Fiable
 // Implémentation en 3 phases selon les spécifications utilisateur
@@ -507,16 +507,18 @@ export const getEmptySchedule = () => ({
 const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
 
 // Vérifier si un médecin a une seule rotation possible
-const hasSingleRotation = (doctorCode) => {
-  const profile = doctorProfiles[doctorCode];
+const hasSingleRotation = (doctorCode, profilesData = null) => {
+  const profiles = profilesData || doctorProfiles;
+  const profile = profiles[doctorCode];
   return (
     profile && profile.rotationSetting && profile.rotationSetting.length === 1
   );
 };
 
 // Vérifier si un médecin a plusieurs rotations possibles
-const hasMultipleRotations = (doctorCode) => {
-  const profile = doctorProfiles[doctorCode];
+const hasMultipleRotations = (doctorCode, profilesData = null) => {
+  const profiles = profilesData || doctorProfiles;
+  const profile = profiles[doctorCode];
   return (
     profile && profile.rotationSetting && profile.rotationSetting.length > 1
   );
@@ -534,31 +536,49 @@ const hasMultipleRotations = (doctorCode) => {
  * @param {Object} timeUnit - Unité de temps considérée
  * @returns {Object} Planning avec médecins rigides assignés
  */
-export function assignRigidDoctors() {
+export function assignRigidDoctors(dynamicDoctorProfiles = null, dynamicWantedActivities = null) {
   console.log("Phase 1.1: Assignation des médecins rigides...");
 
+  const profilesData = dynamicDoctorProfiles || doctorProfiles;
   const rigidSchedule = {};
-  const availableDoctors = Object.keys(doctorProfiles);
+  const availableDoctors = Object.keys(profilesData);
+
+  // 🔍 Debug: Log BM's backbone if it exists
+  if (profilesData.BM) {
+    console.log("🎯 BM backbone in assignRigidDoctors:", {
+      Thursday: profilesData.BM.backbone?.Thursday,
+      Friday: profilesData.BM.backbone?.Friday,
+      rotationSetting: profilesData.BM.rotationSetting
+    });
+  }
 
   // Identifier les médecins avec une seule rotation
-  const rigidDoctors = availableDoctors.filter(hasSingleRotation);
+  const rigidDoctors = availableDoctors.filter(doctorCode => hasSingleRotation(doctorCode, profilesData));
 
   console.log("Médecins rigides identifiés:", rigidDoctors);
 
   // Pour chaque médecin rigide, utiliser sa seule rotation disponible
   rigidDoctors.forEach((doctorCode) => {
-    const profile = doctorProfiles[doctorCode];
+    const profile = profilesData[doctorCode];
     const rotationName = profile.rotationSetting[0]; // Seule rotation disponible
 
     try {
       // Générer les rotations disponibles pour ce médecin
-      const generatedRotations = generateDoctorRotations(doctorCode);
+      const generatedRotations = generateDoctorRotations(doctorCode, dynamicDoctorProfiles, dynamicWantedActivities);
 
       if (generatedRotations[rotationName]) {
         rigidSchedule[doctorCode] = deepClone(generatedRotations[rotationName]);
         console.log(
           `✅ ${doctorCode} assigné à rotation ${rotationName} (rigide)`
         );
+
+        // 🔍 Debug: Log BM's schedule after assignment
+        if (doctorCode === 'BM') {
+          console.log("🎯 BM's generated schedule:", {
+            Thursday: rigidSchedule[doctorCode]?.Thursday,
+            Friday: rigidSchedule[doctorCode]?.Friday
+          });
+        }
       } else {
         console.warn(
           `⚠️ Rotation ${rotationName} non trouvée pour ${doctorCode}`
@@ -569,11 +589,22 @@ export function assignRigidDoctors() {
     }
   });
 
+  // 🔍 Debug: Log final rigid schedule
+  console.log("📋 Rigid doctors in final schedule:", Object.keys(rigidSchedule));
+  if (rigidSchedule.BM) {
+    console.log("🎯 BM present in rigidSchedule:", {
+      Thursday: rigidSchedule.BM?.Thursday,
+      Friday: rigidSchedule.BM?.Friday
+    });
+  } else {
+    console.warn("⚠️ BM NOT found in rigidSchedule!");
+  }
+
   return {
     schedule: rigidSchedule,
     assignedDoctors: rigidDoctors,
     rotationAssignments: rigidDoctors.reduce((acc, doctor) => {
-      acc[doctor] = doctorProfiles[doctor].rotationSetting[0];
+      acc[doctor] = profilesData[doctor].rotationSetting[0];  // ✅ Fixed: Use dynamic profilesData instead of static doctorProfiles
       return acc;
     }, {}),
   };
@@ -583,17 +614,18 @@ export function assignRigidDoctors() {
  * Phase 1.2: Créer dictionnaire rotation -> docteurs pour médecins souples
  * @returns {Object} Dictionnaire {rotation: [docteurs correspondants]}
  */
-export function createRotationDict() {
+export function createRotationDict(dynamicDoctorProfiles = null) {
   console.log("Phase 1.2: Création du dictionnaire rotation -> docteurs...");
 
+  const profilesData = dynamicDoctorProfiles || doctorProfiles;
   const rotationDict = {};
-  const availableDoctors = Object.keys(doctorProfiles);
+  const availableDoctors = Object.keys(profilesData);
 
   // Identifier les médecins avec plusieurs rotations
-  const flexibleDoctors = availableDoctors.filter(hasMultipleRotations);
+  const flexibleDoctors = availableDoctors.filter(doctorCode => hasMultipleRotations(doctorCode, profilesData));
 
   flexibleDoctors.forEach((doctorCode) => {
-    const profile = doctorProfiles[doctorCode];
+    const profile = profilesData[doctorCode];
 
     profile.rotationSetting.forEach((rotation) => {
       if (!rotationDict[rotation]) {
@@ -650,14 +682,14 @@ export function selectUniqueRotationPairs(
  * @param {Object} timeUnit - Unité de temps considérée
  * @returns {Object} Planning concaténé complet
  */
-export function createBaseScheduling() {
+export function createBaseScheduling(dynamicDoctorProfiles = null, dynamicWantedActivities = null) {
   console.log("Phase 1: Constitution du planning de base...");
 
   // Phase 1.1: Médecins rigides
-  const rigidResult = assignRigidDoctors();
+  const rigidResult = assignRigidDoctors(dynamicDoctorProfiles, dynamicWantedActivities);
 
   // Phase 1.2: Médecins souples
-  const rotationDict = createRotationDict();
+  const rotationDict = createRotationDict(dynamicDoctorProfiles);
   const uniquePairs = selectUniqueRotationPairs(
     rotationDict,
     rigidResult.rotationAssignments
@@ -669,7 +701,7 @@ export function createBaseScheduling() {
   Object.entries(uniquePairs).forEach(([doctorCode, rotationName]) => {
     if (!completeSchedule[doctorCode]) {
       try {
-        const generatedRotations = generateDoctorRotations(doctorCode);
+        const generatedRotations = generateDoctorRotations(doctorCode, dynamicDoctorProfiles, dynamicWantedActivities);
 
         if (generatedRotations[rotationName]) {
           completeSchedule[doctorCode] = deepClone(
@@ -744,10 +776,13 @@ export function calculateRotationPeriods() {
 export function createPeriodicVariations(
   baseSchedule,
   rotationAssignments,
-  cycleType = "honeymoon"
+  cycleType = "honeymoon",
+  dynamicDoctorProfiles = null,
+  dynamicWantedActivities = null
 ) {
   console.log("Phase 3: Création des variations périodiques...");
 
+  const profilesData = dynamicDoctorProfiles || doctorProfiles;
   const rotationPeriods = calculateRotationPeriods();
   const periodicSchedule = {};
 
@@ -756,7 +791,7 @@ export function createPeriodicVariations(
   const flexibleDoctors = [];
 
   Object.entries(rotationAssignments).forEach(([doctorCode]) => {
-    const profile = doctorProfiles[doctorCode];
+    const profile = profilesData[doctorCode];  // ✅ Fixed: Use dynamic profilesData
     if (profile?.rotationSetting?.length <= 1) {
       rigidDoctors.push(doctorCode);
     } else {
@@ -800,7 +835,7 @@ export function createPeriodicVariations(
     newFlexibleAssignments.forEach(({ doctor, activity }) => {
       console.log(`🔍 Processing assignment: ${doctor} → ${activity}`);
       try {
-        const generatedRotations = generateDoctorRotations(doctor);
+        const generatedRotations = generateDoctorRotations(doctor, dynamicDoctorProfiles, dynamicWantedActivities);
         console.log(`🔍 ${doctor} available rotations:`, Object.keys(generatedRotations));
 
         if (generatedRotations[activity]) {
@@ -834,7 +869,7 @@ export function createPeriodicVariations(
         doctorProfiles["DL"].rotationSetting[backboneIndex];
 
       try {
-        const generatedRotations = generateDoctorRotations("DL");
+        const generatedRotations = generateDoctorRotations("DL", dynamicDoctorProfiles, dynamicWantedActivities);
         if (generatedRotations[selectedRotation]) {
           periodSchedule["DL"] = deepClone(
             generatedRotations[selectedRotation]
@@ -958,12 +993,21 @@ function validateHoneyMoonCycle(
 /**
  * Exécuter l'algorithme complet de planification personnalisée
  * @param {string} cycleType - Type de cycle de rotation ('honeymoon', 'summer', 'emergency')
+ * @param {Object} dynamicData - Dynamic data from ScheduleContext
  * @returns {Object} Résultat complet de la planification
  */
-export function executeCustomPlanningAlgorithm(cycleType = "honeymoon") {
+export function executeCustomPlanningAlgorithm(cycleType = "honeymoon", dynamicData = null) {
   console.log(
     `🚀 Démarrage algorithme de planification personnalisée (cycle: ${cycleType})...`
   );
+
+  // Extract dynamic data with fallbacks to static imports
+  const {
+    doctorProfiles: dynamicDoctorProfiles = doctorProfiles,
+    wantedActivities: dynamicWantedActivities = null,
+    docActivities: dynamicDocActivities = null,
+    rotationTemplates: dynamicRotationTemplates = null
+  } = dynamicData || {};
 
   const startTime = Date.now();
   const result = {
@@ -978,7 +1022,7 @@ export function executeCustomPlanningAlgorithm(cycleType = "honeymoon") {
   try {
     // PHASE 1: Constitution progressive
     console.log("\n📋 PHASE 1: Constitution progressive du planning");
-    const phase1Result = createBaseScheduling();
+    const phase1Result = createBaseScheduling(dynamicDoctorProfiles, dynamicWantedActivities);
     result.phases.phase1 = phase1Result;
 
     // PHASE 2: Simplifiée - Pas de résolution automatique des conflits
@@ -996,7 +1040,9 @@ export function executeCustomPlanningAlgorithm(cycleType = "honeymoon") {
     const periodicSchedule = createPeriodicVariations(
       adjustedSchedule,
       phase1Result.rotationAssignments,
-      cycleType
+      cycleType,
+      dynamicDoctorProfiles,  // ✅ Pass dynamic data to Phase 3
+      dynamicWantedActivities
     );
 
     result.phases.phase3 = periodicSchedule;
@@ -1032,10 +1078,13 @@ export function executeCustomPlanningAlgorithm(cycleType = "honeymoon") {
 /**
  * Générer un rapport détaillé de l'exécution
  * @param {Object} algorithmResult - Résultat de l'algorithme
+ * @param {Object} dynamicExpectedActivities - Dynamic expectedActivities from ScheduleContext
  * @returns {Object} Rapport détaillé
  */
-export function generateCustomPlanningReport(algorithmResult) {
+export function generateCustomPlanningReport(algorithmResult, dynamicExpectedActivities = null) {
   console.log("📋 Génération du rapport de planification personnalisée...");
+
+  const expectedActivities = dynamicExpectedActivities || staticExpectedActivities;
 
   if (!algorithmResult.success) {
     return {
