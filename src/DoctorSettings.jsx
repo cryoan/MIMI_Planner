@@ -1,18 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import "./DoctorSchedule.css";
 import {
-  docActivities,
-  rotationTemplates,
-  doctorProfiles,
   generateDoctorRotations,
 } from "./doctorSchedules.js";
 import { activityColors } from "./schedule";
 import RotationCycleSelector from "./RotationCycleSelector";
+import { ScheduleContext } from "./ScheduleContext";
 
 // Custom function to merge rotation template with backbone constraints
 // Backbone always takes precedence (overrides template when conflicts occur)
-const mergeTemplateWithBackbone = (templateName, backbone) => {
-  const template = rotationTemplates[templateName];
+const mergeTemplateWithBackbone = (templateName, backbone, rotationTemplatesData) => {
+  const template = rotationTemplatesData[templateName];
   if (!template) {
     console.error(`Template ${templateName} not found`);
     return { ...backbone }; // Return backbone if template not found
@@ -87,8 +85,8 @@ const DoctorSettings = ({
 };
 
 // Function to transform doctorProfiles data to UI state format
-const transformDoctorProfilesToUIState = () => {
-  return Object.entries(doctorProfiles).map(([doctorCode, profile]) => {
+const transformDoctorProfilesToUIState = (doctorProfilesData) => {
+  return Object.entries(doctorProfilesData).map(([doctorCode, profile]) => {
     // Only use computed rotations, ignore hard-coded rotations completely
     let allRotations = {};
     let computedRotations = {};
@@ -170,18 +168,28 @@ const AddDoctorForm = ({
 
 // Extracted Doctors Manager Component
 const DoctorsManager = () => {
-  const [doctors, setDoctors] = useState(() => {
-    // Initialize with existing doctor data from doctorSchedules.js
-    return transformDoctorProfilesToUIState();
-  });
+  const {
+    doctorProfiles,
+    updateSingleDoctor,
+    removeDoctor,
+    recalculateSchedules
+  } = useContext(ScheduleContext);
+
   const [newDoctorName, setNewDoctorName] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
 
+  // Convert context data to UI format
+  const doctors = transformDoctorProfilesToUIState(doctorProfiles);
+
   const addDoctor = () => {
     if (newDoctorName.trim()) {
+      const doctorId = `custom_${Date.now()}`;
+      const doctorName = newDoctorName.trim();
+
       // Check if doctor name already exists
-      const nameExists = doctors.some(
-        (doc) => doc.name.toLowerCase() === newDoctorName.trim().toLowerCase()
+      const nameExists = Object.values(doctorProfiles).some(
+        (profile) => profile.name?.toLowerCase() === doctorName.toLowerCase() ||
+        Object.keys(doctorProfiles).some(key => key.toLowerCase() === doctorName.toLowerCase())
       );
 
       if (nameExists) {
@@ -191,9 +199,7 @@ const DoctorsManager = () => {
         return;
       }
 
-      const newDoctor = {
-        id: `custom_${Date.now()}`, // Use custom prefix for new doctors
-        name: newDoctorName.trim(),
+      const newDoctorProfile = {
         backbone: {
           Monday: { "9am-1pm": [], "2pm-6pm": [] },
           Tuesday: { "9am-1pm": [], "2pm-6pm": [] },
@@ -202,47 +208,38 @@ const DoctorsManager = () => {
           Friday: { "9am-1pm": [], "2pm-6pm": [] },
         },
         skills: [],
-        rotations: {},
-        isImported: false, // Mark as custom doctor
+        rotationSetting: [],
+        weeklyNeeds: {}
       };
-      setDoctors([...doctors, newDoctor]);
+
+      updateSingleDoctor(doctorId, newDoctorProfile);
       setNewDoctorName("");
       setShowAddForm(false);
     }
   };
 
   const deleteDoctor = (doctorId) => {
-    setDoctors(doctors.filter((doc) => doc.id !== doctorId));
+    removeDoctor(doctorId);
   };
 
-  const updateDoctor = (doctorId, updatedDoctor) => {
-    setDoctors(
-      doctors.map((doc) =>
-        doc.id === doctorId ? { ...doc, ...updatedDoctor } : doc
-      )
-    );
+  const updateDoctor = (doctorId, updatedData) => {
+    // ✅ CRITICAL FIX: Only include defined properties to avoid overwriting with undefined
+    // This prevents partial updates from destroying existing properties
+    const profileData = {};
+    if (updatedData.backbone !== undefined) profileData.backbone = updatedData.backbone;
+    if (updatedData.skills !== undefined) profileData.skills = updatedData.skills;
+    if (updatedData.rotationSetting !== undefined) profileData.rotationSetting = updatedData.rotationSetting;
+    if (updatedData.weeklyNeeds !== undefined) profileData.weeklyNeeds = updatedData.weeklyNeeds;
+
+    // Debug: Log what we're actually sending
+    console.log(`📝 DoctorSettings: Updating ${doctorId} with:`, Object.keys(profileData));
+
+    updateSingleDoctor(doctorId, profileData);
   };
 
   const refreshComputedRotations = (doctorId) => {
-    setDoctors(
-      doctors.map((doc) => {
-        if (doc.id === doctorId && doc.isImported) {
-          // Re-generate computed rotations using the latest data
-          const freshDoctorData = transformDoctorProfilesToUIState().find(
-            (d) => d.id === doctorId
-          );
-          if (freshDoctorData) {
-            return {
-              ...doc,
-              rotations: freshDoctorData.rotations,
-              computedRotations: freshDoctorData.computedRotations,
-              rotationTypes: freshDoctorData.rotationTypes,
-            };
-          }
-        }
-        return doc;
-      })
-    );
+    // Trigger recalculation - the context will handle updating computed rotations
+    recalculateSchedules();
   };
 
   const importedDoctors = doctors.filter((doc) => doc.isImported);
@@ -500,6 +497,8 @@ const BackboneEditor = ({ backbone, onUpdate }) => {
 };
 
 const EditableTimeSlot = ({ day, timeSlot, activities, onClick }) => {
+  const { docActivities } = useContext(ScheduleContext);
+
   return (
     <div className="editable-timeslot" onClick={onClick}>
       <div className="timeslot-label">
@@ -587,6 +586,8 @@ const TimeSlotEditor = ({ slot, onSave, onCancel }) => {
 };
 
 const SkillsEditor = ({ skills, onUpdate }) => {
+  const { docActivities } = useContext(ScheduleContext);
+
   const handleSkillToggle = (skill) => {
     if (skills.includes(skill)) {
       onUpdate(skills.filter((s) => s !== skill));
@@ -629,6 +630,7 @@ const RotationSettingEditor = ({
   onUpdate,
   onRefresh,
 }) => {
+  const { rotationTemplates } = useContext(ScheduleContext);
   const [selectedTemplates, setSelectedTemplates] = useState([
     ...rotationSetting,
   ]);
@@ -655,7 +657,7 @@ const RotationSettingEditor = ({
         const preview = {};
         newTemplates.forEach((template) => {
           if (rotationTemplates[template]) {
-            const merged = mergeTemplateWithBackbone(template, backbone);
+            const merged = mergeTemplateWithBackbone(template, backbone, rotationTemplates);
             preview[template] = merged;
             preview[`${template}_preview`] = merged; // Basic preview
           }
@@ -794,6 +796,7 @@ const RotationCard = ({
   onDelete,
   onUpdate,
 }) => {
+  const { rotationTemplates, docActivities } = useContext(ScheduleContext);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -837,7 +840,7 @@ const RotationCard = ({
     if (isTemplate) {
       // For template rotations, merge template with backbone using our custom function
       try {
-        return mergeTemplateWithBackbone(rotation, backbone);
+        return mergeTemplateWithBackbone(rotation, backbone, rotationTemplates);
       } catch (error) {
         console.error("Error building template schedule:", error);
         return backbone; // Fallback to backbone
@@ -1088,6 +1091,7 @@ const RotationScheduleEditor = ({ schedule, skills, onUpdate, onCancel }) => {
 };
 
 const RotationTimeSlotEditor = ({ slot, skills, onSave, onCancel }) => {
+  const { docActivities } = useContext(ScheduleContext);
   const [selectedActivities, setSelectedActivities] = useState(slot.activities);
 
   const handleActivityToggle = (activity) => {
@@ -1172,6 +1176,7 @@ const RotationsManager = ({
   onDelete,
   onUpdate,
 }) => {
+  const { rotationTemplates } = useContext(ScheduleContext);
   const [showAddForm, setShowAddForm] = useState(false);
   const [rotationMode, setRotationMode] = useState("template"); // 'template' or 'custom'
   const [newRotationName, setNewRotationName] = useState("");
@@ -1184,7 +1189,7 @@ const RotationsManager = ({
     if (templateName) {
       try {
         // Use our custom merging function to merge template with backbone
-        const preview = mergeTemplateWithBackbone(templateName, backbone);
+        const preview = mergeTemplateWithBackbone(templateName, backbone, rotationTemplates);
         setPreviewSchedule(preview);
       } catch (error) {
         console.error("Error generating preview:", error);
@@ -1206,7 +1211,7 @@ const RotationsManager = ({
         rotationData = previewSchedule;
       } else {
         try {
-          rotationData = mergeTemplateWithBackbone(selectedTemplate, backbone);
+          rotationData = mergeTemplateWithBackbone(selectedTemplate, backbone, rotationTemplates);
         } catch (error) {
           console.error("Error creating rotation from template:", error);
           rotationData = { ...backbone }; // Fallback to backbone
@@ -1410,36 +1415,25 @@ const RotationsManager = ({
 
 // Rotation Templates Manager Component
 const RotationTemplatesManager = () => {
-  const [templates, setTemplates] = useState(() => {
-    // Initialize with existing templates from doctorSchedules.js
-    return Object.keys(rotationTemplates).reduce((acc, templateName) => {
-      acc[templateName] = rotationTemplates[templateName];
-      return acc;
-    }, {});
-  });
+  const {
+    rotationTemplates,
+    updateSingleTemplate,
+    removeTemplate
+  } = useContext(ScheduleContext);
+
   const [showAddForm, setShowAddForm] = useState(false);
 
   const addTemplate = (templateName, templateData) => {
-    setTemplates((prev) => ({
-      ...prev,
-      [templateName]: templateData,
-    }));
+    updateSingleTemplate(templateName, templateData);
     setShowAddForm(false);
   };
 
   const updateTemplate = (templateName, updatedTemplateData) => {
-    setTemplates((prev) => ({
-      ...prev,
-      [templateName]: updatedTemplateData,
-    }));
+    updateSingleTemplate(templateName, updatedTemplateData);
   };
 
   const deleteTemplate = (templateName) => {
-    setTemplates((prev) => {
-      const updated = { ...prev };
-      delete updated[templateName];
-      return updated;
-    });
+    removeTemplate(templateName);
   };
 
   return (
@@ -1464,13 +1458,13 @@ const RotationTemplatesManager = () => {
         <AddTemplateForm
           onAdd={addTemplate}
           onCancel={() => setShowAddForm(false)}
-          existingTemplates={Object.keys(templates)}
+          existingTemplates={Object.keys(rotationTemplates)}
         />
       )}
 
       {/* Templates List */}
       <div className="templates-list">
-        {Object.entries(templates).map(([templateName, templateData]) => (
+        {Object.entries(rotationTemplates).map(([templateName, templateData]) => (
           <TemplateCard
             key={templateName}
             templateName={templateName}
@@ -1488,6 +1482,7 @@ const RotationTemplatesManager = () => {
 
 // Template Card Component
 const TemplateCard = ({ templateName, templateData, onUpdate, onDelete }) => {
+  const { docActivities } = useContext(ScheduleContext);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -1622,6 +1617,7 @@ const TemplateCard = ({ templateName, templateData, onUpdate, onDelete }) => {
 
 // Add Template Form Component
 const AddTemplateForm = ({ onAdd, onCancel, existingTemplates }) => {
+  const { rotationTemplates } = useContext(ScheduleContext);
   const [templateName, setTemplateName] = useState("");
   const [selectedBaseTemplate, setSelectedBaseTemplate] = useState("");
   const [isCustom, setIsCustom] = useState(false);
@@ -1815,6 +1811,7 @@ const TemplateEditor = ({ templateName, templateData, onUpdate, onCancel }) => {
 
 // Template Time Slot Editor Component
 const TemplateTimeSlotEditor = ({ slot, onSave, onCancel }) => {
+  const { docActivities } = useContext(ScheduleContext);
   const [selectedActivities, setSelectedActivities] = useState(slot.activities);
 
   const allActivities = Object.keys(docActivities);

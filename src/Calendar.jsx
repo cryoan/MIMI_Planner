@@ -503,7 +503,7 @@
 
 // export default Calendar;
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import './Calendar.css';
 import { format } from 'date-fns';
 import { getISOWeek } from 'date-fns';
@@ -511,7 +511,6 @@ import { fr } from 'date-fns/locale';
 import { ref, update, get } from 'firebase/database';
 import {
   useDocSchedule,
-  expectedActivities,
   activityColors,
 } from './schedule';
 import {
@@ -523,6 +522,7 @@ import { testCustomPlanningLogic, quickValidation } from './testCustomLogic.js';
 import { realTimeDb } from './firebase';
 import { publicHolidays } from './publicHolidays.js'; // Import the holidays JSON file
 import { docActivities } from './doctorSchedules.js'; // Import activities for durations
+import { ScheduleContext } from './ScheduleContext';
 
 console.log('Public Holidays Structure:', publicHolidays);
 
@@ -680,7 +680,12 @@ const Calendar = ({ year = 2024, month = 'Month1', selectedRotationCycle, setSel
   const [newActivity, setNewActivity] = useState('');
   const [astreinte, setAstreinte] = useState({});
   const [editingAstreinte, setEditingAstreinte] = useState(null);
-  const [customScheduleData, setCustomScheduleData] = useState(null);
+
+  // ✅ Use ScheduleContext for dynamic data instead of local execution
+  const scheduleContext = useContext(ScheduleContext);
+  const customScheduleData = scheduleContext?.customScheduleData || null;
+  const recalculationTrigger = scheduleContext?.recalculationTrigger || 0;
+  const expectedActivities = scheduleContext?.expectedActivities || {};
 
   // Fallback to local state if props are not provided (for backward compatibility)
   const [localSelectedRotationCycle, setLocalSelectedRotationCycle] = useState(Object.keys(rotation_cycles)[0]);
@@ -742,13 +747,12 @@ const Calendar = ({ year = 2024, month = 'Month1', selectedRotationCycle, setSel
 
 
   useEffect(() => {
-    if (!loading && doc) {
-      console.log(`🔄 Using Custom Planning Logic - 3 Phases Algorithm (${currentSelectedRotationCycle} cycle)`);
-      console.log(`🔄 Available cycles:`, Object.keys(rotation_cycles));
-      const customScheduleDataResult = executeCustomPlanningAlgorithm(currentSelectedRotationCycle);
-      const originalSchedule = convertCustomToCalendarFormat(customScheduleDataResult);
-      console.log('originalSchedule (converted from custom logic)', originalSchedule);
-      setCustomScheduleData(customScheduleDataResult);
+    if (!loading && doc && customScheduleData) {
+      console.log(`✅ Calendar: Using ScheduleContext data (trigger: ${recalculationTrigger})`);
+      console.log(`🔄 Current cycle:`, currentSelectedRotationCycle);
+
+      const originalSchedule = convertCustomToCalendarFormat(customScheduleData);
+      console.log('📅 Calendar: Converted schedule from context', originalSchedule);
 
       const updatesRef = ref(realTimeDb, `schedules/`);
       get(updatesRef)
@@ -765,7 +769,7 @@ const Calendar = ({ year = 2024, month = 'Month1', selectedRotationCycle, setSel
           console.error('Error fetching updates:', error);
         });
     }
-  }, [doc, loading, year, month, currentSelectedRotationCycle]);
+  }, [doc, loading, year, month, currentSelectedRotationCycle, customScheduleData, recalculationTrigger]);
 
   const handleAstreinteChange = (week, day, e) => {
     const updatedAstreinte = { ...astreinte };

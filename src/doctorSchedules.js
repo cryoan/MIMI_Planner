@@ -174,7 +174,8 @@ function calculateSlotDuration(activities) {
 }
 
 // Helper function to collect all backbone assignments across all doctors
-function collectAllBackboneAssignments() {
+function collectAllBackboneAssignments(dynamicDoctorProfiles = null) {
+  const profilesData = dynamicDoctorProfiles || doctorProfiles;
   const assignments = {};
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const timeSlots = ["9am-1pm", "2pm-6pm"];
@@ -192,11 +193,12 @@ function collectAllBackboneAssignments() {
   });
 
   // Collect assignments from all doctor backbones
-  Object.entries(doctorProfiles).forEach(([doctorCode, doctor]) => {
+  Object.entries(profilesData).forEach(([doctorCode, doctor]) => {
     if (doctor.backbone) {
       days.forEach((day) => {
         timeSlots.forEach((timeSlot) => {
           const backboneActivities = doctor.backbone[day]?.[timeSlot];
+          // Only process slots with actual activities (ignore empty arrays)
           if (
             Array.isArray(backboneActivities) &&
             backboneActivities.length > 0
@@ -221,16 +223,24 @@ function collectAllBackboneAssignments() {
 }
 
 // Compute remaining rotation tasks for a specific template after subtracting backbone assignments
-export function computeRemainingRotationTasks(templateName) {
+export function computeRemainingRotationTasks(
+  templateName,
+  dynamicWantedActivities = null,
+  dynamicDoctorProfiles = null
+) {
+  const activitiesData = dynamicWantedActivities || wantedActivities;
+
   // Get the base template from wantedActivities
-  const baseTemplate = wantedActivities[templateName];
+  const baseTemplate = activitiesData[templateName];
   if (!baseTemplate) {
     console.error(`Template ${templateName} not found in wantedActivities`);
     return {};
   }
 
   // Get all current backbone assignments
-  const backboneAssignments = collectAllBackboneAssignments();
+  const backboneAssignments = collectAllBackboneAssignments(
+    dynamicDoctorProfiles
+  );
 
   // Create the remaining tasks template
   const remainingTasks = deepClone(baseTemplate);
@@ -301,10 +311,10 @@ export const doctorProfiles = {
 
   FL: {
     backbone: {
-      Monday: { "9am-1pm": ["Cs"], "2pm-6pm": ["TeleCs"] },
+      Monday: { "9am-1pm": ["Cs"], "2pm-6pm": [] },
       Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Thursday: { "9am-1pm": [], "2pm-6pm": ["TeleCs"] },
+      Thursday: { "9am-1pm": [], "2pm-6pm": [] },
       Friday: { "9am-1pm": [], "2pm-6pm": ["Staff"] },
     },
     skills: [
@@ -622,8 +632,15 @@ function mergeTemplateWithBackbone(
 }
 
 // Generate rotations automatically from rotationSetting arrays
-export function generateDoctorRotations(doctorCode) {
-  const doctor = doctorProfiles[doctorCode];
+export function generateDoctorRotations(
+  doctorCode,
+  dynamicDoctorProfiles = null,
+  dynamicWantedActivities = null
+) {
+  const profilesData = dynamicDoctorProfiles || doctorProfiles;
+  const activitiesData = dynamicWantedActivities || wantedActivities;
+
+  const doctor = profilesData[doctorCode];
   if (!doctor) {
     throw new Error(`Doctor ${doctorCode} not found`);
   }
@@ -639,9 +656,13 @@ export function generateDoctorRotations(doctorCode) {
   // Generate base rotations from remaining tasks (dynamic computation)
   rotationSetting.forEach((templateName) => {
     // Check if template exists in wantedActivities (we now use this instead of rotationTemplates)
-    if (wantedActivities[templateName]) {
+    if (activitiesData[templateName]) {
       // Compute remaining tasks for this template
-      const remainingTasks = computeRemainingRotationTasks(templateName);
+      const remainingTasks = computeRemainingRotationTasks(
+        templateName,
+        activitiesData,
+        dynamicDoctorProfiles
+      );
       // Generate rotation from remaining tasks + backbone
       const baseRotation = mergeTemplateWithBackbone(
         templateName,
