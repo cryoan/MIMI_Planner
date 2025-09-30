@@ -1,7 +1,8 @@
-import React from 'react';
-import { doctorProfiles, wantedActivities, docActivities, computeRemainingRotationTasks } from './doctorSchedules.js';
-import { activityColors } from './schedule.jsx';
-import { Bar } from 'react-chartjs-2';
+import React, { useContext } from "react";
+import { computeRemainingRotationTasks } from "./doctorSchedules.js";
+import { activityColors } from "./schedule.jsx";
+import { ScheduleContext } from "./ScheduleContext";
+import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   Tooltip,
@@ -9,15 +10,28 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
-} from 'chart.js';
+} from "chart.js";
 
 // Register Chart.js components
 ChartJS.register(Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
-const ETAWorkloadInfographic = () => {
+const ETAWorkloadInfographic = React.memo(() => {
+  const {
+    doctorProfiles,
+    wantedActivities,
+    docActivities,
+    recalculationTrigger,
+  } = useContext(ScheduleContext);
+
+  console.log("ETAWorkloadInfographic: Received updated data", {
+    doctorsCount: Object.keys(doctorProfiles).length,
+    activitiesCount: Object.keys(docActivities).length,
+    recalculationTrigger,
+  });
+
   // Helper function to get activity duration in hours
   const getActivityHours = (activity) => {
-    if (activity === 'Available') return 0;
+    if (activity === "Available") return 0;
     return docActivities[activity]?.duration || 4; // Default to 4 hours if not found
   };
 
@@ -25,15 +39,17 @@ const ETAWorkloadInfographic = () => {
   const calculateTeleCsNeeds = () => {
     let totalTeleCsHours = 0;
     const teleCsPerDoctor = {};
-    
+
     Object.entries(doctorProfiles).forEach(([doctorCode, doctor]) => {
       if (doctor.weeklyNeeds?.TeleCs) {
-        const weeklyHours = doctor.weeklyNeeds.TeleCs.count * docActivities.TeleCs.duration;
+        const weeklyHours =
+          doctor.weeklyNeeds.TeleCs.count *
+          (docActivities.TeleCs?.duration || 3);
         teleCsPerDoctor[doctorCode] = weeklyHours;
         totalTeleCsHours += weeklyHours;
       }
     });
-    
+
     return { totalTeleCsHours, teleCsPerDoctor };
   };
 
@@ -50,12 +66,12 @@ const ETAWorkloadInfographic = () => {
     const { totalTeleCsHours, teleCsPerDoctor } = calculateTeleCsNeeds();
 
     // Count all backbone activities across all doctors
-    doctors.forEach(doctorCode => {
+    doctors.forEach((doctorCode) => {
       const doctor = doctorProfiles[doctorCode];
       if (doctor.backbone) {
-        Object.values(doctor.backbone).forEach(daySchedule => {
-          Object.values(daySchedule).forEach(timeSlotActivities => {
-            timeSlotActivities.forEach(activity => {
+        Object.values(doctor.backbone).forEach((daySchedule) => {
+          Object.values(daySchedule).forEach((timeSlotActivities) => {
+            timeSlotActivities.forEach((activity) => {
               activityCounts[activity] = (activityCounts[activity] || 0) + 1;
               const hours = getActivityHours(activity);
               activityHours[activity] = (activityHours[activity] || 0) + hours;
@@ -67,14 +83,18 @@ const ETAWorkloadInfographic = () => {
 
     // Add remaining rotation tasks from templates (excludes activities already covered by backbones)
     // Process all templates from wantedActivities (includes Chefferie, excludes MPO)
-    Object.keys(wantedActivities).forEach(templateName => {
+    Object.keys(wantedActivities).forEach((templateName) => {
       try {
-        const remainingTasks = computeRemainingRotationTasks(templateName);
+        const remainingTasks = computeRemainingRotationTasks(
+          templateName,
+          wantedActivities,
+          doctorProfiles
+        );
 
         // Count remaining activities and their hours (avoiding double-counting with backbone)
-        Object.values(remainingTasks).forEach(daySchedule => {
-          Object.values(daySchedule).forEach(timeSlotActivities => {
-            timeSlotActivities.forEach(activity => {
+        Object.values(remainingTasks).forEach((daySchedule) => {
+          Object.values(daySchedule).forEach((timeSlotActivities) => {
+            timeSlotActivities.forEach((activity) => {
               activityCounts[activity] = (activityCounts[activity] || 0) + 1;
               const hours = getActivityHours(activity);
               activityHours[activity] = (activityHours[activity] || 0) + hours;
@@ -82,15 +102,20 @@ const ETAWorkloadInfographic = () => {
           });
         });
       } catch (error) {
-        console.warn(`Error calculating remaining tasks for ${templateName}:`, error);
+        console.warn(
+          `Error calculating remaining tasks for ${templateName}:`,
+          error
+        );
       }
     });
 
     // Add TeleCs from weekly needs
     if (totalTeleCsHours > 0) {
       const teleCsSessions = totalTeleCsHours / docActivities.TeleCs.duration;
-      activityCounts['TeleCs'] = (activityCounts['TeleCs'] || 0) + teleCsSessions;
-      activityHours['TeleCs'] = (activityHours['TeleCs'] || 0) + totalTeleCsHours;
+      activityCounts["TeleCs"] =
+        (activityCounts["TeleCs"] || 0) + teleCsSessions;
+      activityHours["TeleCs"] =
+        (activityHours["TeleCs"] || 0) + totalTeleCsHours;
     }
 
     // Create slot-based array for backwards compatibility with existing statistics
@@ -104,24 +129,27 @@ const ETAWorkloadInfographic = () => {
     // Fill remaining slots with "Available" for slot-based statistics
     const remainingSlots = totalHalfDays - activityArray.length;
     for (let i = 0; i < remainingSlots; i++) {
-      activityArray.push('Available');
+      activityArray.push("Available");
     }
 
     // Calculate total used hours
-    const totalUsedHours = Object.values(activityHours).reduce((sum, hours) => sum + hours, 0);
+    const totalUsedHours = Object.values(activityHours).reduce(
+      (sum, hours) => sum + hours,
+      0
+    );
     const remainingHours = totalHours - totalUsedHours;
 
-    return { 
-      activityArray, 
-      totalDoctors, 
-      totalHalfDays, 
+    return {
+      activityArray,
+      totalDoctors,
+      totalHalfDays,
       totalHours,
-      activityCounts, 
+      activityCounts,
       activityHours,
       totalUsedHours,
       remainingHours,
       totalTeleCsHours,
-      teleCsPerDoctor
+      teleCsPerDoctor,
     };
   };
 
@@ -134,41 +162,51 @@ const ETAWorkloadInfographic = () => {
     const { totalTeleCsHours, teleCsPerDoctor } = calculateTeleCsNeeds();
 
     // Get remaining tasks for each template in wantedActivities
-    Object.keys(wantedActivities).forEach(templateName => {
+    Object.keys(wantedActivities).forEach((templateName) => {
       try {
         const remainingTasks = computeRemainingRotationTasks(templateName);
 
         // Count remaining activities and their hours
-        Object.values(remainingTasks).forEach(daySchedule => {
-          Object.values(daySchedule).forEach(timeSlotActivities => {
-            timeSlotActivities.forEach(activity => {
-              sharedActivityCounts[activity] = (sharedActivityCounts[activity] || 0) + 1;
+        Object.values(remainingTasks).forEach((daySchedule) => {
+          Object.values(daySchedule).forEach((timeSlotActivities) => {
+            timeSlotActivities.forEach((activity) => {
+              sharedActivityCounts[activity] =
+                (sharedActivityCounts[activity] || 0) + 1;
               const hours = getActivityHours(activity);
-              sharedActivityHours[activity] = (sharedActivityHours[activity] || 0) + hours;
+              sharedActivityHours[activity] =
+                (sharedActivityHours[activity] || 0) + hours;
             });
           });
         });
       } catch (error) {
-        console.warn(`Error calculating remaining tasks for ${templateName}:`, error);
+        console.warn(
+          `Error calculating remaining tasks for ${templateName}:`,
+          error
+        );
       }
     });
 
     // Add TeleCs from weekly needs (unchanged)
     if (totalTeleCsHours > 0) {
       const teleCsSessions = totalTeleCsHours / docActivities.TeleCs.duration;
-      sharedActivityCounts['TeleCs'] = (sharedActivityCounts['TeleCs'] || 0) + teleCsSessions;
-      sharedActivityHours['TeleCs'] = (sharedActivityHours['TeleCs'] || 0) + totalTeleCsHours;
+      sharedActivityCounts["TeleCs"] =
+        (sharedActivityCounts["TeleCs"] || 0) + teleCsSessions;
+      sharedActivityHours["TeleCs"] =
+        (sharedActivityHours["TeleCs"] || 0) + totalTeleCsHours;
     }
 
     // Calculate total shared hours
-    const totalSharedHours = Object.values(sharedActivityHours).reduce((sum, hours) => sum + hours, 0);
+    const totalSharedHours = Object.values(sharedActivityHours).reduce(
+      (sum, hours) => sum + hours,
+      0
+    );
 
     return {
       sharedActivityCounts,
       sharedActivityHours,
       totalSharedHours,
       totalTeleCsHours,
-      teleCsPerDoctor
+      teleCsPerDoctor,
     };
   };
 
@@ -182,37 +220,44 @@ const ETAWorkloadInfographic = () => {
     totalUsedHours,
     remainingHours,
     totalTeleCsHours,
-    teleCsPerDoctor
+    teleCsPerDoctor,
   } = calculateWorkloadDistribution();
 
-  const {
-    sharedActivityCounts,
-    sharedActivityHours,
-    totalSharedHours
-  } = calculateSharedWorkloadDistribution();
+  const { sharedActivityCounts, sharedActivityHours, totalSharedHours } =
+    calculateSharedWorkloadDistribution();
 
   // Helper function to generate different sorting orders
   // Available options: 'hours-desc', 'hours-asc', 'count-desc', 'count-asc', 'alphabetical', 'color-groups', 'custom'
-  const getDefaultActivityOrder = (sortBy = 'hours-desc') => {
-    const activities = Object.keys(activityCounts).filter(activity => activity !== 'Available');
-    
+  const getDefaultActivityOrder = (sortBy = "hours-desc") => {
+    const activities = Object.keys(activityCounts).filter(
+      (activity) => activity !== "Available"
+    );
+
     switch (sortBy) {
-      case 'hours-desc':
-        return activities.sort((a, b) => (activityHours[b] || 0) - (activityHours[a] || 0));
-      
-      case 'hours-asc':
-        return activities.sort((a, b) => (activityHours[a] || 0) - (activityHours[b] || 0));
-      
-      case 'count-desc':
-        return activities.sort((a, b) => (activityCounts[b] || 0) - (activityCounts[a] || 0));
-      
-      case 'count-asc':
-        return activities.sort((a, b) => (activityCounts[a] || 0) - (activityCounts[b] || 0));
-      
-      case 'alphabetical':
+      case "hours-desc":
+        return activities.sort(
+          (a, b) => (activityHours[b] || 0) - (activityHours[a] || 0)
+        );
+
+      case "hours-asc":
+        return activities.sort(
+          (a, b) => (activityHours[a] || 0) - (activityHours[b] || 0)
+        );
+
+      case "count-desc":
+        return activities.sort(
+          (a, b) => (activityCounts[b] || 0) - (activityCounts[a] || 0)
+        );
+
+      case "count-asc":
+        return activities.sort(
+          (a, b) => (activityCounts[a] || 0) - (activityCounts[b] || 0)
+        );
+
+      case "alphabetical":
         return activities.sort();
-      
-      case 'color-groups':
+
+      case "color-groups":
         return activities.sort((a, b) => {
           const colorA = getActivityColor(a);
           const colorB = getActivityColor(b);
@@ -222,10 +267,23 @@ const ETAWorkloadInfographic = () => {
           }
           return colorA.localeCompare(colorB);
         });
-      
-      case 'custom':
+
+      case "custom":
         // Define your custom priority order here
-        const customOrder = ['TP', 'HTC1', 'HTC1_visite', 'HTC2_visite', 'HTC2', 'Cs', 'TeleCs', 'EMIT', 'EMATIT', 'Staff', 'HDJ', 'AMI'];
+        const customOrder = [
+          "TP",
+          "HTC1",
+          "HTC1_visite",
+          "HTC2_visite",
+          "HTC2",
+          "Cs",
+          "TeleCs",
+          "EMIT",
+          "EMATIT",
+          "Staff",
+          "HDJ",
+          "AMI",
+        ];
         return activities.sort((a, b) => {
           const indexA = customOrder.indexOf(a);
           const indexB = customOrder.indexOf(b);
@@ -234,21 +292,23 @@ const ETAWorkloadInfographic = () => {
           if (indexB === -1) return -1;
           return indexA - indexB;
         });
-      
+
       default:
-        return activities.sort((a, b) => (activityHours[b] || 0) - (activityHours[a] || 0));
+        return activities.sort(
+          (a, b) => (activityHours[b] || 0) - (activityHours[a] || 0)
+        );
     }
   };
 
   // State for sortable legend and drag operations
   const [activityOrder, setActivityOrder] = React.useState(() => {
     // Initialize with custom priority order
-    return getDefaultActivityOrder('custom');
+    return getDefaultActivityOrder("custom");
   });
-  
+
   const [dragState, setDragState] = React.useState({
     draggedItem: null,
-    draggedOverItem: null
+    draggedOverItem: null,
   });
 
   // Create hourArray based on custom activity order
@@ -258,13 +318,13 @@ const ETAWorkloadInfographic = () => {
     let totalRequiredHours = 0;
 
     // Calculate total required hours for all activities
-    activityOrder.forEach(activity => {
+    activityOrder.forEach((activity) => {
       const totalHours = activityHours[activity] || 0;
       totalRequiredHours += totalHours;
     });
 
     // Add each activity based on custom order and hour duration
-    activityOrder.forEach(activity => {
+    activityOrder.forEach((activity) => {
       const totalHours = activityHours[activity] || 0;
       for (let i = 0; i < totalHours; i++) {
         if (hourArray.length < totalHours) {
@@ -287,7 +347,7 @@ const ETAWorkloadInfographic = () => {
     if (hasOverflow) {
       // Clear and rebuild array to show all activities
       hourArray.length = 0;
-      activityOrder.forEach(activity => {
+      activityOrder.forEach((activity) => {
         const totalHours = activityHours[activity] || 0;
         for (let i = 0; i < totalHours; i++) {
           hourArray.push(activity);
@@ -296,7 +356,7 @@ const ETAWorkloadInfographic = () => {
     } else {
       // Fill remaining hours with "Available" only if no overflow
       for (let i = 0; i < remainingHours; i++) {
-        hourArray.push('Available');
+        hourArray.push("Available");
       }
     }
 
@@ -305,7 +365,7 @@ const ETAWorkloadInfographic = () => {
       overflowActivities,
       totalOverflowHours,
       hasOverflow,
-      totalRequiredHours
+      totalRequiredHours,
     };
   };
 
@@ -314,15 +374,15 @@ const ETAWorkloadInfographic = () => {
     overflowActivities,
     totalOverflowHours,
     hasOverflow,
-    totalRequiredHours
+    totalRequiredHours,
   } = createCustomHourArray();
 
   // Get color for activity
   const getActivityColor = (activity) => {
-    if (activity === 'Available') {
-      return '#f5f5f5'; // Light gray for available slots
+    if (activity === "Available") {
+      return "#f5f5f5"; // Light gray for available slots
     }
-    return activityColors[activity] || '#ddd';
+    return activityColors[activity] || "#ddd";
   };
 
   // Function to generate bar chart data for activity durations
@@ -332,61 +392,74 @@ const ETAWorkloadInfographic = () => {
     const activityBreakdown = {}; // Track individual components for tooltips
 
     // Filter out 'Available' activities and get activities with hours > 0
-    const activities = activityOrder.filter(activity =>
-      activity !== 'Available' && (activityHours[activity] || 0) > 0
+    const activities = activityOrder.filter(
+      (activity) =>
+        activity !== "Available" && (activityHours[activity] || 0) > 0
     );
 
     // Process all activities and group HTC activities
-    activities.forEach(activity => {
-      if (activity === 'HTC1' || activity === 'HTC1_visite') {
-        const combinedKey = 'HTC1 (Total)';
-        combinedActivities[combinedKey] = (combinedActivities[combinedKey] || 0) + (activityHours[activity] || 0);
-        if (!activityBreakdown[combinedKey]) activityBreakdown[combinedKey] = {};
+    activities.forEach((activity) => {
+      if (activity === "HTC1" || activity === "HTC1_visite") {
+        const combinedKey = "HTC1 (Total)";
+        combinedActivities[combinedKey] =
+          (combinedActivities[combinedKey] || 0) +
+          (activityHours[activity] || 0);
+        if (!activityBreakdown[combinedKey])
+          activityBreakdown[combinedKey] = {};
         activityBreakdown[combinedKey][activity] = activityHours[activity] || 0;
-      } else if (activity === 'HTC2' || activity === 'HTC2_visite') {
-        const combinedKey = 'HTC2 (Total)';
-        combinedActivities[combinedKey] = (combinedActivities[combinedKey] || 0) + (activityHours[activity] || 0);
-        if (!activityBreakdown[combinedKey]) activityBreakdown[combinedKey] = {};
+      } else if (activity === "HTC2" || activity === "HTC2_visite") {
+        const combinedKey = "HTC2 (Total)";
+        combinedActivities[combinedKey] =
+          (combinedActivities[combinedKey] || 0) +
+          (activityHours[activity] || 0);
+        if (!activityBreakdown[combinedKey])
+          activityBreakdown[combinedKey] = {};
         activityBreakdown[combinedKey][activity] = activityHours[activity] || 0;
       } else {
         // Keep other activities as-is
         combinedActivities[activity] = activityHours[activity] || 0;
-        activityBreakdown[activity] = { [activity]: activityHours[activity] || 0 };
+        activityBreakdown[activity] = {
+          [activity]: activityHours[activity] || 0,
+        };
       }
     });
 
     // Sort by combined hours descending
-    const sortedActivities = Object.keys(combinedActivities)
-      .sort((a, b) => combinedActivities[b] - combinedActivities[a]);
+    const sortedActivities = Object.keys(combinedActivities).sort(
+      (a, b) => combinedActivities[b] - combinedActivities[a]
+    );
 
     // Create data arrays
     const labels = sortedActivities;
-    const data = sortedActivities.map(activity => combinedActivities[activity]);
-    const backgroundColor = sortedActivities.map(activity => {
+    const data = sortedActivities.map(
+      (activity) => combinedActivities[activity]
+    );
+    const backgroundColor = sortedActivities.map((activity) => {
       // Use HTC1 color for both HTC1 and HTC2 totals, or original color for others
-      if (activity.startsWith('HTC1') || activity.startsWith('HTC2')) {
-        return getActivityColor('HTC1'); // Both use same green color
+      if (activity.startsWith("HTC1") || activity.startsWith("HTC2")) {
+        return getActivityColor("HTC1"); // Both use same green color
       }
-      return getActivityColor(activity.replace(' (Total)', ''));
+      return getActivityColor(activity.replace(" (Total)", ""));
     });
 
     return {
       labels,
       datasets: [
         {
-          label: 'Duration (hours)',
+          label: "Duration (hours)",
           data,
           backgroundColor,
-          borderColor: backgroundColor.map(color => color),
+          borderColor: backgroundColor.map((color) => color),
           borderWidth: 1,
-          hoverBackgroundColor: backgroundColor.map(color => color + '80'), // Add transparency on hover
+          hoverBackgroundColor: backgroundColor.map((color) => color + "80"), // Add transparency on hover
         },
       ],
       activityBreakdown, // Include breakdown data for tooltips
     };
   };
 
-  const { activityBreakdown: mainActivityBreakdown, ...barChartData } = generateBarChartData();
+  const { activityBreakdown: mainActivityBreakdown, ...barChartData } =
+    generateBarChartData();
 
   // Function to generate bar chart data for shared activity durations
   const generateSharedBarChartData = () => {
@@ -395,64 +468,83 @@ const ETAWorkloadInfographic = () => {
     const activityBreakdown = {}; // Track individual components for tooltips
 
     // Process all shared activities
-    Object.keys(sharedActivityHours).forEach(activity => {
-      if (activity === 'Available' || (sharedActivityHours[activity] || 0) === 0) return;
+    Object.keys(sharedActivityHours).forEach((activity) => {
+      if (
+        activity === "Available" ||
+        activity === "TeleCs" ||
+        activity === "Chefferie" ||
+        activity === "MPO" ||
+        (sharedActivityHours[activity] || 0) === 0
+      )
+        return;
 
-      if (activity === 'HTC1' || activity === 'HTC1_visite') {
-        const combinedKey = 'HTC1 (Total)';
-        combinedActivities[combinedKey] = (combinedActivities[combinedKey] || 0) + (sharedActivityHours[activity] || 0);
-        if (!activityBreakdown[combinedKey]) activityBreakdown[combinedKey] = {};
-        activityBreakdown[combinedKey][activity] = sharedActivityHours[activity] || 0;
-      } else if (activity === 'HTC2' || activity === 'HTC2_visite') {
-        const combinedKey = 'HTC2 (Total)';
-        combinedActivities[combinedKey] = (combinedActivities[combinedKey] || 0) + (sharedActivityHours[activity] || 0);
-        if (!activityBreakdown[combinedKey]) activityBreakdown[combinedKey] = {};
-        activityBreakdown[combinedKey][activity] = sharedActivityHours[activity] || 0;
+      if (activity === "HTC1" || activity === "HTC1_visite") {
+        const combinedKey = "HTC1 (Total)";
+        combinedActivities[combinedKey] =
+          (combinedActivities[combinedKey] || 0) +
+          (sharedActivityHours[activity] || 0);
+        if (!activityBreakdown[combinedKey])
+          activityBreakdown[combinedKey] = {};
+        activityBreakdown[combinedKey][activity] =
+          sharedActivityHours[activity] || 0;
+      } else if (activity === "HTC2" || activity === "HTC2_visite") {
+        const combinedKey = "HTC2 (Total)";
+        combinedActivities[combinedKey] =
+          (combinedActivities[combinedKey] || 0) +
+          (sharedActivityHours[activity] || 0);
+        if (!activityBreakdown[combinedKey])
+          activityBreakdown[combinedKey] = {};
+        activityBreakdown[combinedKey][activity] =
+          sharedActivityHours[activity] || 0;
       } else {
         // Keep other activities as-is
         combinedActivities[activity] = sharedActivityHours[activity] || 0;
-        activityBreakdown[activity] = { [activity]: sharedActivityHours[activity] || 0 };
+        activityBreakdown[activity] = {
+          [activity]: sharedActivityHours[activity] || 0,
+        };
       }
     });
 
     // Sort by combined hours descending
-    const activities = Object.keys(combinedActivities)
-      .sort((a, b) => combinedActivities[b] - combinedActivities[a]);
+    const activities = Object.keys(combinedActivities).sort(
+      (a, b) => combinedActivities[b] - combinedActivities[a]
+    );
 
     // Create data arrays
     const labels = activities;
-    const data = activities.map(activity => combinedActivities[activity]);
-    const backgroundColor = activities.map(activity => {
+    const data = activities.map((activity) => combinedActivities[activity]);
+    const backgroundColor = activities.map((activity) => {
       // Use HTC1 color for both HTC1 and HTC2 totals, or original color for others
-      if (activity.startsWith('HTC1') || activity.startsWith('HTC2')) {
-        return getActivityColor('HTC1'); // Both use same green color
+      if (activity.startsWith("HTC1") || activity.startsWith("HTC2")) {
+        return getActivityColor("HTC1"); // Both use same green color
       }
-      return getActivityColor(activity.replace(' (Total)', ''));
+      return getActivityColor(activity.replace(" (Total)", ""));
     });
 
     return {
       labels,
       datasets: [
         {
-          label: 'Shared Duration (hours)',
+          label: "Shared Duration (hours)",
           data,
           backgroundColor,
-          borderColor: backgroundColor.map(color => color),
+          borderColor: backgroundColor.map((color) => color),
           borderWidth: 1,
-          hoverBackgroundColor: backgroundColor.map(color => color + '80'), // Add transparency on hover
+          hoverBackgroundColor: backgroundColor.map((color) => color + "80"), // Add transparency on hover
         },
       ],
       activityBreakdown, // Include breakdown data for tooltips
     };
   };
 
-  const { activityBreakdown, ...sharedBarChartData } = generateSharedBarChartData();
+  const { activityBreakdown, ...sharedBarChartData } =
+    generateSharedBarChartData();
 
   // Drag and drop handlers
   const handleDragStart = (e, activity) => {
     setDragState({ ...dragState, draggedItem: activity });
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', activity);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/html", activity);
   };
 
   const handleDragOver = (e, activity) => {
@@ -469,19 +561,19 @@ const ETAWorkloadInfographic = () => {
   const handleDrop = (e, dropActivity) => {
     e.preventDefault();
     const draggedActivity = dragState.draggedItem;
-    
+
     if (draggedActivity && draggedActivity !== dropActivity) {
       const newOrder = [...activityOrder];
       const draggedIndex = newOrder.indexOf(draggedActivity);
       const dropIndex = newOrder.indexOf(dropActivity);
-      
+
       // Remove dragged item and insert at new position
       newOrder.splice(draggedIndex, 1);
       newOrder.splice(dropIndex, 0, draggedActivity);
-      
+
       setActivityOrder(newOrder);
     }
-    
+
     setDragState({ draggedItem: null, draggedOverItem: null });
   };
 
@@ -491,7 +583,7 @@ const ETAWorkloadInfographic = () => {
 
   // Reset to default order
   const resetOrder = () => {
-    setActivityOrder(getDefaultActivityOrder('custom'));
+    setActivityOrder(getDefaultActivityOrder("custom"));
   };
 
   // Create hour-based grid data - fill from bottom to top, left to right
@@ -509,7 +601,7 @@ const ETAWorkloadInfographic = () => {
 
     // Initialize grid with calculated rows
     for (let row = 0; row < totalRows; row++) {
-      grid.push(new Array(hoursPerRow).fill('Available'));
+      grid.push(new Array(hoursPerRow).fill("Available"));
     }
 
     // Fill from bottom to top, left to right using hour array
@@ -528,7 +620,7 @@ const ETAWorkloadInfographic = () => {
       totalRows,
       extraRows,
       needsExtraRows,
-      standardRows: totalDoctors
+      standardRows: totalDoctors,
     };
   };
 
@@ -537,7 +629,7 @@ const ETAWorkloadInfographic = () => {
     totalRows,
     extraRows,
     needsExtraRows,
-    standardRows
+    standardRows,
   } = createGridData();
 
   // Get color for activity (moved up to fix initialization order)
@@ -545,19 +637,19 @@ const ETAWorkloadInfographic = () => {
   // Render simple hour-based cell
   const renderHourCell = (activity, isOverflowRow = false) => {
     const color = getActivityColor(activity);
-    const isOverflowActivity = isOverflowRow && activity !== 'Available';
+    const isOverflowActivity = isOverflowRow && activity !== "Available";
 
     return (
       <div
         className="eta-hour-cell"
         style={{
           backgroundColor: color,
-          width: '100%',
-          height: '100%',
-          borderRadius: '1px',
+          width: "100%",
+          height: "100%",
+          borderRadius: "1px",
           opacity: isOverflowActivity ? 0.8 : 1,
-          border: isOverflowActivity ? '1px solid #dc3545' : 'none',
-          boxSizing: 'border-box'
+          border: isOverflowActivity ? "1px solid #dc3545" : "none",
+          boxSizing: "border-box",
         }}
       />
     );
@@ -566,60 +658,35 @@ const ETAWorkloadInfographic = () => {
   return (
     <div className="eta-workload-infographic">
       <div className="infographic-header">
-        <h3>ETP Workload Distribution - Backbone + Templates + TeleCs Needs</h3>
-        <div className="infographic-stats">
-          <div className="stats-section">
-            <strong>Doctors:</strong>
-            <span>Total: {totalDoctors}</span>
-          </div>
-          <div className="stats-section">
-            <strong>ETP (Hour-based):</strong>
-            <span>Total: {(totalHours / 40).toFixed(1)} ETP</span>
-            <span>Used: {(totalUsedHours / 40).toFixed(1)} ETP</span>
-            <span>Available: {(remainingHours / 40).toFixed(1)} ETP</span>
-          </div>
-          <div className="stats-section">
-            <strong>Hours (Precision):</strong>
-            <span>Total: {totalHours}h</span>
-            <span>Used: {totalUsedHours}h</span>
-            <span>Available: {remainingHours}h</span>
-          </div>
-          <div className="stats-section">
-            <strong>TeleCs Needs:</strong>
-            <span>{totalTeleCsHours}h • {(totalTeleCsHours / 40).toFixed(1)} ETP</span>
-            <span>{totalTeleCsHours / docActivities.TeleCs.duration} sessions/week</span>
-          </div>
-          <div className="stats-section">
-            <strong>Utilization:</strong>
-            <span>Slots: {((activityArray.filter(a => a !== 'Available').length / totalHalfDays) * 100).toFixed(1)}%</span>
-            <span>Hours: {((totalUsedHours / totalHours) * 100).toFixed(1)}%</span>
-          </div>
-          {hasOverflow && (
-            <div className="stats-section overflow-warning" style={{ backgroundColor: '#f8d7da', border: '1px solid #f5c2c7', borderRadius: '4px', padding: '8px' }}>
-              <strong style={{ color: '#842029' }}>⚠️ CAPACITY EXCEEDED:</strong>
-              <span style={{ color: '#842029' }}>Required: {totalRequiredHours}h ({(totalRequiredHours / 40).toFixed(1)} ETP)</span>
-              <span style={{ color: '#842029' }}>Excess: +{totalOverflowHours}h (+{(totalOverflowHours / 40).toFixed(1)} ETP)</span>
-              <span style={{ color: '#842029' }}>Extra rows added: {extraRows}</span>
-            </div>
-          )}
-        </div>
+        <h3>Activités prévues et ETP disponibles</h3>
       </div>
-      
+
       {hasOverflow && (
-        <div style={{
-          backgroundColor: '#fff3cd',
-          border: '1px solid #ffeaa7',
-          borderRadius: '6px',
-          padding: '12px',
-          margin: '10px 0',
-          fontSize: '14px'
-        }}>
-          <div style={{ fontWeight: 'bold', color: '#856404', marginBottom: '8px' }}>
+        <div
+          style={{
+            backgroundColor: "#fff3cd",
+            border: "1px solid #ffeaa7",
+            borderRadius: "6px",
+            padding: "12px",
+            margin: "10px 0",
+            fontSize: "14px",
+          }}
+        >
+          <div
+            style={{
+              fontWeight: "bold",
+              color: "#856404",
+              marginBottom: "8px",
+            }}
+          >
             🔄 Grid Extended to Show All Activities
           </div>
-          <div style={{ color: '#856404', fontSize: '13px' }}>
-            Standard capacity exceeded. Additional {extraRows} row{extraRows > 1 ? 's' : ''} added to display all {totalRequiredHours} required hours.
-            Overflow section marked by orange dashed line separator. Overflow activities have red borders and light red background.
+          <div style={{ color: "#856404", fontSize: "13px" }}>
+            Standard capacity exceeded. Additional {extraRows} row
+            {extraRows > 1 ? "s" : ""} added to display all {totalRequiredHours}{" "}
+            required hours. Overflow section marked by orange dashed line
+            separator. Overflow activities have red borders and light red
+            background.
           </div>
         </div>
       )}
@@ -629,80 +696,103 @@ const ETAWorkloadInfographic = () => {
           {gridData.map((row, rowIndex) => {
             const isOverflowRow = rowIndex < extraRows;
             const isFirstStandardRow = !isOverflowRow && rowIndex === extraRows;
-            const displayRowIndex = isOverflowRow ? `Overflow ${extraRows - rowIndex}` : `Doctor ${rowIndex - extraRows + 1}`;
+            const displayRowIndex = isOverflowRow
+              ? `Overflow ${extraRows - rowIndex}`
+              : `Doctor ${rowIndex - extraRows + 1}`;
 
             return (
               <div key={rowIndex}>
                 {/* Visual separator before first standard row (between overflow and standard sections) */}
                 {isFirstStandardRow && (
-                  <div style={{
-                    height: '4px',
-                    background: 'repeating-linear-gradient(to right, #ff9500 0, #ff9500 8px, transparent 8px, transparent 16px)',
-                    margin: '8px 0',
-                    borderRadius: '2px',
-                    boxShadow: '0 1px 3px rgba(255, 149, 0, 0.3)'
-                  }} />
+                  <div
+                    style={{
+                      height: "4px",
+                      background:
+                        "repeating-linear-gradient(to right, #ff9500 0, #ff9500 8px, transparent 8px, transparent 16px)",
+                      margin: "8px 0",
+                      borderRadius: "2px",
+                      boxShadow: "0 1px 3px rgba(255, 149, 0, 0.3)",
+                    }}
+                  />
                 )}
 
-                <div className="eta-row" style={{
-                  backgroundColor: isOverflowRow ? '#fff5f5' : 'transparent',
-                  border: isOverflowRow ? '1px solid #fecaca' : 'none',
-                  borderRadius: isOverflowRow ? '4px' : '0',
-                  padding: isOverflowRow ? '2px' : '0'
-                }}>
+                <div
+                  className="eta-row"
+                  style={{
+                    backgroundColor: isOverflowRow ? "#fff5f5" : "transparent",
+                    border: isOverflowRow ? "1px solid #fecaca" : "none",
+                    borderRadius: isOverflowRow ? "4px" : "0",
+                    padding: isOverflowRow ? "2px" : "0",
+                  }}
+                >
                   <div className="eta-row-cells">
-                  {row.map((activity, hourIndex) => {
-                    // Calculate slot position and hour within slot
-                    const slotNumber = Math.floor(hourIndex / 4) + 1;
-                    const hourInSlot = (hourIndex % 4) + 1;
-                    const isSlotBoundary = (hourIndex + 1) % 4 === 0;
-                    const isSlotStart = hourIndex % 4 === 0;
+                    {row.map((activity, hourIndex) => {
+                      // Calculate slot position and hour within slot
+                      const slotNumber = Math.floor(hourIndex / 4) + 1;
+                      const hourInSlot = (hourIndex % 4) + 1;
+                      const isSlotBoundary = (hourIndex + 1) % 4 === 0;
+                      const isSlotStart = hourIndex % 4 === 0;
 
-                    // Build CSS classes
-                    let cellClasses = "eta-cell";
-                    if (isSlotBoundary && hourIndex < 39) cellClasses += " slot-boundary";
-                    if (isSlotStart && hourIndex > 0) cellClasses += " slot-start";
+                      // Build CSS classes
+                      let cellClasses = "eta-cell";
+                      if (isSlotBoundary && hourIndex < 39)
+                        cellClasses += " slot-boundary";
+                      if (isSlotStart && hourIndex > 0)
+                        cellClasses += " slot-start";
 
-                    const tooltipText = isOverflowRow
-                      ? `${activity} | OVERFLOW | Hour ${hourIndex + 1} | ${(1/40).toFixed(3)} ETP | EXCEEDS CAPACITY`
-                      : `${activity} | Hour ${hourIndex + 1} | ${(1/40).toFixed(3)} ETP`;
+                      const tooltipText = isOverflowRow
+                        ? `${activity} | OVERFLOW | Hour ${hourIndex + 1} | ${(
+                            1 / 40
+                          ).toFixed(3)} ETP | EXCEEDS CAPACITY`
+                        : `${activity} | Hour ${hourIndex + 1} | ${(
+                            1 / 40
+                          ).toFixed(3)} ETP`;
 
-                    return (
-                      <div
-                        key={hourIndex}
-                        className={cellClasses}
-                        title={tooltipText}
-                      >
-                        {renderHourCell(activity, isOverflowRow)}
-                      </div>
-                    );
-                  })}
+                      return (
+                        <div
+                          key={hourIndex}
+                          className={cellClasses}
+                          title={tooltipText}
+                        >
+                          {renderHourCell(activity, isOverflowRow)}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
             );
           })}
         </div>
-        
+
         <div className="eta-legend">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "10px",
+            }}
+          >
             <h4 style={{ margin: 0 }}>Activity Legend</h4>
-            <button 
+            <button
               onClick={resetOrder}
               style={{
-                padding: '4px 8px',
-                fontSize: '12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                background: '#f8f9fa',
-                cursor: 'pointer'
+                padding: "4px 8px",
+                fontSize: "12px",
+                border: "1px solid #ddd",
+                borderRadius: "4px",
+                background: "#f8f9fa",
+                cursor: "pointer",
               }}
               title="Reset to default order"
             >
               ↺ Reset
             </button>
           </div>
-          <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '10px' }}>
+          <div
+            style={{ fontSize: "12px", color: "#6c757d", marginBottom: "10px" }}
+          >
             💡 Drag activities to reorder the grid visualization
           </div>
           {activityOrder.map((activity) => {
@@ -711,10 +801,10 @@ const ETAWorkloadInfographic = () => {
             const activityHoursPerSlot = getActivityHours(activity);
             const isDragging = dragState.draggedItem === activity;
             const isDraggedOver = dragState.draggedOverItem === activity;
-            
+
             return (
-              <div 
-                key={activity} 
+              <div
+                key={activity}
                 className="legend-item"
                 draggable
                 onDragStart={(e) => handleDragStart(e, activity)}
@@ -724,18 +814,18 @@ const ETAWorkloadInfographic = () => {
                 onDragEnd={handleDragEnd}
                 style={{
                   opacity: isDragging ? 0.5 : 1,
-                  borderTop: isDraggedOver ? '2px solid #007bff' : 'none',
-                  paddingTop: isDraggedOver ? '8px' : '10px',
-                  cursor: 'grab',
-                  userSelect: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
+                  borderTop: isDraggedOver ? "2px solid #007bff" : "none",
+                  paddingTop: isDraggedOver ? "8px" : "10px",
+                  cursor: "grab",
+                  userSelect: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
                 }}
               >
-                <div style={{ color: '#6c757d', fontSize: '12px' }}>⋮⋮</div>
-                <div 
-                  className="legend-color" 
+                <div style={{ color: "#6c757d", fontSize: "12px" }}>⋮⋮</div>
+                <div
+                  className="legend-color"
                   style={{ backgroundColor: getActivityColor(activity) }}
                 ></div>
                 <span>
@@ -745,50 +835,92 @@ const ETAWorkloadInfographic = () => {
             );
           })}
           {hasOverflow && (
-            <div style={{
-              marginTop: '15px',
-              padding: '10px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '4px',
-              border: '1px solid #dee2e6'
-            }}>
-              <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '8px', color: '#495057' }}>
+            <div
+              style={{
+                marginTop: "15px",
+                padding: "10px",
+                backgroundColor: "#f8f9fa",
+                borderRadius: "4px",
+                border: "1px solid #dee2e6",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "12px",
+                  marginBottom: "8px",
+                  color: "#495057",
+                }}
+              >
                 Overflow Indicators:
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <div style={{
-                  width: '16px',
-                  height: '12px',
-                  backgroundColor: '#fff5f5',
-                  border: '1px solid #fecaca',
-                  borderRadius: '2px'
-                }}></div>
-                <span style={{ fontSize: '11px', color: '#6c757d' }}>Light red background = Overflow row</span>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  marginBottom: "4px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "16px",
+                    height: "12px",
+                    backgroundColor: "#fff5f5",
+                    border: "1px solid #fecaca",
+                    borderRadius: "2px",
+                  }}
+                ></div>
+                <span style={{ fontSize: "11px", color: "#6c757d" }}>
+                  Light red background = Overflow row
+                </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{
-                  width: '16px',
-                  height: '12px',
-                  backgroundColor: '#007bff',
-                  border: '1px solid #dc3545',
-                  borderRadius: '2px',
-                  opacity: 0.8
-                }}></div>
-                <span style={{ fontSize: '11px', color: '#6c757d' }}>Red border + reduced opacity = Exceeding activity</span>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                <div
+                  style={{
+                    width: "16px",
+                    height: "12px",
+                    backgroundColor: "#007bff",
+                    border: "1px solid #dc3545",
+                    borderRadius: "2px",
+                    opacity: 0.8,
+                  }}
+                ></div>
+                <span style={{ fontSize: "11px", color: "#6c757d" }}>
+                  Red border + reduced opacity = Exceeding activity
+                </span>
               </div>
             </div>
           )}
         </div>
       </div>
 
-
       {/* Bar Chart Section */}
-      <div className="bar-chart-section" style={{ marginTop: '30px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
-        <h3 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
+      <div
+        className="bar-chart-section"
+        style={{
+          marginTop: "30px",
+          padding: "20px",
+          border: "1px solid #ddd",
+          borderRadius: "8px",
+          backgroundColor: "#f9f9f9",
+        }}
+      >
+        <h3
+          style={{ textAlign: "center", marginBottom: "20px", color: "#333" }}
+        >
           Activity Duration Breakdown
         </h3>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-          <div style={{ width: '800px', height: '400px' }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginBottom: "20px",
+          }}
+        >
+          <div style={{ width: "800px", height: "400px" }}>
             <Bar
               data={barChartData}
               options={{
@@ -800,20 +932,29 @@ const ETAWorkloadInfographic = () => {
                   },
                   tooltip: {
                     callbacks: {
-                      label: function(context) {
+                      label: function (context) {
                         const activity = context.label;
                         const hours = context.parsed.y;
                         const etpValue = (hours / 40).toFixed(1);
-                        const percentage = ((hours / totalUsedHours) * 100).toFixed(1);
+                        const percentage = (
+                          (hours / totalUsedHours) *
+                          100
+                        ).toFixed(1);
 
                         const result = [`${activity}`];
 
                         // Check if this is a combined activity
-                        if (mainActivityBreakdown[activity] && Object.keys(mainActivityBreakdown[activity]).length > 1) {
+                        if (
+                          mainActivityBreakdown[activity] &&
+                          Object.keys(mainActivityBreakdown[activity]).length >
+                            1
+                        ) {
                           // Combined activity - show breakdown
                           result.push(`Total: ${hours}h (${etpValue} ETP)`);
-                          result.push('Breakdown:');
-                          Object.entries(mainActivityBreakdown[activity]).forEach(([subActivity, subHours]) => {
+                          result.push("Breakdown:");
+                          Object.entries(
+                            mainActivityBreakdown[activity]
+                          ).forEach(([subActivity, subHours]) => {
                             if (subHours > 0) {
                               result.push(`  • ${subActivity}: ${subHours}h`);
                             }
@@ -825,64 +966,104 @@ const ETAWorkloadInfographic = () => {
 
                         result.push(`${percentage}% of total used time`);
                         return result;
-                      }
-                    }
-                  }
+                      },
+                    },
+                  },
                 },
                 scales: {
                   x: {
                     title: {
                       display: true,
-                      text: 'Activities'
+                      text: "Activities",
                     },
                     ticks: {
                       maxRotation: 45,
-                      minRotation: 45
-                    }
+                      minRotation: 45,
+                    },
                   },
                   y: {
                     title: {
                       display: true,
-                      text: 'Duration (hours)'
+                      text: "Duration (hours)",
                     },
                     beginAtZero: true,
                     ticks: {
-                      callback: function(value) {
-                        return value + 'h';
-                      }
-                    }
-                  }
-                }
+                      callback: function (value) {
+                        return value + "h";
+                      },
+                    },
+                  },
+                },
               }}
             />
           </div>
         </div>
-        <div style={{ fontSize: '14px', color: '#6c757d', textAlign: 'center' }}>
+        <div
+          style={{ fontSize: "14px", color: "#6c757d", textAlign: "center" }}
+        >
           <p>
-            <strong>Individual Activity Duration:</strong> Each bar represents the total weekly hours for that activity.
+            <strong>Individual Activity Duration:</strong> Each bar represents
+            the total weekly hours for that activity.
           </p>
-          <p style={{ fontSize: '12px', fontStyle: 'italic' }}>
-            Hover over bars for detailed information including ETP values and percentage of total time.
+          <p style={{ fontSize: "12px", fontStyle: "italic" }}>
+            Hover over bars for detailed information including ETP values and
+            percentage of total time.
           </p>
         </div>
       </div>
 
       {/* Shared Activities Bar Chart Section */}
-      <div className="shared-bar-chart-section" style={{ marginTop: '30px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#f0f8ff' }}>
-        <h3 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
-          Shared Activities Duration Breakdown
+      <div
+        className="shared-bar-chart-section"
+        style={{
+          marginTop: "30px",
+          padding: "20px",
+          border: "1px solid #ddd",
+          borderRadius: "8px",
+          backgroundColor: "#f0f8ff",
+        }}
+      >
+        <h3
+          style={{ textAlign: "center", marginBottom: "20px", color: "#333" }}
+        >
+          Durée des activités à partager
         </h3>
-        <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#e6f3ff', borderRadius: '6px', border: '1px solid #b3d9ff' }}>
-          <div style={{ fontSize: '14px', color: '#0066cc', fontWeight: 'bold', marginBottom: '5px' }}>
+        <div
+          style={{
+            marginBottom: "15px",
+            padding: "10px",
+            backgroundColor: "#e6f3ff",
+            borderRadius: "6px",
+            border: "1px solid #b3d9ff",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "14px",
+              color: "#0066cc",
+              fontWeight: "bold",
+              marginBottom: "5px",
+            }}
+          >
             💡 About Shared Activities
           </div>
-          <div style={{ fontSize: '13px', color: '#004499', lineHeight: '1.4' }}>
-            This chart shows <strong>remaining workload</strong> available for rotation assignments after subtracting activities already covered by doctor backbones.
-            For example, if BM's backbone covers EMIT on Thursday/Friday, those hours are excluded from shared EMIT workload.
+          <div
+            style={{ fontSize: "13px", color: "#004499", lineHeight: "1.4" }}
+          >
+            This chart shows <strong>remaining workload</strong> available for
+            rotation assignments after subtracting activities already covered by
+            doctor backbones. For example, if BM's backbone covers EMIT on
+            Thursday/Friday, those hours are excluded from shared EMIT workload.
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-          <div style={{ width: '800px', height: '400px' }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginBottom: "20px",
+          }}
+        >
+          <div style={{ width: "800px", height: "400px" }}>
             <Bar
               data={sharedBarChartData}
               options={{
@@ -894,27 +1075,41 @@ const ETAWorkloadInfographic = () => {
                   },
                   tooltip: {
                     callbacks: {
-                      label: function(context) {
+                      label: function (context) {
                         const activity = context.label;
                         const sharedHours = context.parsed.y;
                         const etpValue = (sharedHours / 40).toFixed(1);
-                        const percentage = totalSharedHours > 0 ? ((sharedHours / totalSharedHours) * 100).toFixed(1) : '0';
+                        const percentage =
+                          totalSharedHours > 0
+                            ? ((sharedHours / totalSharedHours) * 100).toFixed(
+                                1
+                              )
+                            : "0";
 
                         const result = [`${activity} - Shared Workload`];
 
                         // Check if this is a combined activity
-                        if (activityBreakdown[activity] && Object.keys(activityBreakdown[activity]).length > 1) {
+                        if (
+                          activityBreakdown[activity] &&
+                          Object.keys(activityBreakdown[activity]).length > 1
+                        ) {
                           // Combined activity - show breakdown
-                          result.push(`Total Shared: ${sharedHours}h (${etpValue} ETP)`);
-                          result.push('Breakdown:');
-                          Object.entries(activityBreakdown[activity]).forEach(([subActivity, hours]) => {
-                            if (hours > 0) {
-                              result.push(`  • ${subActivity}: ${hours}h`);
+                          result.push(
+                            `Total Shared: ${sharedHours}h (${etpValue} ETP)`
+                          );
+                          result.push("Breakdown:");
+                          Object.entries(activityBreakdown[activity]).forEach(
+                            ([subActivity, hours]) => {
+                              if (hours > 0) {
+                                result.push(`  • ${subActivity}: ${hours}h`);
+                              }
                             }
-                          });
+                          );
 
                           // Calculate total hours for backbone calculation
-                          const totalHours = Object.keys(activityBreakdown[activity]).reduce((sum, subActivity) => {
+                          const totalHours = Object.keys(
+                            activityBreakdown[activity]
+                          ).reduce((sum, subActivity) => {
                             return sum + (activityHours[subActivity] || 0);
                           }, 0);
                           const backboneHours = totalHours - sharedHours;
@@ -922,61 +1117,74 @@ const ETAWorkloadInfographic = () => {
                           result.push(`Total Overall: ${totalHours}h`);
                         } else {
                           // Single activity - show standard info
-                          const originalActivity = activity.replace(' (Total)', '');
-                          const totalHours = activityHours[originalActivity] || 0;
+                          const originalActivity = activity.replace(
+                            " (Total)",
+                            ""
+                          );
+                          const totalHours =
+                            activityHours[originalActivity] || 0;
                           const backboneHours = totalHours - sharedHours;
-                          result.push(`Shared: ${sharedHours}h (${etpValue} ETP)`);
+                          result.push(
+                            `Shared: ${sharedHours}h (${etpValue} ETP)`
+                          );
                           result.push(`Backbone: ${backboneHours}h`);
                           result.push(`Total: ${totalHours}h`);
                         }
 
                         result.push(`${percentage}% of shared workload`);
                         return result;
-                      }
-                    }
-                  }
+                      },
+                    },
+                  },
                 },
                 scales: {
                   x: {
                     title: {
                       display: true,
-                      text: 'Activities'
+                      text: "Activities",
                     },
                     ticks: {
                       maxRotation: 45,
-                      minRotation: 45
-                    }
+                      minRotation: 45,
+                    },
                   },
                   y: {
                     title: {
                       display: true,
-                      text: 'Shared Duration (hours)'
+                      text: "Shared Duration (hours)",
                     },
                     beginAtZero: true,
                     ticks: {
-                      callback: function(value) {
-                        return value + 'h';
-                      }
-                    }
-                  }
-                }
+                      callback: function (value) {
+                        return value + "h";
+                      },
+                    },
+                  },
+                },
               }}
             />
           </div>
         </div>
-        <div style={{ fontSize: '14px', color: '#6c757d', textAlign: 'center' }}>
+        <div
+          style={{ fontSize: "14px", color: "#6c757d", textAlign: "center" }}
+        >
           <p>
-            <strong>Total Shared Workload:</strong> {totalSharedHours}h ({(totalSharedHours / 40).toFixed(1)} ETP) •
-            <strong> Total Original Workload:</strong> {totalUsedHours}h ({(totalUsedHours / 40).toFixed(1)} ETP)
+            <strong>Total Shared Workload:</strong> {totalSharedHours}h (
+            {(totalSharedHours / 40).toFixed(1)} ETP) •
+            <strong> Total Original Workload:</strong> {totalUsedHours}h (
+            {(totalUsedHours / 40).toFixed(1)} ETP)
           </p>
-          <p style={{ fontSize: '12px', fontStyle: 'italic' }}>
-            <strong>Reduction from Backbone Coverage:</strong> {(totalUsedHours - totalSharedHours)}h ({((totalUsedHours - totalSharedHours) / 40).toFixed(1)} ETP)
-            • Shows hours already handled by doctor backbones and not available for rotation assignments.
+          <p style={{ fontSize: "12px", fontStyle: "italic" }}>
+            <strong>Reduction from Backbone Coverage:</strong>{" "}
+            {totalUsedHours - totalSharedHours}h (
+            {((totalUsedHours - totalSharedHours) / 40).toFixed(1)} ETP) • Shows
+            hours already handled by doctor backbones and not available for
+            rotation assignments.
           </p>
         </div>
       </div>
     </div>
   );
-};
+});
 
 export default ETAWorkloadInfographic;
