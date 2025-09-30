@@ -311,6 +311,11 @@ const ETAWorkloadInfographic = React.memo(() => {
     draggedOverItem: null,
   });
 
+  // State for collapsible sections
+  const [isGridExpanded, setIsGridExpanded] = React.useState(false);
+  const [isBarChartExpanded, setIsBarChartExpanded] = React.useState(false);
+  const [isSharedChartExpanded, setIsSharedChartExpanded] = React.useState(false);
+
   // Create hourArray based on custom activity order
   const createCustomHourArray = () => {
     const hourArray = [];
@@ -661,37 +666,66 @@ const ETAWorkloadInfographic = React.memo(() => {
         <h3>Activités prévues et ETP disponibles</h3>
       </div>
 
-      {hasOverflow && (
+      {/* Collapsible Section 1: ETA Grid */}
+      <div
+        style={{
+          border: "1px solid #ddd",
+          borderRadius: "8px",
+          marginBottom: "20px",
+          backgroundColor: "#fff",
+        }}
+      >
         <div
+          onClick={() => setIsGridExpanded(!isGridExpanded)}
           style={{
-            backgroundColor: "#fff3cd",
-            border: "1px solid #ffeaa7",
-            borderRadius: "6px",
-            padding: "12px",
-            margin: "10px 0",
-            fontSize: "14px",
+            padding: "15px 20px",
+            backgroundColor: "#f8f9fa",
+            borderRadius: "8px 8px 0 0",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: isGridExpanded ? "1px solid #ddd" : "none",
           }}
         >
-          <div
-            style={{
-              fontWeight: "bold",
-              color: "#856404",
-              marginBottom: "8px",
-            }}
-          >
-            🔄 Grid Extended to Show All Activities
-          </div>
-          <div style={{ color: "#856404", fontSize: "13px" }}>
-            Standard capacity exceeded. Additional {extraRows} row
-            {extraRows > 1 ? "s" : ""} added to display all {totalRequiredHours}{" "}
-            required hours. Overflow section marked by orange dashed line
-            separator. Overflow activities have red borders and light red
-            background.
-          </div>
+          <h3 style={{ margin: 0, fontSize: "18px", color: "#333" }}>
+            {isGridExpanded ? "▼" : "▶"} ETA Grid Visualization
+          </h3>
         </div>
-      )}
 
-      <div className="eta-grid-container">
+        {isGridExpanded && (
+          <div style={{ padding: "20px" }}>
+            {hasOverflow && (
+              <div
+                style={{
+                  backgroundColor: "#fff3cd",
+                  border: "1px solid #ffeaa7",
+                  borderRadius: "6px",
+                  padding: "12px",
+                  margin: "0 0 10px 0",
+                  fontSize: "14px",
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: "bold",
+                    color: "#856404",
+                    marginBottom: "8px",
+                  }}
+                >
+                  🔄 Grid Extended to Show All Activities
+                </div>
+                <div style={{ color: "#856404", fontSize: "13px" }}>
+                  Standard capacity exceeded. Additional {extraRows} row
+                  {extraRows > 1 ? "s" : ""} added to display all{" "}
+                  {totalRequiredHours} required hours. Overflow section marked
+                  by orange dashed line separator. Overflow activities have red
+                  borders and light red background.
+                </div>
+              </div>
+            )}
+
+            <div className="eta-grid-container">
         <div className="eta-grid">
           {gridData.map((row, rowIndex) => {
             const isOverflowRow = rowIndex < extraRows;
@@ -896,23 +930,45 @@ const ETAWorkloadInfographic = React.memo(() => {
           )}
         </div>
       </div>
+          </div>
+        )}
+      </div>
 
-      {/* Bar Chart Section */}
+      {/* Collapsible Section 2: Activity Duration Breakdown */}
       <div
-        className="bar-chart-section"
         style={{
-          marginTop: "30px",
-          padding: "20px",
           border: "1px solid #ddd",
           borderRadius: "8px",
-          backgroundColor: "#f9f9f9",
+          marginBottom: "20px",
+          backgroundColor: "#fff",
         }}
       >
-        <h3
-          style={{ textAlign: "center", marginBottom: "20px", color: "#333" }}
+        <div
+          onClick={() => setIsBarChartExpanded(!isBarChartExpanded)}
+          style={{
+            padding: "15px 20px",
+            backgroundColor: "#f8f9fa",
+            borderRadius: "8px 8px 0 0",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: isBarChartExpanded ? "1px solid #ddd" : "none",
+          }}
         >
-          Activity Duration Breakdown
-        </h3>
+          <h3 style={{ margin: 0, fontSize: "18px", color: "#333" }}>
+            {isBarChartExpanded ? "▼" : "▶"} Activity Duration Breakdown
+          </h3>
+        </div>
+
+        {isBarChartExpanded && (
+          <div
+            className="bar-chart-section"
+            style={{
+              padding: "20px",
+              backgroundColor: "#f9f9f9",
+            }}
+          >
         <div
           style={{
             display: "flex",
@@ -1010,24 +1066,45 @@ const ETAWorkloadInfographic = React.memo(() => {
             percentage of total time.
           </p>
         </div>
+          </div>
+        )}
       </div>
 
-      {/* Shared Activities Bar Chart Section */}
+      {/* Collapsible Section 3: Shared Activities */}
       <div
-        className="shared-bar-chart-section"
         style={{
-          marginTop: "30px",
-          padding: "20px",
           border: "1px solid #ddd",
           borderRadius: "8px",
-          backgroundColor: "#f0f8ff",
+          marginBottom: "20px",
+          backgroundColor: "#fff",
         }}
       >
-        <h3
-          style={{ textAlign: "center", marginBottom: "20px", color: "#333" }}
+        <div
+          onClick={() => setIsSharedChartExpanded(!isSharedChartExpanded)}
+          style={{
+            padding: "15px 20px",
+            backgroundColor: "#f8f9fa",
+            borderRadius: "8px 8px 0 0",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: isSharedChartExpanded ? "1px solid #ddd" : "none",
+          }}
         >
-          Durée des activités à partager
-        </h3>
+          <h3 style={{ margin: 0, fontSize: "18px", color: "#333" }}>
+            {isSharedChartExpanded ? "▼" : "▶"} Durée des activités à partager
+          </h3>
+        </div>
+
+        {isSharedChartExpanded && (
+          <div
+            className="shared-bar-chart-section"
+            style={{
+              padding: "20px",
+              backgroundColor: "#f0f8ff",
+            }}
+          >
         <div
           style={{
             marginBottom: "15px",
@@ -1182,6 +1259,8 @@ const ETAWorkloadInfographic = React.memo(() => {
             rotation assignments.
           </p>
         </div>
+          </div>
+        )}
       </div>
     </div>
   );
