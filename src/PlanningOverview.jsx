@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { activityColors } from "./schedule";
 import { ScheduleContext } from "./ScheduleContext";
+import { rotation_cycles } from "./customPlanningLogic";
 
 const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -13,6 +14,7 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
   // ✅ Use dynamic expectedActivities from ScheduleContext
   const scheduleContext = React.useContext(ScheduleContext);
   const expectedActivities = scheduleContext?.expectedActivities || {};
+  const selectedRotationCycle = scheduleContext?.selectedRotationCycle || "honeymoon_NS_noHDJ";
 
   // Get periods directly from custom planning logic results
   const getPeriods = () => {
@@ -568,10 +570,30 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
 
   const periods = getPeriods();
 
+  // Format rotation cycle name for display
+  const formatCycleName = (cycleKey) => {
+    return cycleKey.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  const cycleDescription = rotation_cycles[selectedRotationCycle]?.description || "";
+
   return (
     <div className="planning-overview-container">
       <div className="overview-header">
-        <h3> Problèmes durant l'ensemble du cycle</h3>
+        <h3>
+          Problèmes durant l'ensemble du cycle: {formatCycleName(selectedRotationCycle)}
+          {cycleDescription && (
+            <div style={{
+              fontSize: '14px',
+              fontWeight: 'normal',
+              fontStyle: 'italic',
+              color: '#6c757d',
+              marginTop: '4px'
+            }}>
+              {cycleDescription}
+            </div>
+          )}
+        </h3>
       </div>
 
       {renderGlobalSummary()}
