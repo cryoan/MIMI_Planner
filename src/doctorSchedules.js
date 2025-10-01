@@ -174,7 +174,10 @@ function calculateSlotDuration(activities) {
 }
 
 // Helper function to collect all backbone assignments across all doctors
-function collectAllBackboneAssignments(dynamicDoctorProfiles = null) {
+function collectAllBackboneAssignments(
+  dynamicDoctorProfiles = null,
+  periodIndex = null
+) {
   const profilesData = dynamicDoctorProfiles || doctorProfiles;
   const assignments = {};
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -194,10 +197,25 @@ function collectAllBackboneAssignments(dynamicDoctorProfiles = null) {
 
   // Collect assignments from all doctor backbones
   Object.entries(profilesData).forEach(([doctorCode, doctor]) => {
-    if (doctor.backbone) {
+    // Handle doctors with multiple backbones (e.g., DL)
+    let activeBackbone = doctor.backbone;
+
+    if (doctor.backbones && periodIndex !== null) {
+      // Select backbone based on period index and rotation setting
+      const backboneNames = doctor.rotationSetting || Object.keys(doctor.backbones);
+      const backboneIndex = periodIndex % backboneNames.length;
+      const backboneName = backboneNames[backboneIndex];
+      activeBackbone = doctor.backbones[backboneName];
+    } else if (doctor.backbones && !doctor.backbone) {
+      // Default to first backbone if no period specified
+      const firstBackboneName = Object.keys(doctor.backbones)[0];
+      activeBackbone = doctor.backbones[firstBackboneName];
+    }
+
+    if (activeBackbone) {
       days.forEach((day) => {
         timeSlots.forEach((timeSlot) => {
-          const backboneActivities = doctor.backbone[day]?.[timeSlot];
+          const backboneActivities = activeBackbone[day]?.[timeSlot];
           // Only process slots with actual activities (ignore empty arrays)
           if (
             Array.isArray(backboneActivities) &&
@@ -226,7 +244,8 @@ function collectAllBackboneAssignments(dynamicDoctorProfiles = null) {
 export function computeRemainingRotationTasks(
   templateName,
   dynamicWantedActivities = null,
-  dynamicDoctorProfiles = null
+  dynamicDoctorProfiles = null,
+  periodIndex = null
 ) {
   const activitiesData = dynamicWantedActivities || wantedActivities;
 
@@ -237,9 +256,10 @@ export function computeRemainingRotationTasks(
     return {};
   }
 
-  // Get all current backbone assignments
+  // Get all current backbone assignments (with period-specific backbones)
   const backboneAssignments = collectAllBackboneAssignments(
-    dynamicDoctorProfiles
+    dynamicDoctorProfiles,
+    periodIndex
   );
 
   // Create the remaining tasks template
@@ -342,12 +362,21 @@ export const doctorProfiles = {
 
   NS: {
     backbone: {
+      // no TP
       Monday: { "9am-1pm": [], "2pm-6pm": [] },
       Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Wednesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Thursday: { "9am-1pm": [], "2pm-6pm": [] },
       Friday: { "9am-1pm": [], "2pm-6pm": ["Staff"] },
     },
+    // backbone: {
+    //   TP
+    //   Monday: { "9am-1pm": [], "2pm-6pm": [] },
+    //   Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
+    //   Wednesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
+    //   Thursday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
+    //   Friday: { "9am-1pm": [], "2pm-6pm": ["Staff"] },
+    // },
     skills: ["HTC1", "HTC1_visite", "HDJ", "AMI_Cs_U", "AMI", "EMIT"],
     rotationSetting: ["HTC1", "AMI", "HDJ"],
     weeklyNeeds: {
@@ -407,16 +436,27 @@ export const doctorProfiles = {
   },
 
   DL: {
-    backbone: {
-      Monday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
-      Tuesday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
-      Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
-      Thursday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
-      Friday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+    // DL alternates between two different backbones every half-period
+    backbones: {
+      MPO: {
+        Monday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+        Tuesday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+        Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
+        Thursday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+        Friday: { "9am-1pm": ["MPO"], "2pm-6pm": ["MPO"] },
+      },
+      HDJ: {
+        Monday: { "9am-1pm": ["Cs"], "2pm-6pm": ["Cs"] },
+        Tuesday: { "9am-1pm": ["HDJ"], "2pm-6pm": ["HDJ"] },
+        Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
+        Thursday: { "9am-1pm": ["HDJ"], "2pm-6pm": ["HDJ"] },
+        Friday: { "9am-1pm": ["Cs"], "2pm-6pm": ["TeleCs"] },
+      },
     },
+    backbone: null, // Will be set dynamically based on period
 
     skills: ["HDJ", "MPO"],
-    rotationSetting: ["MPO"],
+    rotationSetting: ["MPO", "HDJ"],
     weeklyNeeds: {
       TeleCs: {
         count: 2,
@@ -635,7 +675,8 @@ function mergeTemplateWithBackbone(
 export function generateDoctorRotations(
   doctorCode,
   dynamicDoctorProfiles = null,
-  dynamicWantedActivities = null
+  dynamicWantedActivities = null,
+  periodIndex = null
 ) {
   const profilesData = dynamicDoctorProfiles || doctorProfiles;
   const activitiesData = dynamicWantedActivities || wantedActivities;
@@ -645,10 +686,25 @@ export function generateDoctorRotations(
     throw new Error(`Doctor ${doctorCode} not found`);
   }
 
-  const { backbone, rotationSetting } = doctor;
+  const { rotationSetting } = doctor;
   if (!rotationSetting) {
     // If no rotationSetting, return empty object
     return {};
+  }
+
+  // Determine which backbone to use
+  let activeBackbone = doctor.backbone;
+
+  if (doctor.backbones && periodIndex !== null) {
+    // Select backbone based on period index and rotation setting
+    const backboneNames = doctor.rotationSetting || Object.keys(doctor.backbones);
+    const backboneIndex = periodIndex % backboneNames.length;
+    const backboneName = backboneNames[backboneIndex];
+    activeBackbone = doctor.backbones[backboneName];
+  } else if (doctor.backbones && !doctor.backbone) {
+    // Default to first backbone if no period specified
+    const firstBackboneName = Object.keys(doctor.backbones)[0];
+    activeBackbone = doctor.backbones[firstBackboneName];
   }
 
   const generatedRotations = {};
@@ -661,12 +717,13 @@ export function generateDoctorRotations(
       const remainingTasks = computeRemainingRotationTasks(
         templateName,
         activitiesData,
-        dynamicDoctorProfiles
+        dynamicDoctorProfiles,
+        periodIndex
       );
       // Generate rotation from remaining tasks + backbone
       const baseRotation = mergeTemplateWithBackbone(
         templateName,
-        backbone,
+        activeBackbone,
         remainingTasks
       );
       generatedRotations[templateName] = baseRotation;

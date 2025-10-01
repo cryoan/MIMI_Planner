@@ -1,46 +1,46 @@
 export const expectedActivities = {
   // Engagement du service sur activités quotidiennes
-  Monday: {
-    "9am-1pm": ["HTC1", "HTC2", "EMIT", "AMI"],
-    "2pm-6pm": ["HTC1", "HTC2", "EMIT", "AMI"],
-  },
-  Tuesday: {
-    "9am-1pm": ["HTC1_visite", "HTC2_visite", "EMIT", "HDJ", "AMI"],
-    "2pm-6pm": ["HTC1", "HTC2", "EMIT", "AMI"],
-  },
-  Wednesday: {
-    "9am-1pm": ["HTC1", "HTC2", "EMIT", "AMI"],
-    "2pm-6pm": ["HTC1", "HTC2", "EMIT", "AMI"],
-  },
-  Thursday: {
-    "9am-1pm": ["HTC1", "HTC2", "EMIT", "HDJ", "AMI"],
-    "2pm-6pm": ["HTC1", "HTC2", "EMIT", "AMI"],
-  },
-  Friday: {
-    "9am-1pm": ["HTC1_visite", "HTC2_visite", "EMIT", "HDJ", "AMI"],
-    "2pm-6pm": ["HTC1", "HTC2", "EMIT", "HDJ", "AMI"],
-  },
-  //including EMATIT
   // Monday: {
-  //   '9am-1pm': ['HTC1', 'HTC2', 'EMIT', 'EMATIT'],
-  //   '2pm-6pm': ['HTC1', 'HTC2', 'EMIT', 'EMATIT'],
+  //   "9am-1pm": ["HTC1", "HTC2", "EMIT", "AMI"],
+  //   "2pm-6pm": ["HTC1", "HTC2", "EMIT", "AMI"],
   // },
   // Tuesday: {
-  //   '9am-1pm': ['HTC1', 'HTC2', 'EMIT', 'HDJ', 'EMATIT'],
-  //   '2pm-6pm': ['HTC1', 'HTC2', 'EMIT', , 'EMATIT'],
+  //   "9am-1pm": ["HTC1_visite", "HTC2_visite", "EMIT", "HDJ", "AMI"],
+  //   "2pm-6pm": ["HTC1", "HTC2", "EMIT", "AMI"],
   // },
   // Wednesday: {
-  //   '9am-1pm': ['HTC1', 'HTC2', 'EMIT', 'EMATIT'],
-  //   '2pm-6pm': ['HTC1', 'HTC2', 'EMIT', 'EMATIT'],
+  //   "9am-1pm": ["HTC1", "HTC2", "EMIT", "AMI"],
+  //   "2pm-6pm": ["HTC1", "HTC2", "EMIT", "AMI"],
   // },
   // Thursday: {
-  //   '9am-1pm': ['HTC1', 'HTC2', 'EMIT', 'HDJ', 'EMATIT'],
-  //   '2pm-6pm': ['HTC1', 'HTC2', 'EMIT'],
+  //   "9am-1pm": ["HTC1", "HTC2", "EMIT", "HDJ", "AMI"],
+  //   "2pm-6pm": ["HTC1", "HTC2", "EMIT", "AMI"],
   // },
   // Friday: {
-  //   '9am-1pm': ['HTC1', 'HTC2', 'EMIT', 'HDJ', 'EMATIT'],
-  //   '2pm-6pm': ['HTC1', 'HTC2', 'EMIT', 'HDJ', 'EMATIT'],
+  //   "9am-1pm": ["HTC1_visite", "HTC2_visite", "EMIT", "HDJ", "AMI"],
+  //   "2pm-6pm": ["HTC1", "HTC2", "EMIT", "HDJ", "AMI"],
   // },
+  //including EMATIT
+  Monday: {
+    "9am-1pm": ["HTC1", "HTC2", "EMIT", "EMATIT"],
+    "2pm-6pm": ["HTC1", "HTC2", "EMIT", "EMATIT"],
+  },
+  Tuesday: {
+    "9am-1pm": ["HTC1", "HTC2", "EMIT", "HDJ", "EMATIT"],
+    "2pm-6pm": ["HTC1", "HTC2", "EMIT", , "HDJ", "EMATIT"],
+  },
+  Wednesday: {
+    "9am-1pm": ["HTC1", "HTC2", "EMIT", "EMATIT"],
+    "2pm-6pm": ["HTC1", "HTC2", "EMIT", "EMATIT"],
+  },
+  Thursday: {
+    "9am-1pm": ["HTC1", "HTC2", "EMIT", "HDJ", "EMATIT"],
+    "2pm-6pm": ["HTC1", "HTC2", "EMIT", "EMATIT"],
+  },
+  Friday: {
+    "9am-1pm": ["HTC1", "HTC2", "EMIT", "HDJ", "EMATIT"],
+    "2pm-6pm": ["HTC1", "HTC2", "EMIT", "HDJ", "EMATIT"],
+  },
 };
 
 export const rotationTemplates = {
@@ -164,7 +164,6 @@ export const useDocSchedule = () => {
   console.log("doc", doc);
   return { doc, loading };
 };
-
 
 //==============================================
 // SIMPLIFIED ROTATION SYSTEM (NEW ARCHITECTURE)
