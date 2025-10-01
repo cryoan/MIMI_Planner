@@ -553,13 +553,29 @@ export const doctorProfiles = {
   },
 };
 
+// Helper function to check if a doctor is flexible (has 2+ shared activities)
+function isFlexibleDoctor(doctorCode, profilesData = null) {
+  const profiles = profilesData || doctorProfiles;
+  const doctor = profiles[doctorCode];
+  if (!doctor || !doctor.rotationSetting) return false;
+
+  const sharedActivities = ["HTC1", "HTC2", "HDJ", "AMI", "EMIT", "EMATIT"];
+  const sharedCount = doctor.rotationSetting.filter(activity =>
+    sharedActivities.includes(activity)
+  ).length;
+
+  return sharedCount >= 2;
+}
+
 // Function to merge rotation template with backbone constraints
 // Backbone always takes precedence and capacity-aware template merging
-// Special handling for HTC rotations: HTC activities are enforced alongside Cs activities
+// Special handling for flexible doctors: HTC/HDJ activities are enforced alongside Staff on Fridays
 function mergeTemplateWithBackbone(
   templateName,
   backbone,
-  computedRemainingTasks = null
+  computedRemainingTasks = null,
+  doctorCode = null,
+  dynamicDoctorProfiles = null
 ) {
   // Use computed remaining tasks if provided, otherwise fall back to static template
   const template = computedRemainingTasks || rotationTemplates[templateName];
@@ -571,11 +587,11 @@ function mergeTemplateWithBackbone(
   // Start with a deep copy of the backbone
   const mergedSchedule = deepClone(backbone);
 
-  // Check if this is an HTC rotation
-  const isHTCRotation = templateName === "HTC1" || templateName === "HTC2";
+  // Check if this is a special rotation (HTC or HDJ) that should bypass capacity constraints
+  const isSpecialRotation = templateName === "HTC1" || templateName === "HTC2" || templateName === "HDJ";
 
-  // Define HTC-related activities
-  const htcActivities = ["HTC1", "HTC1_visite", "HTC2", "HTC2_visite"];
+  // Define special activities that should be enforced regardless of capacity
+  const specialActivities = ["HTC1", "HTC1_visite", "HTC2", "HTC2_visite", "HDJ"];
 
   // Merge template activities based on remaining capacity in each slot
   Object.entries(template).forEach(([day, slots]) => {
@@ -591,38 +607,41 @@ function mergeTemplateWithBackbone(
         );
         const remainingCapacity = 4 - currentDuration; // Each time slot is 4 hours
 
-        // Check if we're in HTC rotation with HTC activities
-        const hasHTCActivities = templateActivities.some((activity) =>
-          htcActivities.includes(activity)
+        // Check if we're in special rotation (HTC or HDJ) with special activities
+        const hasSpecialActivities = templateActivities.some((activity) =>
+          specialActivities.includes(activity)
         );
 
         // Check if backbone slot contains TP (Temps Partiel - doctor unavailable)
         const hasTP = mergedSchedule[day][timeSlot].includes("TP");
 
-        if (isHTCRotation && hasHTCActivities && !hasTP) {
-          // Special case: HTC rotation with HTC activities, but NOT when TP is present
-          // Add HTC activities regardless of capacity constraints, except when doctor has TP
-          const htcActivitiesToAdd = templateActivities.filter((activity) =>
-            htcActivities.includes(activity)
+        // Check if this doctor is flexible (rotates through 2+ shared activities)
+        const isFlexible = doctorCode ? isFlexibleDoctor(doctorCode, dynamicDoctorProfiles) : false;
+
+        if (isSpecialRotation && hasSpecialActivities && !hasTP && isFlexible) {
+          // Special case: Flexible doctors on HTC/HDJ rotation with special activities
+          // Add special activities regardless of capacity constraints (e.g., HDJ + Staff on Friday)
+          const specialActivitiesToAdd = templateActivities.filter((activity) =>
+            specialActivities.includes(activity)
           );
 
-          if (htcActivitiesToAdd.length > 0) {
+          if (specialActivitiesToAdd.length > 0) {
             mergedSchedule[day][timeSlot] = [
               ...mergedSchedule[day][timeSlot],
-              ...htcActivitiesToAdd,
+              ...specialActivitiesToAdd,
             ];
           }
 
-          // Also add non-HTC activities if there's capacity
-          const nonHTCActivities = templateActivities.filter(
-            (activity) => !htcActivities.includes(activity)
+          // Also add non-special activities if there's capacity
+          const nonSpecialActivities = templateActivities.filter(
+            (activity) => !specialActivities.includes(activity)
           );
 
-          if (nonHTCActivities.length > 0 && remainingCapacity > 0) {
+          if (nonSpecialActivities.length > 0 && remainingCapacity > 0) {
             const activitiesToAdd = [];
             let usedCapacity = 0;
 
-            for (const activity of nonHTCActivities) {
+            for (const activity of nonSpecialActivities) {
               const activityDuration = docActivities[activity]?.duration || 4;
 
               if (usedCapacity + activityDuration <= remainingCapacity) {
@@ -639,7 +658,7 @@ function mergeTemplateWithBackbone(
             }
           }
         } else {
-          // Standard capacity-aware merging for non-HTC cases
+          // Standard capacity-aware merging for non-special cases
           if (remainingCapacity > 0) {
             // Try to add template activities that fit in remaining capacity
             const activitiesToAdd = [];
@@ -724,7 +743,9 @@ export function generateDoctorRotations(
       const baseRotation = mergeTemplateWithBackbone(
         templateName,
         activeBackbone,
-        remainingTasks
+        remainingTasks,
+        doctorCode,
+        dynamicDoctorProfiles
       );
       generatedRotations[templateName] = baseRotation;
     } else {
@@ -767,7 +788,10 @@ Object.entries(doctorProfiles).forEach(([doctorCode, doctor]) => {
         // It's a template reference - merge template with backbone
         const schedule = mergeTemplateWithBackbone(
           rotationData,
-          doctor.backbone
+          doctor.backbone,
+          null, // computedRemainingTasks
+          doctorCode,
+          null // dynamicDoctorProfiles (use static here)
         );
         docChunks[chunkName] = schedule;
       } else {
