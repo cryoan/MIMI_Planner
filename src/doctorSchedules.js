@@ -12,7 +12,7 @@ export const docActivities = {
   },
   Cs: {
     name: "Cs",
-    duration: 4,
+    duration: 3,
   },
   Cs_Prison: {
     name: "Cs_Prison",

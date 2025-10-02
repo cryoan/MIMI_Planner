@@ -4,12 +4,14 @@ import { fr } from "date-fns/locale";
 import { activityColors } from "./schedule";
 import { ScheduleContext } from "./ScheduleContext";
 import { rotation_cycles } from "./customPlanningLogic";
+import { docActivities } from "./doctorSchedules";
 
 const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const timeSlots = ["9am-1pm", "2pm-6pm"];
   const [showDetailedBreakdown, setShowDetailedBreakdown] =
     React.useState(false);
+  const [overloadThreshold, setOverloadThreshold] = React.useState(2);
 
   // ✅ Use dynamic expectedActivities from ScheduleContext
   const scheduleContext = React.useContext(ScheduleContext);
@@ -34,6 +36,7 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
   const aggregateValidationForPeriod = (period) => {
     let totalMissing = 0;
     let totalDuplicates = 0;
+    let totalOverloadedSlots = 0; // Count of slots with doctor overloads
     let totalSlots = 0;
     let validSlots = 0;
 
@@ -48,6 +51,11 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
           totalMissing += validation.missing.length;
           totalDuplicates += validation.duplicates.length;
 
+          // Count slots where at least one doctor has an overload
+          if (validation.doctorOverloads && validation.doctorOverloads.length > 0) {
+            totalOverloadedSlots += validation.doctorOverloads.length;
+          }
+
           if (!validation.hasConflicts) {
             validSlots++;
           }
@@ -55,18 +63,61 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
       });
     }
 
+    const totalIssues = totalMissing + totalDuplicates + totalOverloadedSlots;
+
     return {
       totalMissing,
       totalDuplicates,
+      totalOverloadedSlots,
       totalSlots,
       validSlots,
       healthStatus:
-        totalMissing + totalDuplicates === 0
-          ? "good"
-          : totalMissing + totalDuplicates < 5
-          ? "warning"
-          : "error",
+        totalIssues === 0 ? "good" : totalIssues < 5 ? "warning" : "error",
     };
+  };
+
+  // Helper function to calculate total duration of activities in a slot
+  const calculateSlotDuration = (activities) => {
+    if (!Array.isArray(activities)) {
+      return 0;
+    }
+
+    return activities.reduce((total, activity) => {
+      const activityInfo = docActivities[activity];
+      if (activityInfo && typeof activityInfo.duration === "number") {
+        return total + activityInfo.duration;
+      }
+      // If activity not found, assume 1 hour (conservative for unknown activities)
+      return total + 1;
+    }, 0);
+  };
+
+  // Helper function to check for duration violations for a specific doctor in a slot
+  const calculateDoctorSlotOverload = (doctorSchedule, day, slot) => {
+    if (!doctorSchedule || !doctorSchedule[day] || !doctorSchedule[day][slot]) {
+      return null;
+    }
+
+    const activities = doctorSchedule[day][slot] || [];
+
+    // If doctor has TP, the slot is blocked (no overload calculation needed)
+    if (activities.includes("TP")) {
+      return null;
+    }
+
+    const totalDuration = calculateSlotDuration(activities);
+    const MAX_SLOT_CAPACITY = 4;
+
+    if (totalDuration > MAX_SLOT_CAPACITY) {
+      return {
+        totalDuration,
+        maxCapacity: MAX_SLOT_CAPACITY,
+        overCapacity: totalDuration - MAX_SLOT_CAPACITY,
+        activities: activities,
+      };
+    }
+
+    return null;
   };
 
   // Helper function to find duplicates in an array
@@ -103,6 +154,7 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
       return {
         missing: [],
         duplicates: [],
+        doctorOverloads: [],
         hasConflicts: false,
       };
     }
@@ -121,10 +173,30 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
     // Check for duplicates
     const duplicates = findDuplicates(assigned);
 
+    // Check for per-doctor duration violations
+    const doctorOverloads = [];
+    Object.keys(scheduleData).forEach((doctorCode) => {
+      const overload = calculateDoctorSlotOverload(
+        scheduleData[doctorCode],
+        day,
+        slot
+      );
+      if (overload) {
+        doctorOverloads.push({
+          doctor: doctorCode,
+          ...overload,
+        });
+      }
+    });
+
     return {
       missing,
       duplicates,
-      hasConflicts: missing.length > 0 || duplicates.length > 0,
+      doctorOverloads,
+      hasConflicts:
+        missing.length > 0 ||
+        duplicates.length > 0 ||
+        doctorOverloads.length > 0,
     };
   };
 
@@ -163,6 +235,7 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
     const periods = getPeriods();
     let totalMissing = 0;
     let totalDuplicates = 0;
+    let totalOverloadedSlots = 0;
     let totalSlots = 0;
     let validSlots = 0;
     let affectedPeriods = 0;
@@ -171,24 +244,27 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
       const validation = aggregateValidationForPeriod(period);
       totalMissing += validation.totalMissing;
       totalDuplicates += validation.totalDuplicates;
+      totalOverloadedSlots += validation.totalOverloadedSlots;
       totalSlots += validation.totalSlots;
       validSlots += validation.validSlots;
 
-      if (validation.totalMissing > 0 || validation.totalDuplicates > 0) {
+      if (
+        validation.totalMissing > 0 ||
+        validation.totalDuplicates > 0 ||
+        validation.totalOverloadedSlots > 0
+      ) {
         affectedPeriods++;
       }
     });
 
+    const totalIssues = totalMissing + totalDuplicates + totalOverloadedSlots;
     const healthStatus =
-      totalMissing + totalDuplicates === 0
-        ? "good"
-        : totalMissing + totalDuplicates < 10
-        ? "warning"
-        : "error";
+      totalIssues === 0 ? "good" : totalIssues < 10 ? "warning" : "error";
 
     return {
       totalMissing,
       totalDuplicates,
+      totalOverloadedSlots,
       totalSlots,
       validSlots,
       affectedPeriods,
@@ -202,12 +278,14 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
     const periods = getPeriods();
     const missingByActivity = {};
     const duplicatesByActivity = {};
+    const doctorOverloads = {}; // Map: doctorCode -> { totalSlots, totalHours, violations[] }
     const periodBreakdown = {};
 
     periods.forEach((period) => {
       const scheduleData = getPeriodScheduleData(period);
       const periodMissing = {};
       const periodDuplicates = {};
+      const periodDoctorOverloads = {}; // Per-period doctor overloads
 
       if (scheduleData) {
         days.forEach((day) => {
@@ -233,6 +311,49 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
               periodDuplicates[activity] =
                 (periodDuplicates[activity] || 0) + 1;
             });
+
+            // Track per-doctor overloads
+            validation.doctorOverloads.forEach((overload) => {
+              const doctorCode = overload.doctor;
+
+              // Initialize global doctor overload tracking
+              if (!doctorOverloads[doctorCode]) {
+                doctorOverloads[doctorCode] = {
+                  totalSlots: 0,
+                  totalHours: 0,
+                  violations: [],
+                };
+              }
+
+              // Initialize period-specific doctor overload tracking
+              if (!periodDoctorOverloads[doctorCode]) {
+                periodDoctorOverloads[doctorCode] = {
+                  totalSlots: 0,
+                  totalHours: 0,
+                  violations: [],
+                };
+              }
+
+              const violation = {
+                period: period.name,
+                day: fullDay,
+                slot,
+                totalDuration: overload.totalDuration,
+                overCapacity: overload.overCapacity,
+                activities: overload.activities,
+              };
+
+              // Add to global tracking
+              doctorOverloads[doctorCode].totalSlots += 1;
+              doctorOverloads[doctorCode].totalHours += overload.overCapacity;
+              doctorOverloads[doctorCode].violations.push(violation);
+
+              // Add to period tracking
+              periodDoctorOverloads[doctorCode].totalSlots += 1;
+              periodDoctorOverloads[doctorCode].totalHours +=
+                overload.overCapacity;
+              periodDoctorOverloads[doctorCode].violations.push(violation);
+            });
           });
         });
       }
@@ -240,11 +361,13 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
       // Store period-specific breakdown only if there are issues
       if (
         Object.keys(periodMissing).length > 0 ||
-        Object.keys(periodDuplicates).length > 0
+        Object.keys(periodDuplicates).length > 0 ||
+        Object.keys(periodDoctorOverloads).length > 0
       ) {
         periodBreakdown[period.name] = {
           missing: periodMissing,
           duplicates: periodDuplicates,
+          doctorOverloads: periodDoctorOverloads,
         };
       }
     });
@@ -252,6 +375,7 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
     return {
       missingByActivity,
       duplicatesByActivity,
+      doctorOverloads,
       periodBreakdown,
     };
   };
@@ -290,7 +414,9 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
           <div className="summary-stats">
             <div className="stat-item">
               <span className="stat-number">
-                {summary.totalMissing + summary.totalDuplicates}
+                {summary.totalMissing +
+                  summary.totalDuplicates +
+                  summary.totalOverloadedSlots}
               </span>
               <span className="stat-label">Problèmes totaux</span>
             </div>
@@ -302,9 +428,40 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
               <span className="stat-number">{summary.totalDuplicates}</span>
               <span className="stat-label">Activités dupliquées</span>
             </div>
+            <div className="stat-item">
+              <span className="stat-number">
+                {summary.totalOverloadedSlots}
+              </span>
+              <span className="stat-label">Créneaux surchargés</span>
+            </div>
           </div>
 
-          {(summary.totalMissing > 0 || summary.totalDuplicates > 0) && (
+          <div className="overload-threshold-control">
+            <label htmlFor="overload-threshold">
+              🔴 Seuil d'alerte surcharge:
+            </label>
+            <input
+              id="overload-threshold"
+              type="number"
+              min="0"
+              max="4"
+              step="1"
+              value={overloadThreshold}
+              onChange={(e) => setOverloadThreshold(parseInt(e.target.value, 10))}
+              style={{
+                marginLeft: "8px",
+                width: "60px",
+                padding: "4px 8px",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+              }}
+            />
+            <span style={{ marginLeft: "4px" }}>heures</span>
+          </div>
+
+          {(summary.totalMissing > 0 ||
+            summary.totalDuplicates > 0 ||
+            summary.totalOverloadedSlots > 0) && (
             <button
               className="breakdown-toggle"
               onClick={() => setShowDetailedBreakdown(!showDetailedBreakdown)}
@@ -326,7 +483,8 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
     const breakdown = getDetailedBreakdown();
     const hasIssues =
       Object.keys(breakdown.missingByActivity).length > 0 ||
-      Object.keys(breakdown.duplicatesByActivity).length > 0;
+      Object.keys(breakdown.duplicatesByActivity).length > 0 ||
+      Object.keys(breakdown.doctorOverloads).length > 0;
 
     if (!hasIssues) return null;
 
@@ -389,6 +547,51 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
             </div>
           )}
 
+          {Object.keys(breakdown.doctorOverloads).length > 0 && (
+            <div className="breakdown-section">
+              <h5>⏱️ Surcharges par médecin (4h max/plage)</h5>
+              <div className="doctor-overloads">
+                {Object.entries(breakdown.doctorOverloads)
+                  .sort((a, b) => b[1].totalSlots - a[1].totalSlots) // Sort by most violations first
+                  .map(([doctorCode, overloadData]) => (
+                    <div key={doctorCode} className="doctor-overload-item">
+                      <div className="doctor-overload-header">
+                        <strong>{doctorCode}:</strong>
+                        <span className="overload-summary">
+                          {overloadData.totalSlots} créneau
+                          {overloadData.totalSlots > 1 ? "x" : ""} surchargé
+                          {overloadData.totalSlots > 1 ? "s" : ""} (
+                          {overloadData.totalHours}h d'excès)
+                        </span>
+                      </div>
+                      <div className="doctor-violations-list">
+                        {overloadData.violations.map((violation, idx) => (
+                          <div key={idx} className="violation-detail">
+                            • {violation.day} {violation.slot}:{" "}
+                            {violation.totalDuration}h/4h
+                            <strong
+                              style={{ color: "#d32f2f", marginLeft: "4px" }}
+                            >
+                              (+{violation.overCapacity}h)
+                            </strong>
+                            <span
+                              style={{
+                                fontSize: "0.9em",
+                                marginLeft: "8px",
+                                color: "#666",
+                              }}
+                            >
+                              [{violation.activities.join(", ")}]
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
           {Object.keys(breakdown.periodBreakdown).length > 0 && (
             <div className="breakdown-section">
               <h5>📅 Détail par période</h5>
@@ -413,6 +616,26 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
                             .join(", ")}
                         </span>
                       )}
+                      {periodData.doctorOverloads &&
+                        Object.keys(periodData.doctorOverloads).length > 0 && (
+                          <div className="period-doctor-overloads">
+                            <span className="period-issues duration">
+                              Surcharges:{" "}
+                            </span>
+                            {Object.entries(periodData.doctorOverloads).map(
+                              ([doctor, data]) => (
+                                <span
+                                  key={doctor}
+                                  className="period-doctor-overload"
+                                >
+                                  {doctor}({data.totalSlots} créneau
+                                  {data.totalSlots > 1 ? "x" : ""}, {data.totalHours}
+                                  h)
+                                </span>
+                              )
+                            )}
+                          </div>
+                        )}
                     </div>
                   )
                 )}
@@ -437,9 +660,16 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
         <div className="period-header">
           <h4>{period.name}</h4>
           <div className={`validation-badge ${validation.healthStatus}`}>
-            {validation.totalMissing + validation.totalDuplicates === 0
+            {validation.totalMissing +
+              validation.totalDuplicates +
+              validation.totalOverloadedSlots ===
+            0
               ? "✓"
-              : `⚠️ ${validation.totalMissing + validation.totalDuplicates}`}
+              : `⚠️ ${
+                  validation.totalMissing +
+                  validation.totalDuplicates +
+                  validation.totalOverloadedSlots
+                }`}
           </div>
         </div>
 
@@ -490,6 +720,15 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
                                 ⚠️ {slotValidation.duplicates.join(", ")}
                               </div>
                             )}
+                            {slotValidation.doctorOverloads &&
+                              slotValidation.doctorOverloads.length > 0 && (
+                                <div className="conflict-duration">
+                                  ⏱️{" "}
+                                  {slotValidation.doctorOverloads
+                                    .map((o) => `${o.doctor}:${o.totalDuration}h`)
+                                    .join(", ")}
+                                </div>
+                              )}
                           </div>
                         )}
                       </td>
@@ -511,10 +750,24 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
                         slot
                       ] || ["free"];
 
+                      // Check for severe overload (>=threshold)
+                      const overload = calculateDoctorSlotOverload(
+                        weekData[doctor],
+                        fullDay,
+                        slot
+                      );
+                      const hasSevereOverload =
+                        overload && overload.overCapacity >= overloadThreshold;
+
                       return (
                         <td
                           key={doctor + day + slot}
                           className="mini-activity-cell"
+                          style={
+                            hasSevereOverload
+                              ? { border: "2px solid #d32f2f" }
+                              : {}
+                          }
                         >
                           <div className="mini-activities">
                             {activities.slice(0, 2).map((activity, idx) => (
@@ -550,7 +803,9 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
           </tbody>
         </table>
 
-        {(validation.totalMissing > 0 || validation.totalDuplicates > 0) && (
+        {(validation.totalMissing > 0 ||
+          validation.totalDuplicates > 0 ||
+          validation.totalOverloadedSlots > 0) && (
           <div className="period-summary">
             {validation.totalMissing > 0 && (
               <span className="missing-count">
@@ -560,6 +815,11 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
             {validation.totalDuplicates > 0 && (
               <span className="duplicate-count">
                 Doublons: {validation.totalDuplicates}
+              </span>
+            )}
+            {validation.totalOverloadedSlots > 0 && (
+              <span className="duration-count">
+                Surcharges: {validation.totalOverloadedSlots}
               </span>
             )}
           </div>
@@ -626,6 +886,19 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
         <div className="legend-item">
           <span className="legend-indicator error">⚠️</span>
           <span>Problèmes majeurs (≥ 5)</span>
+        </div>
+        <div className="legend-item">
+          <span
+            className="legend-indicator"
+            style={{
+              border: "2px solid #d32f2f",
+              padding: "2px 6px",
+              borderRadius: "3px",
+            }}
+          >
+            🔴
+          </span>
+          <span>Bordure rouge: Surcharge ≥ {overloadThreshold}h</span>
         </div>
       </div>
     </div>
