@@ -159,9 +159,9 @@
 
 // export default Workload;
 
-import React, { useEffect, useState, useContext } from 'react';
-import './Calendar.css';
-import { Bar } from 'react-chartjs-2';
+import React, { useEffect, useState, useContext } from "react";
+import "./Calendar.css";
+import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -170,10 +170,10 @@ import {
   Title,
   Tooltip,
   Legend,
-} from 'chart.js';
-import { ScheduleContext } from './ScheduleContext';
-import { docActivities as activities } from './doctorSchedules.js'; // Use the correct docActivities
-import { activityColors } from './schedule'; // Import the activityColors
+} from "chart.js";
+import { ScheduleContext } from "./ScheduleContext";
+import { docActivities as activities } from "./doctorSchedules.js"; // Use the correct docActivities
+import { activityColors } from "./schedule"; // Import the activityColors
 
 ChartJS.register(
   CategoryScale,
@@ -186,21 +186,21 @@ ChartJS.register(
 
 // Predefined sorted activity order
 const activityOrder = [
-  'TP',
-  'HTC1',
-  'HTC1_visite',
-  'HTC2',
-  'HTC2_visite',
-  'MPO',
-  'Cs',
-  'Cs_Prison',
-  'TeleCs',
-  'HDJ',
-  'EMIT',
-  'EMATIT',
-  'AMI',
-  'AMI_Cs_U',
-  'Chefferie'
+  "TP",
+  "HTC1",
+  "HTC1_visite",
+  "HTC2",
+  "HTC2_visite",
+  "MPO",
+  "Cs",
+  "Cs_Prison",
+  "TeleCs",
+  "HDJ",
+  "EMIT",
+  "EMATIT",
+  "AMI",
+  "AMI_Cs_U",
+  "Chefferie",
 ];
 
 const aggregateActivities = (combo) => {
@@ -236,7 +236,7 @@ const aggregateActivities = (combo) => {
     });
   });
 
-  console.log('Aggregated Doctor Activities with Durations:', doctorActivities);
+  console.log("Aggregated Doctor Activities with Durations:", doctorActivities);
   return doctorActivities;
 };
 
@@ -258,15 +258,17 @@ const aggregateActivitiesFromPeriodicData = (customScheduleData) => {
       doctorActivities[doctor][activity] += duration; // Accumulate duration for the activity
 
       // Enhanced logging for HTC activities
-      if (activity.includes('HTC')) {
-        console.log(`    🎯 HTC Activity: ${doctor} gets ${duration}h of ${activity} in ${periodName} (${day} ${slot})`);
+      if (activity.includes("HTC")) {
+        console.log(
+          `    🎯 HTC Activity: ${doctor} gets ${duration}h of ${activity} in ${periodName} (${day} ${slot})`
+        );
       }
     });
   };
 
   // Process all periodic schedules to get annual workload
   if (customScheduleData.periodicSchedule) {
-    console.log('🔍 Processing periodic schedules for workload calculation...');
+    console.log("🔍 Processing periodic schedules for workload calculation...");
     const periodNames = Object.keys(customScheduleData.periodicSchedule);
     console.log(`📅 Found ${periodNames.length} periods:`, periodNames);
 
@@ -275,7 +277,10 @@ const aggregateActivitiesFromPeriodicData = (customScheduleData) => {
       if (periodData.schedule) {
         const periodSchedule = periodData.schedule;
         const doctorsInPeriod = Object.keys(periodSchedule);
-        console.log(`📋 ${periodName}: Processing ${doctorsInPeriod.length} doctors:`, doctorsInPeriod);
+        console.log(
+          `📋 ${periodName}: Processing ${doctorsInPeriod.length} doctors:`,
+          doctorsInPeriod
+        );
 
         // Traverse each doctor's schedule for this period
         doctorsInPeriod.forEach((doctor) => {
@@ -286,9 +291,19 @@ const aggregateActivitiesFromPeriodicData = (customScheduleData) => {
               const activitiesList = daySchedule[slot];
               if (Array.isArray(activitiesList)) {
                 if (activitiesList.length > 0) {
-                  console.log(`  🩺 ${doctor} - ${day} ${slot}: [${activitiesList.join(', ')}]`);
+                  console.log(
+                    `  🩺 ${doctor} - ${day} ${slot}: [${activitiesList.join(
+                      ", "
+                    )}]`
+                  );
                 }
-                processActivities(activitiesList, doctor, periodName, day, slot);
+                processActivities(
+                  activitiesList,
+                  doctor,
+                  periodName,
+                  day,
+                  slot
+                );
               }
             });
           });
@@ -300,80 +315,117 @@ const aggregateActivitiesFromPeriodicData = (customScheduleData) => {
   // Note: Removed finalSchedule processing to avoid double counting
   // periodicSchedule already contains all the data we need for workload calculation
 
-  console.log('📊 Final Aggregated Doctor Activities from Periodic Data:', doctorActivities);
+  console.log(
+    "📊 Final Aggregated Doctor Activities from Periodic Data:",
+    doctorActivities
+  );
 
   // Enhanced logging and validation for HTC distribution
-  console.log('\n🔍 HTC DISTRIBUTION ANALYSIS:');
+  console.log("\n🔍 HTC DISTRIBUTION ANALYSIS:");
 
-  const htc1Doctors = ['FL', 'CL', 'NS'];
-  const htc2Doctors = ['MG', 'MDLC', 'RNV'];
+  const htc1Doctors = ["FL", "CL", "NS"];
+  const htc2Doctors = ["MG", "MDLC", "RNV"];
 
-  console.log('\n📋 HTC1 Distribution:');
+  console.log("\n📋 HTC1 Distribution:");
   let htc1TotalHours = 0;
-  htc1Doctors.forEach(doctor => {
+  htc1Doctors.forEach((doctor) => {
     if (doctorActivities[doctor]) {
-      const htc1Activities = Object.keys(doctorActivities[doctor]).filter(activity =>
-        activity === 'HTC1' || activity === 'HTC1_visite'
+      const htc1Activities = Object.keys(doctorActivities[doctor]).filter(
+        (activity) => activity === "HTC1" || activity === "HTC1_visite"
       );
-      const htc1Hours = htc1Activities.reduce((total, activity) =>
-        total + (doctorActivities[doctor][activity] || 0), 0
+      const htc1Hours = htc1Activities.reduce(
+        (total, activity) => total + (doctorActivities[doctor][activity] || 0),
+        0
       );
       htc1TotalHours += htc1Hours;
-      console.log(`  🏥 ${doctor}: ${htc1Hours}h HTC1 total (${htc1Activities.map(activity =>
-        `${activity}:${doctorActivities[doctor][activity]}h`
-      ).join(', ') || 'None'})`);
+      console.log(
+        `  🏥 ${doctor}: ${htc1Hours}h HTC1 total (${
+          htc1Activities
+            .map(
+              (activity) => `${activity}:${doctorActivities[doctor][activity]}h`
+            )
+            .join(", ") || "None"
+        })`
+      );
     } else {
       console.log(`  ⚠️ ${doctor}: No activities found`);
     }
   });
 
-  console.log('\n📋 HTC2 Distribution:');
+  console.log("\n📋 HTC2 Distribution:");
   let htc2TotalHours = 0;
-  htc2Doctors.forEach(doctor => {
+  htc2Doctors.forEach((doctor) => {
     if (doctorActivities[doctor]) {
-      const htc2Activities = Object.keys(doctorActivities[doctor]).filter(activity =>
-        activity === 'HTC2' || activity === 'HTC2_visite'
+      const htc2Activities = Object.keys(doctorActivities[doctor]).filter(
+        (activity) => activity === "HTC2" || activity === "HTC2_visite"
       );
-      const htc2Hours = htc2Activities.reduce((total, activity) =>
-        total + (doctorActivities[doctor][activity] || 0), 0
+      const htc2Hours = htc2Activities.reduce(
+        (total, activity) => total + (doctorActivities[doctor][activity] || 0),
+        0
       );
       htc2TotalHours += htc2Hours;
-      console.log(`  🏥 ${doctor}: ${htc2Hours}h HTC2 total (${htc2Activities.map(activity =>
-        `${activity}:${doctorActivities[doctor][activity]}h`
-      ).join(', ') || 'None'})`);
+      console.log(
+        `  🏥 ${doctor}: ${htc2Hours}h HTC2 total (${
+          htc2Activities
+            .map(
+              (activity) => `${activity}:${doctorActivities[doctor][activity]}h`
+            )
+            .join(", ") || "None"
+        })`
+      );
     } else {
       console.log(`  ⚠️ ${doctor}: No activities found`);
     }
   });
 
   // Distribution balance validation
-  console.log('\n⚖️ BALANCE VALIDATION:');
+  console.log("\n⚖️ BALANCE VALIDATION:");
   const htc1Average = htc1TotalHours / htc1Doctors.length;
   const htc2Average = htc2TotalHours / htc2Doctors.length;
-  console.log(`  📊 HTC1 Average: ${htc1Average.toFixed(1)}h per doctor (Total: ${htc1TotalHours}h)`);
-  console.log(`  📊 HTC2 Average: ${htc2Average.toFixed(1)}h per doctor (Total: ${htc2TotalHours}h)`);
+  console.log(
+    `  📊 HTC1 Average: ${htc1Average.toFixed(
+      1
+    )}h per doctor (Total: ${htc1TotalHours}h)`
+  );
+  console.log(
+    `  📊 HTC2 Average: ${htc2Average.toFixed(
+      1
+    )}h per doctor (Total: ${htc2TotalHours}h)`
+  );
 
   // Check for balance within each HTC group
-  htc1Doctors.forEach(doctor => {
+  htc1Doctors.forEach((doctor) => {
     if (doctorActivities[doctor]) {
-      const htc1Hours = ['HTC1', 'HTC1_visite'].reduce((total, activity) =>
-        total + (doctorActivities[doctor][activity] || 0), 0
+      const htc1Hours = ["HTC1", "HTC1_visite"].reduce(
+        (total, activity) => total + (doctorActivities[doctor][activity] || 0),
+        0
       );
       const deviation = Math.abs(htc1Hours - htc1Average);
-      if (deviation > 2) { // More than 2 hours difference
-        console.log(`  ⚠️ HTC1 IMBALANCE: ${doctor} has ${htc1Hours}h (${deviation.toFixed(1)}h from average)`);
+      if (deviation > 2) {
+        // More than 2 hours difference
+        console.log(
+          `  ⚠️ HTC1 IMBALANCE: ${doctor} has ${htc1Hours}h (${deviation.toFixed(
+            1
+          )}h from average)`
+        );
       }
     }
   });
 
-  htc2Doctors.forEach(doctor => {
+  htc2Doctors.forEach((doctor) => {
     if (doctorActivities[doctor]) {
-      const htc2Hours = ['HTC2', 'HTC2_visite'].reduce((total, activity) =>
-        total + (doctorActivities[doctor][activity] || 0), 0
+      const htc2Hours = ["HTC2", "HTC2_visite"].reduce(
+        (total, activity) => total + (doctorActivities[doctor][activity] || 0),
+        0
       );
       const deviation = Math.abs(htc2Hours - htc2Average);
-      if (deviation > 2) { // More than 2 hours difference
-        console.log(`  ⚠️ HTC2 IMBALANCE: ${doctor} has ${htc2Hours}h (${deviation.toFixed(1)}h from average)`);
+      if (deviation > 2) {
+        // More than 2 hours difference
+        console.log(
+          `  ⚠️ HTC2 IMBALANCE: ${doctor} has ${htc2Hours}h (${deviation.toFixed(
+            1
+          )}h from average)`
+        );
       }
     }
   });
@@ -415,25 +467,32 @@ const aggregateActivitiesFromCustomData = (customSchedule) => {
     });
   });
 
-  console.log('Aggregated Doctor Activities from Custom Data:', doctorActivities);
+  console.log(
+    "Aggregated Doctor Activities from Custom Data:",
+    doctorActivities
+  );
   return doctorActivities;
 };
 
 const Workload = () => {
-  const { loading, customScheduleData, selectedRotationCycle } = useContext(ScheduleContext);
+  const { loading, customScheduleData, selectedRotationCycle } =
+    useContext(ScheduleContext);
   const [doctorActivities, setDoctorActivities] = useState({});
 
   useEffect(() => {
     if (!loading && customScheduleData && customScheduleData.success) {
-      console.log(`📊 Workload: Processing data for rotation cycle: ${selectedRotationCycle}`);
+      console.log(
+        `📊 Workload: Processing data for rotation cycle: ${selectedRotationCycle}`
+      );
       // Use all periodic schedules for comprehensive annual workload calculation
-      const activities = aggregateActivitiesFromPeriodicData(customScheduleData);
+      const activities =
+        aggregateActivitiesFromPeriodicData(customScheduleData);
       setDoctorActivities(activities);
     }
   }, [loading, customScheduleData, selectedRotationCycle]);
 
   useEffect(() => {
-    console.log('Doctor Activities State:', doctorActivities);
+    console.log("Doctor Activities State:", doctorActivities);
   }, [doctorActivities]);
 
   // Generate chart data using the actual docActivities and sorting them
@@ -447,17 +506,17 @@ const Workload = () => {
       Object.keys(activities).includes(activity)
     );
 
-    console.log('Doctors:', doctors);
-    console.log('Activity Labels:', activityLabels);
+    console.log("Doctors:", doctors);
+    console.log("Activity Labels:", activityLabels);
 
     const datasets = activityLabels.map((activity) => ({
       // Label will show the activity name and its duration
       label: `${activities[activity].name} (${activities[activity].duration}h)`,
       data: doctors.map((doctor) => doctorActivities[doctor][activity] || 0),
-      backgroundColor: activityColors[activity] || 'rgba(75, 192, 192, 0.6)', // Use the color from activityColors
+      backgroundColor: activityColors[activity] || "rgba(75, 192, 192, 0.6)", // Use the color from activityColors
     }));
 
-    console.log('Chart Datasets with Durations:', datasets);
+    console.log("Chart Datasets with Durations:", datasets);
 
     return {
       labels: doctors,
@@ -482,7 +541,9 @@ const Workload = () => {
       },
       title: {
         display: true,
-        text: `Volume de travail médical (${selectedRotationCycle || 'honeymoon_NS_noHDJ'})`,
+        text: `Volume de travail médical (${
+          selectedRotationCycle || "honeymoon_NS_noHDJ"
+        })`,
       },
     },
   };
@@ -490,7 +551,7 @@ const Workload = () => {
   return (
     <div className="chart-container">
       <div className="chart-wrapper">
-        <h3>Volume de travail médical</h3>
+        <h3>Volume de travail médical sur 1 cycle</h3>
         {Object.keys(doctorActivities).length > 0 ? (
           <Bar data={chartData()} options={chartOptions} />
         ) : (

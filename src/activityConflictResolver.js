@@ -1219,6 +1219,229 @@ export function resolveEMATITConflicts(
   };
 }
 
+// ============================================================================
+// TELECS ASSIGNMENT
+// ============================================================================
+
+/**
+ * Count TeleCs in a doctor's backbone schedule
+ * Handles both single backbone and multiple backbones (like DL)
+ *
+ * @param {string} doctorCode - Doctor code
+ * @param {Object} profile - Doctor profile from doctorProfiles
+ * @param {number} periodIndex - Period index for selecting correct backbone
+ * @returns {number} Count of TeleCs in backbone
+ */
+function countBackboneTeleCs(doctorCode, profile, periodIndex) {
+  let activeBackbone = profile.backbone;
+
+  // Handle doctors with multiple backbones (e.g., DL)
+  if (profile.backbones && periodIndex !== null) {
+    const backboneNames = profile.rotationSetting || Object.keys(profile.backbones);
+    const backboneIndex = periodIndex % backboneNames.length;
+    const backboneName = backboneNames[backboneIndex];
+    activeBackbone = profile.backbones[backboneName];
+  }
+
+  if (!activeBackbone) return 0;
+
+  let count = 0;
+  DAYS_OF_WEEK.forEach((day) => {
+    TIME_SLOTS.forEach((timeSlot) => {
+      const activities = activeBackbone[day]?.[timeSlot] || [];
+      if (activities.includes("TeleCs")) {
+        count++;
+      }
+    });
+  });
+
+  return count;
+}
+
+/**
+ * Main TeleCs Assignment Function
+ *
+ * Automatically assigns TeleCs to doctors based on their weeklyNeeds.TeleCs.count
+ * Only assigns additional TeleCs beyond what's already in the backbone
+ * Skips doctors whose backbone already satisfies their TeleCs needs
+ *
+ * @param {Object} schedule - The periodic schedule (doctor -> day -> timeSlot -> activities)
+ * @param {string} cycleType - The rotation cycle type (honeymoon, NoMG, etc.)
+ * @param {number} periodIndex - The period index within the cycle
+ * @param {Object} baseFullCycleSchedules - Base schedules for all periods (Pass 1 output)
+ * @param {Object} dynamicCumulativeWorkload - Current cumulative workload including HTC + EMIT + EMATIT adjustments
+ * @returns {Object} Resolution result with modified schedule, log, and TeleCs assignments
+ */
+export function resolveTeleCsConflicts(
+  schedule,
+  cycleType,
+  periodIndex,
+  baseFullCycleSchedules,
+  dynamicCumulativeWorkload
+) {
+  console.log(
+    `🔧 TeleCs Assignment - Period ${periodIndex + 1}, Cycle: ${cycleType}`
+  );
+
+  const resolutionLog = [];
+  const modifiedSchedule = JSON.parse(JSON.stringify(schedule)); // Deep clone
+  const teleCsAssignments = {}; // Track assignments per doctor
+
+  let conflictsDetected = 0;
+  let conflictsResolved = 0;
+
+  // For each doctor, check if they have weeklyNeeds.TeleCs
+  Object.entries(doctorProfiles).forEach(([doctorCode, profile]) => {
+    if (!profile.weeklyNeeds?.TeleCs) {
+      // Skip doctors without TeleCs needs
+      return;
+    }
+
+    const teleCsNeeds = profile.weeklyNeeds.TeleCs;
+    const neededCount = teleCsNeeds.count || 0;
+
+    if (neededCount === 0) {
+      return; // No TeleCs needed
+    }
+
+    // Count TeleCs in backbone
+    const backboneTeleCs = countBackboneTeleCs(doctorCode, profile, periodIndex);
+
+    // If backbone already satisfies the need, skip this doctor entirely
+    if (backboneTeleCs >= neededCount) {
+      console.log(
+        `✅ ${doctorCode} already has ${backboneTeleCs} TeleCs in backbone (needs ${neededCount}) - skipping`
+      );
+      return;
+    }
+
+    console.log(
+      `📞 ${doctorCode} needs ${neededCount} TeleCs (${backboneTeleCs} in backbone, ${neededCount - backboneTeleCs} additional needed)`
+    );
+
+    // Count existing TeleCs in schedule (total, including backbone)
+    let existingCount = 0;
+    const doctorSchedule = modifiedSchedule[doctorCode];
+
+    if (!doctorSchedule) {
+      console.warn(`⚠️ ${doctorCode} not found in schedule`);
+      return;
+    }
+
+    DAYS_OF_WEEK.forEach((day) => {
+      TIME_SLOTS.forEach((timeSlot) => {
+        const activities = doctorSchedule[day]?.[timeSlot] || [];
+        if (activities.includes("TeleCs")) {
+          existingCount++;
+        }
+      });
+    });
+
+    console.log(`   Total existing TeleCs in schedule: ${existingCount} (${backboneTeleCs} from backbone)`);
+
+    // Calculate remaining needed (additional TeleCs beyond current schedule)
+    const remainingNeeded = neededCount - existingCount;
+
+    if (remainingNeeded <= 0) {
+      console.log(`   ✅ ${doctorCode} already has enough TeleCs in schedule`);
+      // Don't add to teleCsAssignments - this doctor is satisfied
+      return;
+    }
+
+    console.log(`   ⚠️ ${doctorCode} needs ${remainingNeeded} more TeleCs to reach ${neededCount} total`);
+    conflictsDetected += remainingNeeded;
+
+    // Find available slots for TeleCs
+    const availableSlots = [];
+
+    DAYS_OF_WEEK.forEach((day) => {
+      TIME_SLOTS.forEach((timeSlot) => {
+        const activities = doctorSchedule[day]?.[timeSlot] || [];
+
+        // Skip if TP
+        if (activities.includes("TP")) {
+          return;
+        }
+
+        // Skip if already has TeleCs
+        if (activities.includes("TeleCs")) {
+          return;
+        }
+
+        // Check remaining capacity
+        const remainingCapacity = calculateSlotAvailability(
+          doctorSchedule,
+          day,
+          timeSlot
+        );
+
+        const teleCsDuration = docActivities["TeleCs"]?.duration || 3;
+
+        if (remainingCapacity >= teleCsDuration) {
+          availableSlots.push({ day, timeSlot, remainingCapacity });
+        }
+      });
+    });
+
+    console.log(
+      `   Available slots for ${doctorCode}: ${availableSlots.length}`
+    );
+
+    // Assign additional TeleCs to available slots
+    let additionalAssigned = 0;
+    const slotsToFill = Math.min(remainingNeeded, availableSlots.length);
+
+    for (let i = 0; i < slotsToFill; i++) {
+      const slot = availableSlots[i];
+      const activities = doctorSchedule[slot.day][slot.timeSlot];
+
+      if (!activities.includes("TeleCs")) {
+        activities.push("TeleCs");
+        additionalAssigned++;
+        conflictsResolved++;
+
+        const logEntry = `✅ Assigned TeleCs to ${doctorCode} on ${slot.day} ${slot.timeSlot} (${slot.remainingCapacity}h available)`;
+        console.log(`   ${logEntry}`);
+        resolutionLog.push(logEntry);
+      }
+    }
+
+    // Track assignment results (only track doctors who have shortages)
+    const totalAssigned = backboneTeleCs + additionalAssigned;
+    const missing = neededCount - totalAssigned;
+
+    // Only add to teleCsAssignments if there's a shortage
+    if (missing > 0) {
+      teleCsAssignments[doctorCode] = {
+        needed: neededCount,
+        backboneTeleCs: backboneTeleCs,
+        additionalAssigned: additionalAssigned,
+        totalAssigned: totalAssigned,
+        missing: missing,
+      };
+
+      const logEntry = `❌ ${doctorCode} missing ${missing} TeleCs (needed: ${neededCount}, backbone: ${backboneTeleCs}, additional: ${additionalAssigned}, total: ${totalAssigned})`;
+      console.warn(`   ${logEntry}`);
+      resolutionLog.push(logEntry);
+    } else {
+      console.log(`   ✅ ${doctorCode} TeleCs satisfied (backbone: ${backboneTeleCs}, additional: ${additionalAssigned}, total: ${totalAssigned})`);
+    }
+  });
+
+  console.log(
+    `🔧 TeleCs Assignment complete - ${conflictsResolved}/${conflictsDetected} TeleCs assigned`
+  );
+
+  return {
+    success: true,
+    schedule: modifiedSchedule,
+    resolutionLog,
+    teleCsAssignments,
+    conflictsDetected,
+    conflictsResolved,
+  };
+}
+
 // Export helper functions for testing
 export {
   hasTPOnDay,

@@ -4,7 +4,7 @@ import { fr } from "date-fns/locale";
 import { activityColors } from "./schedule";
 import { ScheduleContext } from "./ScheduleContext";
 import { rotation_cycles } from "./customPlanningLogic";
-import { docActivities } from "./doctorSchedules";
+import { docActivities, doctorProfiles } from "./doctorSchedules";
 
 const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -37,6 +37,7 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
     let totalMissing = 0;
     let totalDuplicates = 0;
     let totalOverloadedSlots = 0; // Count of slots with doctor overloads
+    let totalTeleCsShortages = 0; // Count of TeleCs shortages
     let totalSlots = 0;
     let validSlots = 0;
 
@@ -63,12 +64,23 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
       });
     }
 
-    const totalIssues = totalMissing + totalDuplicates + totalOverloadedSlots;
+    // Check TeleCs shortages from resolution data
+    if (customScheduleData?.periodicSchedule?.[period.name]?.teleCsResolution?.teleCsAssignments) {
+      const teleCsAssignments = customScheduleData.periodicSchedule[period.name].teleCsResolution.teleCsAssignments;
+      Object.values(teleCsAssignments).forEach((assignment) => {
+        if (assignment.missing > 0) {
+          totalTeleCsShortages += assignment.missing;
+        }
+      });
+    }
+
+    const totalIssues = totalMissing + totalDuplicates + totalOverloadedSlots + totalTeleCsShortages;
 
     return {
       totalMissing,
       totalDuplicates,
       totalOverloadedSlots,
+      totalTeleCsShortages,
       totalSlots,
       validSlots,
       healthStatus:
@@ -236,6 +248,7 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
     let totalMissing = 0;
     let totalDuplicates = 0;
     let totalOverloadedSlots = 0;
+    let totalTeleCsShortages = 0;
     let totalSlots = 0;
     let validSlots = 0;
     let affectedPeriods = 0;
@@ -245,19 +258,21 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
       totalMissing += validation.totalMissing;
       totalDuplicates += validation.totalDuplicates;
       totalOverloadedSlots += validation.totalOverloadedSlots;
+      totalTeleCsShortages += validation.totalTeleCsShortages || 0;
       totalSlots += validation.totalSlots;
       validSlots += validation.validSlots;
 
       if (
         validation.totalMissing > 0 ||
         validation.totalDuplicates > 0 ||
-        validation.totalOverloadedSlots > 0
+        validation.totalOverloadedSlots > 0 ||
+        (validation.totalTeleCsShortages && validation.totalTeleCsShortages > 0)
       ) {
         affectedPeriods++;
       }
     });
 
-    const totalIssues = totalMissing + totalDuplicates + totalOverloadedSlots;
+    const totalIssues = totalMissing + totalDuplicates + totalOverloadedSlots + totalTeleCsShortages;
     const healthStatus =
       totalIssues === 0 ? "good" : totalIssues < 10 ? "warning" : "error";
 
@@ -265,6 +280,7 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
       totalMissing,
       totalDuplicates,
       totalOverloadedSlots,
+      totalTeleCsShortages,
       totalSlots,
       validSlots,
       affectedPeriods,
@@ -279,6 +295,7 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
     const missingByActivity = {};
     const duplicatesByActivity = {};
     const doctorOverloads = {}; // Map: doctorCode -> { totalSlots, totalHours, violations[] }
+    const teleCsShortages = {}; // Map: doctorCode -> { totalNeeded, totalAssigned, totalMissing, periods[] }
     const periodBreakdown = {};
 
     periods.forEach((period) => {
@@ -286,6 +303,7 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
       const periodMissing = {};
       const periodDuplicates = {};
       const periodDoctorOverloads = {}; // Per-period doctor overloads
+      const periodTeleCsShortages = {}; // Per-period TeleCs shortages
 
       if (scheduleData) {
         days.forEach((day) => {
@@ -358,16 +376,61 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
         });
       }
 
+      // Track TeleCs shortages from resolution data
+      if (customScheduleData?.periodicSchedule?.[period.name]?.teleCsResolution?.teleCsAssignments) {
+        const teleCsAssignments = customScheduleData.periodicSchedule[period.name].teleCsResolution.teleCsAssignments;
+
+        Object.entries(teleCsAssignments).forEach(([doctorCode, assignment]) => {
+          if (assignment.missing > 0) {
+            // Initialize global doctor TeleCs tracking
+            if (!teleCsShortages[doctorCode]) {
+              teleCsShortages[doctorCode] = {
+                totalNeeded: 0,
+                totalAssigned: 0,
+                totalMissing: 0,
+                periods: [],
+              };
+            }
+
+            // Initialize period-specific TeleCs tracking
+            if (!periodTeleCsShortages[doctorCode]) {
+              periodTeleCsShortages[doctorCode] = {
+                needed: assignment.needed,
+                backboneTeleCs: assignment.backboneTeleCs || 0,
+                additionalAssigned: assignment.additionalAssigned || 0,
+                totalAssigned: assignment.totalAssigned || assignment.assigned || 0,
+                missing: assignment.missing,
+              };
+            }
+
+            // Add to global tracking
+            teleCsShortages[doctorCode].totalNeeded += assignment.needed;
+            teleCsShortages[doctorCode].totalAssigned += (assignment.totalAssigned || assignment.assigned || 0);
+            teleCsShortages[doctorCode].totalMissing += assignment.missing;
+            teleCsShortages[doctorCode].periods.push({
+              periodName: period.name,
+              needed: assignment.needed,
+              backboneTeleCs: assignment.backboneTeleCs || 0,
+              additionalAssigned: assignment.additionalAssigned || 0,
+              totalAssigned: assignment.totalAssigned || assignment.assigned || 0,
+              missing: assignment.missing,
+            });
+          }
+        });
+      }
+
       // Store period-specific breakdown only if there are issues
       if (
         Object.keys(periodMissing).length > 0 ||
         Object.keys(periodDuplicates).length > 0 ||
-        Object.keys(periodDoctorOverloads).length > 0
+        Object.keys(periodDoctorOverloads).length > 0 ||
+        Object.keys(periodTeleCsShortages).length > 0
       ) {
         periodBreakdown[period.name] = {
           missing: periodMissing,
           duplicates: periodDuplicates,
           doctorOverloads: periodDoctorOverloads,
+          teleCsShortages: periodTeleCsShortages,
         };
       }
     });
@@ -376,6 +439,7 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
       missingByActivity,
       duplicatesByActivity,
       doctorOverloads,
+      teleCsShortages,
       periodBreakdown,
     };
   };
@@ -416,7 +480,8 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
               <span className="stat-number">
                 {summary.totalMissing +
                   summary.totalDuplicates +
-                  summary.totalOverloadedSlots}
+                  summary.totalOverloadedSlots +
+                  (summary.totalTeleCsShortages || 0)}
               </span>
               <span className="stat-label">Problèmes totaux</span>
             </div>
@@ -433,6 +498,12 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
                 {summary.totalOverloadedSlots}
               </span>
               <span className="stat-label">Créneaux surchargés</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-number">
+                {summary.totalTeleCsShortages || 0}
+              </span>
+              <span className="stat-label">TeleCs manquantes</span>
             </div>
           </div>
 
@@ -461,7 +532,8 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
 
           {(summary.totalMissing > 0 ||
             summary.totalDuplicates > 0 ||
-            summary.totalOverloadedSlots > 0) && (
+            summary.totalOverloadedSlots > 0 ||
+            (summary.totalTeleCsShortages && summary.totalTeleCsShortages > 0)) && (
             <button
               className="breakdown-toggle"
               onClick={() => setShowDetailedBreakdown(!showDetailedBreakdown)}
@@ -484,7 +556,8 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
     const hasIssues =
       Object.keys(breakdown.missingByActivity).length > 0 ||
       Object.keys(breakdown.duplicatesByActivity).length > 0 ||
-      Object.keys(breakdown.doctorOverloads).length > 0;
+      Object.keys(breakdown.doctorOverloads).length > 0 ||
+      Object.keys(breakdown.teleCsShortages || {}).length > 0;
 
     if (!hasIssues) return null;
 
@@ -592,6 +665,50 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
             </div>
           )}
 
+          {Object.keys(breakdown.teleCsShortages || {}).length > 0 && (
+            <div className="breakdown-section">
+              <h5>📞 Déficit TeleCs par médecin</h5>
+              <div className="telecs-shortages">
+                {Object.entries(breakdown.teleCsShortages)
+                  .sort((a, b) => b[1].totalMissing - a[1].totalMissing) // Sort by most missing first
+                  .map(([doctorCode, shortageData]) => (
+                    <div key={doctorCode} className="telecs-shortage-item">
+                      <div className="telecs-shortage-header">
+                        <strong>{doctorCode}:</strong>
+                        <span className="shortage-summary">
+                          {shortageData.totalNeeded} requis, {shortageData.totalAssigned} assignés,
+                          <strong style={{ color: "#d32f2f", marginLeft: "4px" }}>
+                            {shortageData.totalMissing} manquant{shortageData.totalMissing > 1 ? "s" : ""}
+                          </strong>
+                        </span>
+                      </div>
+                      <div className="telecs-periods-list">
+                        {shortageData.periods.map((periodData, idx) => (
+                          <div key={idx} className="period-shortage-detail">
+                            • {periodData.periodName}: {periodData.needed} requis
+                            {periodData.backboneTeleCs > 0 && (
+                              <span style={{ color: "#666", marginLeft: "4px" }}>
+                                ({periodData.backboneTeleCs} en backbone
+                                {periodData.additionalAssigned > 0 && `, ${periodData.additionalAssigned} ajouté${periodData.additionalAssigned > 1 ? "s" : ""}`})
+                              </span>
+                            )}
+                            {periodData.backboneTeleCs === 0 && periodData.additionalAssigned > 0 && (
+                              <span style={{ color: "#666", marginLeft: "4px" }}>
+                                ({periodData.additionalAssigned} assigné${periodData.additionalAssigned > 1 ? "s" : ""})
+                              </span>
+                            )}
+                            <strong style={{ color: "#d32f2f", marginLeft: "4px" }}>
+                              - {periodData.missing} manquant{periodData.missing > 1 ? "s" : ""}
+                            </strong>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
           {Object.keys(breakdown.periodBreakdown).length > 0 && (
             <div className="breakdown-section">
               <h5>📅 Détail par période</h5>
@@ -631,6 +748,24 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
                                   {doctor}({data.totalSlots} créneau
                                   {data.totalSlots > 1 ? "x" : ""}, {data.totalHours}
                                   h)
+                                </span>
+                              )
+                            )}
+                          </div>
+                        )}
+                      {periodData.teleCsShortages &&
+                        Object.keys(periodData.teleCsShortages).length > 0 && (
+                          <div className="period-telecs-shortages">
+                            <span className="period-issues telecs">
+                              TeleCs manquantes:{" "}
+                            </span>
+                            {Object.entries(periodData.teleCsShortages).map(
+                              ([doctor, data]) => (
+                                <span
+                                  key={doctor}
+                                  className="period-telecs-shortage"
+                                >
+                                  {doctor}({data.missing} manquant{data.missing > 1 ? "s" : ""})
                                 </span>
                               )
                             )}

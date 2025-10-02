@@ -4,7 +4,7 @@ export const docActivities = {
   // duration for 1 plage of activity
   AMI: {
     name: "AMI",
-    duration: 2,
+    duration: 1,
   },
   AMI_Cs_U: {
     name: "AMI_Cs_U",
@@ -356,6 +356,7 @@ export const doctorProfiles = {
       "AMI_Cs_U",
       "AMI",
       "EMIT",
+      "EMATIT",
     ],
     rotationSetting: ["HTC1", "HDJ", "AMI"],
     weeklyNeeds: {
@@ -467,16 +468,16 @@ export const doctorProfiles = {
 
     skills: ["HDJ", "MPO"],
     rotationSetting: ["MPO", "HDJ"],
-    weeklyNeeds: {
-      TeleCs: {
-        count: 2,
-        priority: "medium",
-        constraints: {
-          timeSlots: ["9am-1pm", "2pm-6pm"],
-          excludeDays: ["Wednesday"],
-        },
-      },
-    },
+    // weeklyNeeds: {
+    //   TeleCs: {
+    //     count: 2,
+    //     priority: "medium",
+    //     constraints: {
+    //       timeSlots: ["9am-1pm", "2pm-6pm"],
+    //       excludeDays: ["Wednesday"],
+    //     },
+    //   },
+    // },
   },
 
   MG: {

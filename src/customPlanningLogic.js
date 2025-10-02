@@ -4,6 +4,7 @@ import {
   resolveHTCConflicts,
   resolveEMITConflicts,
   resolveEMATITConflicts,
+  resolveTeleCsConflicts,
   calculateCumulativeWorkloadPerDoctor
 } from "./activityConflictResolver.js";
 
@@ -1080,12 +1081,44 @@ export function createPeriodicVariations(
       }
       resolvedSchedule = ematitResolution.schedule;
 
-      // ✅ Update cumulative workload with EMATIT assignments for next period
+      // ✅ Update cumulative workload with EMATIT assignments for next step
       console.log("📊 Updating cumulative workload with EMATIT assignments...");
+      updateDynamicWorkload(dynamicCumulativeWorkload, resolvedSchedule, baseScheduleSnapshot);
+      console.log("📊 Workload after EMATIT:", dynamicCumulativeWorkload);
+    } else {
+      console.warn(`⚠️ EMATIT conflict resolution failed for ${period.name}`);
+    }
+
+    // Update snapshot after EMATIT resolution
+    baseScheduleSnapshot = deepClone(resolvedSchedule);
+
+    // -------------------------------------------------------------------------
+    // Step 4: Apply TeleCs Assignment (WITH FULL-CYCLE + HTC + EMIT + EMATIT WORKLOAD)
+    // -------------------------------------------------------------------------
+    console.log(`\n🔧 Applying TeleCs assignment for ${period.name}...`);
+    const teleCsResolution = resolveTeleCsConflicts(
+      resolvedSchedule,
+      cycleType,
+      periodIndex,
+      basePeriodicSchedule,           // Full-cycle base schedules
+      dynamicCumulativeWorkload       // Updated with baseline + HTC + EMIT + EMATIT assignments
+    );
+
+    if (teleCsResolution.success) {
+      console.log(
+        `✅ TeleCs assigned: ${teleCsResolution.conflictsResolved}/${teleCsResolution.conflictsDetected}`
+      );
+      if (teleCsResolution.resolutionLog.length > 0) {
+        teleCsResolution.resolutionLog.forEach((log) => console.log(`  ${log}`));
+      }
+      resolvedSchedule = teleCsResolution.schedule;
+
+      // ✅ Update cumulative workload with TeleCs assignments for next period
+      console.log("📊 Updating cumulative workload with TeleCs assignments...");
       updateDynamicWorkload(dynamicCumulativeWorkload, resolvedSchedule, baseScheduleSnapshot);
       console.log("📊 Final workload after this period:", dynamicCumulativeWorkload);
 
-      // Store final schedule with all three resolution logs
+      // Store final schedule with all four resolution logs
       finalPeriodicSchedule[period.name] = {
         period,
         schedule: resolvedSchedule,
@@ -1104,9 +1137,15 @@ export function createPeriodicVariations(
           conflictsResolved: ematitResolution.conflictsResolved,
           resolutionLog: ematitResolution.resolutionLog,
         },
+        teleCsResolution: {
+          conflictsDetected: teleCsResolution.conflictsDetected,
+          conflictsResolved: teleCsResolution.conflictsResolved,
+          resolutionLog: teleCsResolution.resolutionLog,
+          teleCsAssignments: teleCsResolution.teleCsAssignments,
+        },
       };
     } else {
-      console.warn(`⚠️ EMATIT conflict resolution failed for ${period.name}`);
+      console.warn(`⚠️ TeleCs assignment failed for ${period.name}`);
       finalPeriodicSchedule[period.name] = {
         period,
         schedule: resolvedSchedule,
@@ -1120,6 +1159,11 @@ export function createPeriodicVariations(
           conflictsResolved: emitResolution.conflictsResolved,
           resolutionLog: emitResolution.resolutionLog,
         } : undefined,
+        ematitResolution: {
+          conflictsDetected: ematitResolution.conflictsDetected,
+          conflictsResolved: ematitResolution.conflictsResolved,
+          resolutionLog: ematitResolution.resolutionLog,
+        },
       };
     }
   });
