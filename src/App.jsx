@@ -12,7 +12,7 @@ import { rotation_cycles } from './customPlanningLogic.js';
 
 // Inner App component that has access to ScheduleContext
 function AppInner({ selectedRotationCycle, setSelectedRotationCycle }) {
-  const { customScheduleData } = useContext(ScheduleContext);
+  const { customScheduleData, recalculateSchedules } = useContext(ScheduleContext);
   const [showPlanningOverview, setShowPlanningOverview] = useState(true);
 
   const handlePeriodClick = (periodOrName) => {
@@ -33,9 +33,54 @@ function AppInner({ selectedRotationCycle, setSelectedRotationCycle }) {
     }
   };
 
+  const handleTestHTCResolution = () => {
+    console.log('🔧 Testing HTC Conflict Resolution...');
+    console.log('Current schedule data:', customScheduleData);
+
+    if (customScheduleData && customScheduleData.periodicSchedule) {
+      console.log('📊 HTC Resolution Results:');
+      Object.entries(customScheduleData.periodicSchedule).forEach(([periodName, periodData]) => {
+        if (periodData.htcResolution) {
+          console.log(`\n${periodName}:`, {
+            conflictsDetected: periodData.htcResolution.conflictsDetected,
+            conflictsResolved: periodData.htcResolution.conflictsResolved,
+            resolutionLog: periodData.htcResolution.resolutionLog
+          });
+        }
+      });
+    }
+
+    // Trigger a recalculation to see the resolution in action
+    if (recalculateSchedules) {
+      recalculateSchedules();
+    }
+  };
+
   return (
     <div className="App">
       <h1>MIMI planning</h1>
+
+      {/* Test HTC Resolution Button */}
+      <div style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#f0f0f0', borderRadius: '5px' }}>
+        <button
+          onClick={handleTestHTCResolution}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#4CAF50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+        >
+          🔧 Test HTC Conflict Resolution
+        </button>
+        <span style={{ marginLeft: '10px', fontSize: '12px', color: '#666' }}>
+          Check browser console for detailed resolution logs
+        </span>
+      </div>
 
       {/* 1. Schedule Settings - Doctors, Templates, and Rotation Cycles */}
       <DoctorSettings

@@ -1,5 +1,6 @@
 import { doctorProfiles, generateDoctorRotations } from "./doctorSchedules.js";
 import { expectedActivities as staticExpectedActivities } from "./schedule.jsx";
+import { resolveHTCConflicts } from "./htcConflictResolver.js";
 
 // Custom Planning Logic - Algorithme de Planification Médical Progressif et Fiable
 // Implémentation en 3 phases selon les spécifications utilisateur
@@ -942,10 +943,39 @@ export function createPeriodicVariations(
       Object.keys(periodSchedule)
     );
 
-    periodicSchedule[period.name] = {
-      period,
-      schedule: periodSchedule,
-    };
+    // 5. Apply HTC Conflict Resolution Heuristic
+    console.log(`\n🔧 Applying HTC conflict resolution for ${period.name}...`);
+    const htcResolution = resolveHTCConflicts(
+      periodSchedule,
+      cycleType,
+      periodIndex
+    );
+
+    if (htcResolution.success) {
+      console.log(
+        `✅ HTC conflicts resolved: ${htcResolution.conflictsResolved}/${htcResolution.conflictsDetected}`
+      );
+      if (htcResolution.resolutionLog.length > 0) {
+        htcResolution.resolutionLog.forEach((log) => console.log(`  ${log}`));
+      }
+
+      // Use the resolved schedule
+      periodicSchedule[period.name] = {
+        period,
+        schedule: htcResolution.schedule,
+        htcResolution: {
+          conflictsDetected: htcResolution.conflictsDetected,
+          conflictsResolved: htcResolution.conflictsResolved,
+          resolutionLog: htcResolution.resolutionLog,
+        },
+      };
+    } else {
+      console.warn(`⚠️ HTC conflict resolution failed for ${period.name}`);
+      periodicSchedule[period.name] = {
+        period,
+        schedule: periodSchedule,
+      };
+    }
   });
 
   return periodicSchedule;

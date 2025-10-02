@@ -26,7 +26,7 @@ export const expectedActivities = {
     "2pm-6pm": ["HTC1", "HTC2", "EMIT", "EMATIT"],
   },
   Tuesday: {
-    "9am-1pm": ["HTC1", "HTC2", "EMIT", "HDJ", "EMATIT"],
+    "9am-1pm": ["HTC1_visite", "HTC2_visite", "EMIT", "HDJ", "EMATIT"],
     "2pm-6pm": ["HTC1", "HTC2", "EMIT", , "HDJ", "EMATIT"],
   },
   Wednesday: {
@@ -38,7 +38,7 @@ export const expectedActivities = {
     "2pm-6pm": ["HTC1", "HTC2", "EMIT", "EMATIT"],
   },
   Friday: {
-    "9am-1pm": ["HTC1", "HTC2", "EMIT", "HDJ", "EMATIT"],
+    "9am-1pm": ["HTC1_visite", "HTC2_visite", "EMIT", "HDJ", "EMATIT"],
     "2pm-6pm": ["HTC1", "HTC2", "EMIT", "HDJ", "EMATIT"],
   },
 };

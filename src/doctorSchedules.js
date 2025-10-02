@@ -202,7 +202,8 @@ function collectAllBackboneAssignments(
 
     if (doctor.backbones && periodIndex !== null) {
       // Select backbone based on period index and rotation setting
-      const backboneNames = doctor.rotationSetting || Object.keys(doctor.backbones);
+      const backboneNames =
+        doctor.rotationSetting || Object.keys(doctor.backbones);
       const backboneIndex = periodIndex % backboneNames.length;
       const backboneName = backboneNames[backboneIndex];
       activeBackbone = doctor.backbones[backboneName];
@@ -331,12 +332,21 @@ export const doctorProfiles = {
 
   FL: {
     backbone: {
+      //TP Mercredi
       Monday: { "9am-1pm": ["Cs"], "2pm-6pm": [] },
       Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Thursday: { "9am-1pm": [], "2pm-6pm": [] },
       Friday: { "9am-1pm": [], "2pm-6pm": ["Staff"] },
     },
+    // backbone: {
+    //   //TP jeudi
+    //   Monday: { "9am-1pm": ["Cs"], "2pm-6pm": [] },
+    //   Tuesday: { "9am-1pm": [], "2pm-6pm": ["Cs"] },
+    //   Wednesday: { "9am-1pm": [], "2pm-6pm": [] },
+    //   Thursday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
+    //   Friday: { "9am-1pm": [], "2pm-6pm": ["Staff"] },
+    // },
     skills: [
       "HTC1",
       "HTC1_visite",
@@ -560,7 +570,7 @@ function isFlexibleDoctor(doctorCode, profilesData = null) {
   if (!doctor || !doctor.rotationSetting) return false;
 
   const sharedActivities = ["HTC1", "HTC2", "HDJ", "AMI", "EMIT", "EMATIT"];
-  const sharedCount = doctor.rotationSetting.filter(activity =>
+  const sharedCount = doctor.rotationSetting.filter((activity) =>
     sharedActivities.includes(activity)
   ).length;
 
@@ -588,10 +598,19 @@ function mergeTemplateWithBackbone(
   const mergedSchedule = deepClone(backbone);
 
   // Check if this is a special rotation (HTC or HDJ) that should bypass capacity constraints
-  const isSpecialRotation = templateName === "HTC1" || templateName === "HTC2" || templateName === "HDJ";
+  const isSpecialRotation =
+    templateName === "HTC1" ||
+    templateName === "HTC2" ||
+    templateName === "HDJ";
 
   // Define special activities that should be enforced regardless of capacity
-  const specialActivities = ["HTC1", "HTC1_visite", "HTC2", "HTC2_visite", "HDJ"];
+  const specialActivities = [
+    "HTC1",
+    "HTC1_visite",
+    "HTC2",
+    "HTC2_visite",
+    "HDJ",
+  ];
 
   // Merge template activities based on remaining capacity in each slot
   Object.entries(template).forEach(([day, slots]) => {
@@ -616,7 +635,9 @@ function mergeTemplateWithBackbone(
         const hasTP = mergedSchedule[day][timeSlot].includes("TP");
 
         // Check if this doctor is flexible (rotates through 2+ shared activities)
-        const isFlexible = doctorCode ? isFlexibleDoctor(doctorCode, dynamicDoctorProfiles) : false;
+        const isFlexible = doctorCode
+          ? isFlexibleDoctor(doctorCode, dynamicDoctorProfiles)
+          : false;
 
         if (isSpecialRotation && hasSpecialActivities && !hasTP && isFlexible) {
           // Special case: Flexible doctors on HTC/HDJ rotation with special activities
@@ -659,7 +680,8 @@ function mergeTemplateWithBackbone(
           }
         } else {
           // Standard capacity-aware merging for non-special cases
-          if (remainingCapacity > 0) {
+          // IMPORTANT: Never override TP days
+          if (remainingCapacity > 0 && !hasTP) {
             // Try to add template activities that fit in remaining capacity
             const activitiesToAdd = [];
             let usedCapacity = 0;
@@ -716,7 +738,8 @@ export function generateDoctorRotations(
 
   if (doctor.backbones && periodIndex !== null) {
     // Select backbone based on period index and rotation setting
-    const backboneNames = doctor.rotationSetting || Object.keys(doctor.backbones);
+    const backboneNames =
+      doctor.rotationSetting || Object.keys(doctor.backbones);
     const backboneIndex = periodIndex % backboneNames.length;
     const backboneName = backboneNames[backboneIndex];
     activeBackbone = doctor.backbones[backboneName];
