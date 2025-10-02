@@ -1,6 +1,10 @@
-import { doctorProfiles, generateDoctorRotations } from "./doctorSchedules.js";
+import { doctorProfiles, generateDoctorRotations, docActivities } from "./doctorSchedules.js";
 import { expectedActivities as staticExpectedActivities } from "./schedule.jsx";
-import { resolveHTCConflicts } from "./htcConflictResolver.js";
+import {
+  resolveHTCConflicts,
+  resolveEMITConflicts,
+  calculateCumulativeWorkloadPerDoctor
+} from "./activityConflictResolver.js";
 
 // Custom Planning Logic - Algorithme de Planification Médical Progressif et Fiable
 // Implémentation en 3 phases selon les spécifications utilisateur
@@ -250,6 +254,46 @@ export const rotation_cycles = {
     ],
   },
 };
+
+// ============================================================================
+// HELPER FUNCTIONS FOR TWO-PASS ALGORITHM
+// ============================================================================
+
+/**
+ * Update cumulative workload tracker with new assignments from conflict resolution
+ * Compares resolved schedule against base schedule to find newly added activities
+ *
+ * @param {Object} dynamicWorkload - Current cumulative workload tracker (mutated in-place)
+ * @param {Object} resolvedSchedule - Schedule after conflict resolution (HTC or EMIT)
+ * @param {Object} baseSchedule - Original schedule before resolution
+ */
+function updateDynamicWorkload(dynamicWorkload, resolvedSchedule, baseSchedule) {
+  const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const SLOTS = ["9am-1pm", "2pm-6pm"];
+
+  Object.keys(resolvedSchedule).forEach((doctor) => {
+    DAYS.forEach((day) => {
+      SLOTS.forEach((slot) => {
+        const resolvedActivities = resolvedSchedule[doctor]?.[day]?.[slot] || [];
+        const baseActivities = baseSchedule[doctor]?.[day]?.[slot] || [];
+
+        // Find newly added activities (in resolved but not in base)
+        const addedActivities = resolvedActivities.filter(
+          activity => !baseActivities.includes(activity)
+        );
+
+        // Add their duration to the dynamic workload
+        addedActivities.forEach((activity) => {
+          const duration = docActivities[activity]?.duration || 1;
+          if (!dynamicWorkload[doctor]) {
+            dynamicWorkload[doctor] = 0;
+          }
+          dynamicWorkload[doctor] += duration;
+        });
+      });
+    });
+  });
+}
 
 /**
  * Convert custom planning result to calendar format (same as UI)
@@ -848,8 +892,15 @@ export function createPeriodicVariations(
   console.log("🍯 Cycle validation:", cycleValidation);
   console.log("📝 Cycle description:", firstCycle.description);
 
+  // ===========================================================================
+  // PASS 1: Generate all period schedules WITHOUT conflict resolution
+  // This creates the baseline for full-cycle workload calculation
+  // ===========================================================================
+  console.log("\n🔄 PASS 1: Generating base schedules for all periods...");
+  const basePeriodicSchedule = {};
+
   rotationPeriods.forEach((period, periodIndex) => {
-    console.log(`Génération ${period.name}...`);
+    console.log(`\n📅 Generating base schedule for ${period.name}...`);
     const periodSchedule = {};
 
     // 1. Garder les médecins rigides inchangés
@@ -861,10 +912,7 @@ export function createPeriodicVariations(
     });
 
     // 2. Appliquer le système HoneyMoon pour les médecins flexibles
-    const newFlexibleAssignments = applyHoneyMoonRotation(
-      periodIndex,
-      cycleType // Utiliser le cycle sélectionné
-    );
+    const newFlexibleAssignments = applyHoneyMoonRotation(periodIndex, cycleType);
     console.log(
       `🔍 ${period.name} - Flexible assignments to apply:`,
       newFlexibleAssignments
@@ -872,7 +920,6 @@ export function createPeriodicVariations(
 
     // 3. Générer les plannings pour les nouvelles assignations
     newFlexibleAssignments.forEach(({ doctor, activity }) => {
-      console.log(`🔍 Processing assignment: ${doctor} → ${activity}`);
       try {
         const generatedRotations = generateDoctorRotations(
           doctor,
@@ -880,28 +927,13 @@ export function createPeriodicVariations(
           dynamicWantedActivities,
           periodIndex
         );
-        console.log(
-          `🔍 ${doctor} available rotations:`,
-          Object.keys(generatedRotations)
-        );
 
         if (generatedRotations[activity]) {
           periodSchedule[doctor] = deepClone(generatedRotations[activity]);
           console.log(`  ✅ ${doctor}: assigned to ${activity} rotation`);
-          console.log(`  🔍 ${doctor} schedule sample:`, {
-            Monday: periodSchedule[doctor]?.Monday || "undefined",
-            Tuesday: periodSchedule[doctor]?.Tuesday || "undefined",
-          });
         } else {
-          // Fallback: garder le planning de base
           periodSchedule[doctor] = deepClone(baseSchedule[doctor]);
-          console.log(
-            `  ⚠️ Rotation ${activity} non trouvée pour ${doctor} - planning de base conservé`
-          );
-          console.log(
-            `🔍 ${doctor} available rotations were:`,
-            Object.keys(generatedRotations)
-          );
+          console.log(`  ⚠️ Rotation ${activity} non trouvée pour ${doctor}`);
         }
       } catch (error) {
         console.error(`❌ Erreur rotation ${doctor}:`, error);
@@ -915,8 +947,7 @@ export function createPeriodicVariations(
       doctorProfiles["DL"]?.rotationSetting?.length === 2
     ) {
       const backboneIndex = periodIndex % 2;
-      const selectedRotation =
-        doctorProfiles["DL"].rotationSetting[backboneIndex];
+      const selectedRotation = doctorProfiles["DL"].rotationSetting[backboneIndex];
 
       try {
         const generatedRotations = generateDoctorRotations(
@@ -926,30 +957,54 @@ export function createPeriodicVariations(
           periodIndex
         );
         if (generatedRotations[selectedRotation]) {
-          periodSchedule["DL"] = deepClone(
-            generatedRotations[selectedRotation]
-          );
-          console.log(
-            `  🏥 DL backbone alternance: ${selectedRotation} (period ${periodIndex})`
-          );
+          periodSchedule["DL"] = deepClone(generatedRotations[selectedRotation]);
+          console.log(`  🏥 DL backbone alternance: ${selectedRotation}`);
         }
       } catch (error) {
         console.error(`❌ Erreur backbone DL:`, error);
       }
     }
 
-    console.log(
-      `🔍 Final ${period.name} schedule doctors:`,
-      Object.keys(periodSchedule)
-    );
+    // Store base schedule WITHOUT conflict resolution
+    basePeriodicSchedule[period.name] = {
+      period,
+      schedule: periodSchedule,
+    };
+  });
 
-    // 5. Apply HTC Conflict Resolution Heuristic
+  // Calculate full-cycle baseline workload BEFORE any conflict resolution
+  console.log("\n📊 Calculating full-cycle baseline workload (before conflict resolution)...");
+  const baselineCumulativeWorkload = calculateCumulativeWorkloadPerDoctor(basePeriodicSchedule);
+  console.log("📊 Baseline workload across all periods:", baselineCumulativeWorkload);
+
+  // ===========================================================================
+  // PASS 2: Apply conflict resolution with full-cycle workload visibility
+  // HTC resolution runs first, then EMIT resolution sees HTC adjustments
+  // ===========================================================================
+  console.log("\n🔄 PASS 2: Applying conflict resolution with full-cycle fairness...");
+  const finalPeriodicSchedule = {};
+
+  // Clone baseline workload - will be updated as we add HTC/EMIT assignments
+  const dynamicCumulativeWorkload = JSON.parse(JSON.stringify(baselineCumulativeWorkload));
+
+  rotationPeriods.forEach((period, periodIndex) => {
+    console.log(`\n🔧 Resolving conflicts for ${period.name}...`);
+
+    // Start with base schedule from Pass 1
+    let periodSchedule = deepClone(basePeriodicSchedule[period.name].schedule);
+    let baseScheduleSnapshot = deepClone(periodSchedule); // For tracking changes
+
+    // -------------------------------------------------------------------------
+    // Step 1: Apply HTC Conflict Resolution (UNCHANGED)
+    // -------------------------------------------------------------------------
     console.log(`\n🔧 Applying HTC conflict resolution for ${period.name}...`);
     const htcResolution = resolveHTCConflicts(
       periodSchedule,
       cycleType,
       periodIndex
     );
+
+    let resolvedSchedule = periodSchedule;
 
     if (htcResolution.success) {
       console.log(
@@ -958,27 +1013,75 @@ export function createPeriodicVariations(
       if (htcResolution.resolutionLog.length > 0) {
         htcResolution.resolutionLog.forEach((log) => console.log(`  ${log}`));
       }
+      resolvedSchedule = htcResolution.schedule;
 
-      // Use the resolved schedule
-      periodicSchedule[period.name] = {
+      // ✅ KEY: Update cumulative workload with HTC assignments
+      console.log("📊 Updating cumulative workload with HTC assignments...");
+      updateDynamicWorkload(dynamicCumulativeWorkload, resolvedSchedule, baseScheduleSnapshot);
+      console.log("📊 Updated workload after HTC:", dynamicCumulativeWorkload);
+    } else {
+      console.warn(`⚠️ HTC conflict resolution failed for ${period.name}`);
+    }
+
+    // Update snapshot after HTC resolution
+    baseScheduleSnapshot = deepClone(resolvedSchedule);
+
+    // -------------------------------------------------------------------------
+    // Step 2: Apply EMIT Conflict Resolution (WITH FULL-CYCLE + HTC WORKLOAD)
+    // -------------------------------------------------------------------------
+    console.log(`\n🔧 Applying EMIT conflict resolution for ${period.name}...`);
+    const emitResolution = resolveEMITConflicts(
+      resolvedSchedule,
+      cycleType,
+      periodIndex,
+      basePeriodicSchedule,           // Full-cycle base schedules
+      dynamicCumulativeWorkload       // Updated with baseline + HTC assignments
+    );
+
+    if (emitResolution.success) {
+      console.log(
+        `✅ EMIT conflicts resolved: ${emitResolution.conflictsResolved}/${emitResolution.conflictsDetected}`
+      );
+      if (emitResolution.resolutionLog.length > 0) {
+        emitResolution.resolutionLog.forEach((log) => console.log(`  ${log}`));
+      }
+      resolvedSchedule = emitResolution.schedule;
+
+      // ✅ Update cumulative workload with EMIT assignments for next period
+      console.log("📊 Updating cumulative workload with EMIT assignments...");
+      updateDynamicWorkload(dynamicCumulativeWorkload, resolvedSchedule, baseScheduleSnapshot);
+      console.log("📊 Final workload after this period:", dynamicCumulativeWorkload);
+
+      // Store final schedule with both resolution logs
+      finalPeriodicSchedule[period.name] = {
         period,
-        schedule: htcResolution.schedule,
-        htcResolution: {
+        schedule: resolvedSchedule,
+        htcResolution: htcResolution.success ? {
           conflictsDetected: htcResolution.conflictsDetected,
           conflictsResolved: htcResolution.conflictsResolved,
           resolutionLog: htcResolution.resolutionLog,
+        } : undefined,
+        emitResolution: {
+          conflictsDetected: emitResolution.conflictsDetected,
+          conflictsResolved: emitResolution.conflictsResolved,
+          resolutionLog: emitResolution.resolutionLog,
         },
       };
     } else {
-      console.warn(`⚠️ HTC conflict resolution failed for ${period.name}`);
-      periodicSchedule[period.name] = {
+      console.warn(`⚠️ EMIT conflict resolution failed for ${period.name}`);
+      finalPeriodicSchedule[period.name] = {
         period,
-        schedule: periodSchedule,
+        schedule: resolvedSchedule,
+        htcResolution: htcResolution.success ? {
+          conflictsDetected: htcResolution.conflictsDetected,
+          conflictsResolved: htcResolution.conflictsResolved,
+          resolutionLog: htcResolution.resolutionLog,
+        } : undefined,
       };
     }
   });
 
-  return periodicSchedule;
+  return finalPeriodicSchedule;
 }
 
 /**

@@ -387,7 +387,7 @@ export const doctorProfiles = {
     //   Thursday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
     //   Friday: { "9am-1pm": [], "2pm-6pm": ["Staff"] },
     // },
-    skills: ["HTC1", "HTC1_visite", "HDJ", "AMI_Cs_U", "AMI", "EMIT"],
+    skills: ["HTC1", "HTC1_visite", "HDJ", "AMI_Cs_U", "AMI", "EMIT", "EMATIT"],
     rotationSetting: ["HTC1", "AMI", "HDJ"],
     weeklyNeeds: {
       TeleCs: {
