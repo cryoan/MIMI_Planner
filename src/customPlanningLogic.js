@@ -3,6 +3,7 @@ import { expectedActivities as staticExpectedActivities } from "./schedule.jsx";
 import {
   resolveHTCConflicts,
   resolveEMITConflicts,
+  resolveEMATITConflicts,
   calculateCumulativeWorkloadPerDoctor
 } from "./activityConflictResolver.js";
 
@@ -1047,12 +1048,44 @@ export function createPeriodicVariations(
       }
       resolvedSchedule = emitResolution.schedule;
 
-      // ✅ Update cumulative workload with EMIT assignments for next period
+      // ✅ Update cumulative workload with EMIT assignments for next step
       console.log("📊 Updating cumulative workload with EMIT assignments...");
+      updateDynamicWorkload(dynamicCumulativeWorkload, resolvedSchedule, baseScheduleSnapshot);
+      console.log("📊 Workload after EMIT:", dynamicCumulativeWorkload);
+    } else {
+      console.warn(`⚠️ EMIT conflict resolution failed for ${period.name}`);
+    }
+
+    // Update snapshot after EMIT resolution
+    baseScheduleSnapshot = deepClone(resolvedSchedule);
+
+    // -------------------------------------------------------------------------
+    // Step 3: Apply EMATIT Conflict Resolution (WITH FULL-CYCLE + HTC + EMIT WORKLOAD)
+    // -------------------------------------------------------------------------
+    console.log(`\n🔧 Applying EMATIT conflict resolution for ${period.name}...`);
+    const ematitResolution = resolveEMATITConflicts(
+      resolvedSchedule,
+      cycleType,
+      periodIndex,
+      basePeriodicSchedule,           // Full-cycle base schedules
+      dynamicCumulativeWorkload       // Updated with baseline + HTC + EMIT assignments
+    );
+
+    if (ematitResolution.success) {
+      console.log(
+        `✅ EMATIT conflicts resolved: ${ematitResolution.conflictsResolved}/${ematitResolution.conflictsDetected}`
+      );
+      if (ematitResolution.resolutionLog.length > 0) {
+        ematitResolution.resolutionLog.forEach((log) => console.log(`  ${log}`));
+      }
+      resolvedSchedule = ematitResolution.schedule;
+
+      // ✅ Update cumulative workload with EMATIT assignments for next period
+      console.log("📊 Updating cumulative workload with EMATIT assignments...");
       updateDynamicWorkload(dynamicCumulativeWorkload, resolvedSchedule, baseScheduleSnapshot);
       console.log("📊 Final workload after this period:", dynamicCumulativeWorkload);
 
-      // Store final schedule with both resolution logs
+      // Store final schedule with all three resolution logs
       finalPeriodicSchedule[period.name] = {
         period,
         schedule: resolvedSchedule,
@@ -1061,14 +1094,19 @@ export function createPeriodicVariations(
           conflictsResolved: htcResolution.conflictsResolved,
           resolutionLog: htcResolution.resolutionLog,
         } : undefined,
-        emitResolution: {
+        emitResolution: emitResolution.success ? {
           conflictsDetected: emitResolution.conflictsDetected,
           conflictsResolved: emitResolution.conflictsResolved,
           resolutionLog: emitResolution.resolutionLog,
+        } : undefined,
+        ematitResolution: {
+          conflictsDetected: ematitResolution.conflictsDetected,
+          conflictsResolved: ematitResolution.conflictsResolved,
+          resolutionLog: ematitResolution.resolutionLog,
         },
       };
     } else {
-      console.warn(`⚠️ EMIT conflict resolution failed for ${period.name}`);
+      console.warn(`⚠️ EMATIT conflict resolution failed for ${period.name}`);
       finalPeriodicSchedule[period.name] = {
         period,
         schedule: resolvedSchedule,
@@ -1076,6 +1114,11 @@ export function createPeriodicVariations(
           conflictsDetected: htcResolution.conflictsDetected,
           conflictsResolved: htcResolution.conflictsResolved,
           resolutionLog: htcResolution.resolutionLog,
+        } : undefined,
+        emitResolution: emitResolution.success ? {
+          conflictsDetected: emitResolution.conflictsDetected,
+          conflictsResolved: emitResolution.conflictsResolved,
+          resolutionLog: emitResolution.resolutionLog,
         } : undefined,
       };
     }

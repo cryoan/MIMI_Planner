@@ -37,6 +37,23 @@ import { rotation_cycles } from "./customPlanningLogic.js";
  * Default weights (fairness-focused): CAPACITY=1.0, BALANCE=0.1
  */
 
+/**
+ * HEURISTIC 3: Resolve Missing EMATIT Activities
+ *
+ * RULE:
+ * When EMATIT is missing on a time slot, the system will:
+ *
+ * 1. Find eligible doctors (no TP on that slot + EMATIT in their skills)
+ * 2. Calculate composite score for each eligible doctor:
+ *    Score = (remainingTime × EMATIT_WEIGHT_CAPACITY) - (cumulativeWorkload × EMATIT_WEIGHT_BALANCE)
+ *    - Higher score = better candidate
+ *    - Balances immediate slot capacity with long-term workload fairness
+ * 3. Select doctor with highest score
+ * 4. Auto-assign EMATIT to the selected doctor's slot
+ *
+ * Default weights (fairness-focused): CAPACITY=1.0, BALANCE=0.1
+ */
+
 const TIME_SLOTS = ["9am-1pm", "2pm-6pm"];
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const HTC_ACTIVITIES = ["HTC1", "HTC2", "HTC1_visite", "HTC2_visite"];
@@ -63,6 +80,25 @@ const EMIT_WEIGHT_CAPACITY = 1.0;
  * - Prioritize fairness (long-term): CAPACITY=1.0, BALANCE=0.1
  */
 const EMIT_WEIGHT_BALANCE = 0.1;
+
+/**
+ * Weight for remaining slot capacity in EMATIT assignment scoring
+ * Higher value = prioritize doctors with more available time in the slot
+ * Default: 1.0
+ */
+const EMATIT_WEIGHT_CAPACITY = 1.0;
+
+/**
+ * Weight for cumulative workload balancing in EMATIT assignment scoring
+ * Higher value = prioritize doctors with lower total workload across the cycle
+ * Default: 0.1 (fairness-focused)
+ *
+ * Recommended presets:
+ * - Prioritize capacity (immediate need): CAPACITY=2.0, BALANCE=0.01
+ * - Balanced approach: CAPACITY=1.0, BALANCE=0.05
+ * - Prioritize fairness (long-term): CAPACITY=1.0, BALANCE=0.1
+ */
+const EMATIT_WEIGHT_BALANCE = 0.1;
 
 /**
  * Check if a doctor has TP on a specific day
@@ -513,6 +549,34 @@ function findMissingEMITActivities(schedule, day, timeSlot) {
 }
 
 /**
+ * Check if EMATIT activity is missing on a specific day/slot
+ * @param {Object} schedule - The complete schedule for all doctors
+ * @param {string} day - Day of the week
+ * @param {string} timeSlot - Time slot
+ * @returns {boolean} True if EMATIT is missing
+ */
+function findMissingEMATITActivities(schedule, day, timeSlot) {
+  const assignedActivities = [];
+
+  // Collect all activities assigned by all doctors for this day/slot
+  Object.values(schedule).forEach((doctorSchedule) => {
+    if (doctorSchedule[day] && doctorSchedule[day][timeSlot]) {
+      assignedActivities.push(...doctorSchedule[day][timeSlot]);
+    }
+  });
+
+  // EMATIT should be present on all weekdays, all time slots
+  const shouldBePresent = DAYS_OF_WEEK.includes(day);
+
+  if (shouldBePresent) {
+    // Check if EMATIT is assigned
+    return !assignedActivities.includes("EMATIT");
+  }
+
+  return false;
+}
+
+/**
  * Find all doctors with EMIT in their skills (eligible for EMIT assignment)
  * @returns {Array} List of doctor codes with EMIT skills
  */
@@ -521,6 +585,22 @@ function findDoctorsWithEMITSkills() {
 
   Object.entries(doctorProfiles).forEach(([doctorCode, profile]) => {
     if (profile.skills && profile.skills.includes("EMIT")) {
+      doctors.push(doctorCode);
+    }
+  });
+
+  return doctors;
+}
+
+/**
+ * Find all doctors with EMATIT in their skills (eligible for EMATIT assignment)
+ * @returns {Array} List of doctor codes with EMATIT skills
+ */
+function findDoctorsWithEMATITSkills() {
+  const doctors = [];
+
+  Object.entries(doctorProfiles).forEach(([doctorCode, profile]) => {
+    if (profile.skills && profile.skills.includes("EMATIT")) {
       doctors.push(doctorCode);
     }
   });
@@ -639,6 +719,100 @@ function selectBestReplacementForEMIT(
 }
 
 /**
+ * Select best replacement doctor for EMATIT activity using dual sorting criteria
+ * @param {Array} candidateDoctors - List of doctor codes that can cover EMATIT
+ * @param {Object} schedule - The complete schedule for this period
+ * @param {string} day - Day that needs coverage
+ * @param {string} timeSlot - Time slot that needs coverage
+ * @param {Object} cumulativeWorkload - Map of doctorCode -> total hours across cycle
+ * @returns {Object|null} Selected doctor info or null if none available
+ */
+function selectBestReplacementForEMATIT(
+  candidateDoctors,
+  schedule,
+  day,
+  timeSlot,
+  cumulativeWorkload
+) {
+  if (candidateDoctors.length === 0) {
+    return null;
+  }
+
+  // Filter out doctors with TP in this specific slot
+  const availableDoctors = candidateDoctors.filter((doctorCode) => {
+    const doctorSchedule = schedule[doctorCode];
+    return !hasTPInSlot(doctorSchedule, day, timeSlot);
+  });
+
+  if (availableDoctors.length === 0) {
+    console.log(`⚠️ No available doctors for EMATIT on ${day} ${timeSlot} (all have TP)`);
+    return null;
+  }
+
+  // If only ONE doctor available (no TP), assign to them regardless of their schedule
+  if (availableDoctors.length === 1) {
+    const doctorCode = availableDoctors[0];
+    const doctorSchedule = schedule[doctorCode];
+    const remainingTime = calculateSlotAvailability(doctorSchedule, day, timeSlot);
+    const totalWorkload = cumulativeWorkload[doctorCode] || 0;
+
+    // Calculate score for consistency (even though it doesn't matter when there's only one option)
+    const score =
+      (remainingTime * EMATIT_WEIGHT_CAPACITY) -
+      (totalWorkload * EMATIT_WEIGHT_BALANCE);
+
+    console.log(
+      `✨ Only one available doctor without TP: ${doctorCode} - assigning EMATIT regardless of capacity (score=${score.toFixed(2)})`
+    );
+
+    return {
+      doctorCode,
+      remainingTime,
+      totalWorkload,
+      score,
+    };
+  }
+
+  // Multiple doctors available - evaluate using weighted composite score
+  const evaluations = availableDoctors.map((doctorCode) => {
+    const doctorSchedule = schedule[doctorCode];
+    const remainingTime = calculateSlotAvailability(doctorSchedule, day, timeSlot);
+    const totalWorkload = cumulativeWorkload[doctorCode] || 0;
+
+    // Composite score: maximize capacity, minimize cumulative workload
+    // Higher score = better candidate
+    const score =
+      (remainingTime * EMATIT_WEIGHT_CAPACITY) -
+      (totalWorkload * EMATIT_WEIGHT_BALANCE);
+
+    return {
+      doctorCode,
+      remainingTime,
+      totalWorkload,
+      score,
+    };
+  });
+
+  // Sort by composite score (descending - higher score is better)
+  evaluations.sort((a, b) => b.score - a.score);
+
+  const selected = evaluations[0];
+
+  console.log(
+    `🎯 EMATIT selection for ${day} ${timeSlot}:`,
+    evaluations.map(
+      (e) =>
+        `${e.doctorCode}(${e.remainingTime}h, ${e.totalWorkload}h total, score=${e.score.toFixed(2)})`
+    )
+  );
+  console.log(
+    `   → Selected: ${selected.doctorCode} (score=${selected.score.toFixed(2)}, ${selected.remainingTime}h remaining, ${selected.totalWorkload}h cumulative)`
+  );
+
+  return selected;
+}
+
+/**
  * Main EMIT Conflict Resolution Function
  *
  * @param {Object} schedule - The periodic schedule (doctor -> day -> timeSlot -> activities)
@@ -734,6 +908,106 @@ export function resolveEMITConflicts(
   };
 }
 
+// ============================================================================
+// EMATIT CONFLICT RESOLUTION
+// ============================================================================
+
+/**
+ * Main EMATIT Conflict Resolution Function
+ *
+ * @param {Object} schedule - The periodic schedule (doctor -> day -> timeSlot -> activities)
+ * @param {string} cycleType - The rotation cycle type (honeymoon, NoMG, etc.)
+ * @param {number} periodIndex - The period index within the cycle
+ * @param {Object} baseFullCycleSchedules - Base schedules for all periods (Pass 1 output)
+ * @param {Object} dynamicCumulativeWorkload - Current cumulative workload including HTC + EMIT adjustments
+ * @returns {Object} Resolution result with modified schedule and log
+ */
+export function resolveEMATITConflicts(
+  schedule,
+  cycleType,
+  periodIndex,
+  baseFullCycleSchedules,
+  dynamicCumulativeWorkload
+) {
+  console.log(
+    `🔧 EMATIT Conflict Resolution - Period ${periodIndex + 1}, Cycle: ${cycleType}`
+  );
+
+  const resolutionLog = [];
+  const modifiedSchedule = JSON.parse(JSON.stringify(schedule)); // Deep clone
+
+  // ✅ Use the provided dynamic cumulative workload (includes baseline + HTC + EMIT assignments)
+  const cumulativeWorkload = dynamicCumulativeWorkload;
+
+  console.log(`📊 Using full-cycle dynamic workload (baseline + HTC + EMIT):`, cumulativeWorkload);
+
+  // Find all doctors with EMATIT skills
+  const ematitCapableDoctors = findDoctorsWithEMATITSkills();
+  console.log(`🔍 Doctors with EMATIT skills:`, ematitCapableDoctors);
+
+  let conflictsDetected = 0;
+  let conflictsResolved = 0;
+
+  // Scan each day/timeslot for missing EMATIT
+  DAYS_OF_WEEK.forEach((day) => {
+    TIME_SLOTS.forEach((timeSlot) => {
+      const isMissing = findMissingEMATITActivities(
+        modifiedSchedule,
+        day,
+        timeSlot
+      );
+
+      if (isMissing) {
+        conflictsDetected++;
+        console.log(`⚠️ Missing: EMATIT on ${day} ${timeSlot}`);
+
+        // Select best available doctor for this slot
+        const replacement = selectBestReplacementForEMATIT(
+          ematitCapableDoctors,
+          modifiedSchedule,
+          day,
+          timeSlot,
+          cumulativeWorkload
+        );
+
+        if (replacement) {
+          const doctorCode = replacement.doctorCode;
+
+          // Add EMATIT to this doctor's slot
+          const currentActivities =
+            modifiedSchedule[doctorCode][day][timeSlot] || [];
+
+          if (!currentActivities.includes("EMATIT")) {
+            currentActivities.push("EMATIT");
+            modifiedSchedule[doctorCode][day][timeSlot] = currentActivities;
+          }
+
+          conflictsResolved++;
+          const logEntry = `✅ Assigned EMATIT on ${day} ${timeSlot} to ${doctorCode} (score=${replacement.score.toFixed(2)}: ${replacement.remainingTime}h slot capacity, ${replacement.totalWorkload}h cumulative workload)`;
+          console.log(logEntry);
+          resolutionLog.push(logEntry);
+        } else {
+          const logEntry = `❌ No available doctor for EMATIT on ${day} ${timeSlot}`;
+          console.warn(logEntry);
+          resolutionLog.push(logEntry);
+        }
+      }
+    });
+  });
+
+  console.log(
+    `🔧 EMATIT Conflict Resolution complete - ${conflictsResolved}/${conflictsDetected} conflicts resolved`
+  );
+
+  return {
+    success: true,
+    schedule: modifiedSchedule,
+    resolutionLog,
+    conflictsDetected,
+    conflictsResolved,
+  };
+}
+
 // Export helper functions for testing
 export {
   hasTPOnDay,
@@ -746,4 +1020,7 @@ export {
   findMissingEMITActivities,
   findDoctorsWithEMITSkills,
   selectBestReplacementForEMIT,
+  findMissingEMATITActivities,
+  findDoctorsWithEMATITSkills,
+  selectBestReplacementForEMATIT,
 };
