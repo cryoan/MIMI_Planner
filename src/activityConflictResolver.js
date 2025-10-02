@@ -101,6 +101,17 @@ const EMATIT_WEIGHT_CAPACITY = 1.0;
 const EMATIT_WEIGHT_BALANCE = 0.1;
 
 /**
+ * Maximum allowed slot overload for EMIT/EMATIT assignment in hours
+ * If assigning an activity would cause slot overload > this threshold, reject the assignment
+ * Default: 2 hours (allows up to 6h total in a 4h slot)
+ *
+ * Example:
+ * - Doctor has HTC1 (1h) + Cs (3h) = 4h (0h overload) → Can add EMIT (3h) → 7h total (3h overload) ❌ Exceeds threshold
+ * - Doctor has HTC1 (1h) = 1h → Can add EMIT (3h) → 4h total (0h overload) ✓ Within threshold
+ */
+const MAX_SLOT_OVERLOAD_THRESHOLD = 1;
+
+/**
  * Check if a doctor has TP on a specific day
  * @param {Object} doctorSchedule - The doctor's schedule for the week
  * @param {string} day - Day of the week
@@ -173,7 +184,11 @@ function calculateDayAvailability(doctorSchedule, day) {
  * @returns {number} Remaining capacity in hours for that slot
  */
 function calculateSlotAvailability(doctorSchedule, day, timeSlot) {
-  if (!doctorSchedule || !doctorSchedule[day] || !doctorSchedule[day][timeSlot]) {
+  if (
+    !doctorSchedule ||
+    !doctorSchedule[day] ||
+    !doctorSchedule[day][timeSlot]
+  ) {
     return 0;
   }
 
@@ -196,6 +211,48 @@ function calculateSlotAvailability(doctorSchedule, day, timeSlot) {
 }
 
 /**
+ * Calculate total slot duration if a new activity is added
+ * @param {Object} doctorSchedule - The doctor's schedule for the week
+ * @param {string} day - Day of the week
+ * @param {string} timeSlot - Specific time slot (9am-1pm or 2pm-6pm)
+ * @param {string} newActivity - Activity to potentially add (EMIT or EMATIT)
+ * @returns {number} Total duration in hours if the new activity is added
+ */
+function calculateSlotDurationIfAdded(
+  doctorSchedule,
+  day,
+  timeSlot,
+  newActivity
+) {
+  if (
+    !doctorSchedule ||
+    !doctorSchedule[day] ||
+    !doctorSchedule[day][timeSlot]
+  ) {
+    return 0;
+  }
+
+  const activities = doctorSchedule[day][timeSlot] || [];
+
+  // Skip TP - doctor unavailable
+  if (activities.includes("TP")) {
+    return 0;
+  }
+
+  // Calculate current used capacity
+  let usedCapacity = 0;
+  activities.forEach((activity) => {
+    const activityDuration = docActivities[activity]?.duration || 4;
+    usedCapacity += activityDuration;
+  });
+
+  // Add the new activity duration
+  const newActivityDuration = docActivities[newActivity]?.duration || 4;
+
+  return usedCapacity + newActivityDuration;
+}
+
+/**
  * Calculate cumulative workload per doctor across the full cycle
  * Based on the aggregation logic from Workload.jsx
  * @param {Object} fullCycleSchedules - All periodic schedules in the cycle
@@ -211,7 +268,9 @@ function calculateCumulativeWorkloadPerDoctor(fullCycleSchedules) {
   }
 
   const periodNames = Object.keys(fullCycleSchedules);
-  console.log(`📊 Calculating cumulative workload across ${periodNames.length} periods`);
+  console.log(
+    `📊 Calculating cumulative workload across ${periodNames.length} periods`
+  );
 
   periodNames.forEach((periodName) => {
     const periodData = fullCycleSchedules[periodName];
@@ -261,7 +320,10 @@ function findDoctorsOnActivity(htcActivity) {
   // Look through all doctor profiles to find who has this activity in their rotationSetting
   // This finds ALL doctors capable of doing HTC1/HTC2, not just who's assigned this period
   Object.entries(doctorProfiles).forEach(([doctorCode, profile]) => {
-    if (profile.rotationSetting && profile.rotationSetting.includes(htcActivity)) {
+    if (
+      profile.rotationSetting &&
+      profile.rotationSetting.includes(htcActivity)
+    ) {
       doctors.push(doctorCode);
     }
   });
@@ -407,7 +469,9 @@ function selectBestReplacement(candidateDoctors, schedule, day) {
  */
 export function resolveHTCConflicts(schedule, cycleType, periodIndex) {
   console.log(
-    `🔧 HTC Conflict Resolution - Period ${periodIndex + 1}, Cycle: ${cycleType}`
+    `🔧 HTC Conflict Resolution - Period ${
+      periodIndex + 1
+    }, Cycle: ${cycleType}`
   );
 
   const resolutionLog = [];
@@ -447,10 +511,7 @@ export function resolveHTCConflicts(schedule, cycleType, periodIndex) {
         // Find all doctors capable of this HTC activity (based on rotationSetting)
         const capableDoctors = findDoctorsOnActivity(htcActivity);
 
-        console.log(
-          `🔍 Capable doctors for ${htcActivity}:`,
-          capableDoctors
-        );
+        console.log(`🔍 Capable doctors for ${htcActivity}:`, capableDoctors);
 
         // Select best available doctor for this day (filters out TP automatically)
         const replacement = selectBestReplacement(
@@ -462,7 +523,11 @@ export function resolveHTCConflicts(schedule, cycleType, periodIndex) {
         console.log(
           `🎯 Selected replacement for ${htcActivity} on ${day}:`,
           replacement
-            ? `${replacement.doctorCode} (${replacement.availability.isFullDayFree ? "full day free" : `${replacement.availability.totalFreeHours}h available`})`
+            ? `${replacement.doctorCode} (${
+                replacement.availability.isFullDayFree
+                  ? "full day free"
+                  : `${replacement.availability.totalFreeHours}h available`
+              })`
             : "none available"
         );
 
@@ -491,7 +556,11 @@ export function resolveHTCConflicts(schedule, cycleType, periodIndex) {
           });
 
           conflictsResolved++;
-          const logEntry = `✅ Assigned ${htcActivity} on ${day} to ${doctorCode} (${replacement.availability.isFullDayFree ? "full day free" : `${replacement.availability.totalFreeHours}h available`})`;
+          const logEntry = `✅ Assigned ${htcActivity} on ${day} to ${doctorCode} (${
+            replacement.availability.isFullDayFree
+              ? "full day free"
+              : `${replacement.availability.totalFreeHours}h available`
+          })`;
           console.log(logEntry);
           resolutionLog.push(logEntry);
         } else {
@@ -616,7 +685,11 @@ function findDoctorsWithEMATITSkills() {
  * @returns {boolean} True if doctor has TP on this slot
  */
 function hasTPInSlot(doctorSchedule, day, timeSlot) {
-  if (!doctorSchedule || !doctorSchedule[day] || !doctorSchedule[day][timeSlot]) {
+  if (
+    !doctorSchedule ||
+    !doctorSchedule[day] ||
+    !doctorSchedule[day][timeSlot]
+  ) {
     return false;
   }
 
@@ -651,24 +724,67 @@ function selectBestReplacementForEMIT(
   });
 
   if (availableDoctors.length === 0) {
-    console.log(`⚠️ No available doctors for EMIT on ${day} ${timeSlot} (all have TP)`);
+    console.log(
+      `⚠️ No available doctors for EMIT on ${day} ${timeSlot} (all have TP)`
+    );
     return null;
   }
 
-  // If only ONE doctor available (no TP), assign to them regardless of their schedule
-  if (availableDoctors.length === 1) {
-    const doctorCode = availableDoctors[0];
+  // ✅ NEW: Filter out doctors that would exceed the overload threshold
+  const doctorsWithinThreshold = availableDoctors.filter((doctorCode) => {
     const doctorSchedule = schedule[doctorCode];
-    const remainingTime = calculateSlotAvailability(doctorSchedule, day, timeSlot);
+    const totalDuration = calculateSlotDurationIfAdded(
+      doctorSchedule,
+      day,
+      timeSlot,
+      "EMIT"
+    );
+    const overload = totalDuration - 4;
+
+    if (overload > MAX_SLOT_OVERLOAD_THRESHOLD) {
+      console.log(
+        `⚠️ ${doctorCode} rejected for EMIT on ${day} ${timeSlot}: would cause ${totalDuration}h (${overload}h overload > ${MAX_SLOT_OVERLOAD_THRESHOLD}h threshold)`
+      );
+      return false;
+    }
+
+    return true;
+  });
+
+  if (doctorsWithinThreshold.length === 0) {
+    console.log(
+      `❌ No doctors available for EMIT on ${day} ${timeSlot} within overload threshold (${MAX_SLOT_OVERLOAD_THRESHOLD}h)`
+    );
+    return null;
+  }
+
+  // If only ONE doctor available within threshold, assign to them
+  if (doctorsWithinThreshold.length === 1) {
+    const doctorCode = doctorsWithinThreshold[0];
+    const doctorSchedule = schedule[doctorCode];
+    const remainingTime = calculateSlotAvailability(
+      doctorSchedule,
+      day,
+      timeSlot
+    );
     const totalWorkload = cumulativeWorkload[doctorCode] || 0;
 
-    // Calculate score for consistency (even though it doesn't matter when there's only one option)
+    // Calculate score for consistency
     const score =
-      (remainingTime * EMIT_WEIGHT_CAPACITY) -
-      (totalWorkload * EMIT_WEIGHT_BALANCE);
+      remainingTime * EMIT_WEIGHT_CAPACITY -
+      totalWorkload * EMIT_WEIGHT_BALANCE;
+
+    const totalDuration = calculateSlotDurationIfAdded(
+      doctorSchedule,
+      day,
+      timeSlot,
+      "EMIT"
+    );
 
     console.log(
-      `✨ Only one available doctor without TP: ${doctorCode} - assigning EMIT regardless of capacity (score=${score.toFixed(2)})`
+      `✨ Only one available doctor within threshold: ${doctorCode} - assigning EMIT (total: ${totalDuration}h, score=${score.toFixed(
+        2
+      )})`
     );
 
     return {
@@ -679,22 +795,33 @@ function selectBestReplacementForEMIT(
     };
   }
 
-  // Multiple doctors available - evaluate using weighted composite score
-  const evaluations = availableDoctors.map((doctorCode) => {
+  // Multiple doctors available within threshold - evaluate using weighted composite score
+  const evaluations = doctorsWithinThreshold.map((doctorCode) => {
     const doctorSchedule = schedule[doctorCode];
-    const remainingTime = calculateSlotAvailability(doctorSchedule, day, timeSlot);
+    const remainingTime = calculateSlotAvailability(
+      doctorSchedule,
+      day,
+      timeSlot
+    );
     const totalWorkload = cumulativeWorkload[doctorCode] || 0;
+    const totalDuration = calculateSlotDurationIfAdded(
+      doctorSchedule,
+      day,
+      timeSlot,
+      "EMIT"
+    );
 
     // Composite score: maximize capacity, minimize cumulative workload
     // Higher score = better candidate
     const score =
-      (remainingTime * EMIT_WEIGHT_CAPACITY) -
-      (totalWorkload * EMIT_WEIGHT_BALANCE);
+      remainingTime * EMIT_WEIGHT_CAPACITY -
+      totalWorkload * EMIT_WEIGHT_BALANCE;
 
     return {
       doctorCode,
       remainingTime,
       totalWorkload,
+      totalDuration,
       score,
     };
   });
@@ -708,11 +835,17 @@ function selectBestReplacementForEMIT(
     `🎯 EMIT selection for ${day} ${timeSlot}:`,
     evaluations.map(
       (e) =>
-        `${e.doctorCode}(${e.remainingTime}h, ${e.totalWorkload}h total, score=${e.score.toFixed(2)})`
+        `${e.doctorCode}(total:${e.totalDuration}h, remaining:${
+          e.remainingTime
+        }h, workload:${e.totalWorkload}h, score=${e.score.toFixed(2)})`
     )
   );
   console.log(
-    `   → Selected: ${selected.doctorCode} (score=${selected.score.toFixed(2)}, ${selected.remainingTime}h remaining, ${selected.totalWorkload}h cumulative)`
+    `   → Selected: ${selected.doctorCode} (score=${selected.score.toFixed(
+      2
+    )}, slot total: ${selected.totalDuration}h, cumulative: ${
+      selected.totalWorkload
+    }h)`
   );
 
   return selected;
@@ -745,24 +878,67 @@ function selectBestReplacementForEMATIT(
   });
 
   if (availableDoctors.length === 0) {
-    console.log(`⚠️ No available doctors for EMATIT on ${day} ${timeSlot} (all have TP)`);
+    console.log(
+      `⚠️ No available doctors for EMATIT on ${day} ${timeSlot} (all have TP)`
+    );
     return null;
   }
 
-  // If only ONE doctor available (no TP), assign to them regardless of their schedule
-  if (availableDoctors.length === 1) {
-    const doctorCode = availableDoctors[0];
+  // ✅ NEW: Filter out doctors that would exceed the overload threshold
+  const doctorsWithinThreshold = availableDoctors.filter((doctorCode) => {
     const doctorSchedule = schedule[doctorCode];
-    const remainingTime = calculateSlotAvailability(doctorSchedule, day, timeSlot);
+    const totalDuration = calculateSlotDurationIfAdded(
+      doctorSchedule,
+      day,
+      timeSlot,
+      "EMATIT"
+    );
+    const overload = totalDuration - 4;
+
+    if (overload > MAX_SLOT_OVERLOAD_THRESHOLD) {
+      console.log(
+        `⚠️ ${doctorCode} rejected for EMATIT on ${day} ${timeSlot}: would cause ${totalDuration}h (${overload}h overload > ${MAX_SLOT_OVERLOAD_THRESHOLD}h threshold)`
+      );
+      return false;
+    }
+
+    return true;
+  });
+
+  if (doctorsWithinThreshold.length === 0) {
+    console.log(
+      `❌ No doctors available for EMATIT on ${day} ${timeSlot} within overload threshold (${MAX_SLOT_OVERLOAD_THRESHOLD}h)`
+    );
+    return null;
+  }
+
+  // If only ONE doctor available within threshold, assign to them
+  if (doctorsWithinThreshold.length === 1) {
+    const doctorCode = doctorsWithinThreshold[0];
+    const doctorSchedule = schedule[doctorCode];
+    const remainingTime = calculateSlotAvailability(
+      doctorSchedule,
+      day,
+      timeSlot
+    );
     const totalWorkload = cumulativeWorkload[doctorCode] || 0;
 
-    // Calculate score for consistency (even though it doesn't matter when there's only one option)
+    // Calculate score for consistency
     const score =
-      (remainingTime * EMATIT_WEIGHT_CAPACITY) -
-      (totalWorkload * EMATIT_WEIGHT_BALANCE);
+      remainingTime * EMATIT_WEIGHT_CAPACITY -
+      totalWorkload * EMATIT_WEIGHT_BALANCE;
+
+    const totalDuration = calculateSlotDurationIfAdded(
+      doctorSchedule,
+      day,
+      timeSlot,
+      "EMATIT"
+    );
 
     console.log(
-      `✨ Only one available doctor without TP: ${doctorCode} - assigning EMATIT regardless of capacity (score=${score.toFixed(2)})`
+      `✨ Only one available doctor within threshold: ${doctorCode} - assigning EMATIT (total: ${totalDuration}h, score=${score.toFixed(
+        2
+      )})`
     );
 
     return {
@@ -773,22 +949,33 @@ function selectBestReplacementForEMATIT(
     };
   }
 
-  // Multiple doctors available - evaluate using weighted composite score
-  const evaluations = availableDoctors.map((doctorCode) => {
+  // Multiple doctors available within threshold - evaluate using weighted composite score
+  const evaluations = doctorsWithinThreshold.map((doctorCode) => {
     const doctorSchedule = schedule[doctorCode];
-    const remainingTime = calculateSlotAvailability(doctorSchedule, day, timeSlot);
+    const remainingTime = calculateSlotAvailability(
+      doctorSchedule,
+      day,
+      timeSlot
+    );
     const totalWorkload = cumulativeWorkload[doctorCode] || 0;
+    const totalDuration = calculateSlotDurationIfAdded(
+      doctorSchedule,
+      day,
+      timeSlot,
+      "EMATIT"
+    );
 
     // Composite score: maximize capacity, minimize cumulative workload
     // Higher score = better candidate
     const score =
-      (remainingTime * EMATIT_WEIGHT_CAPACITY) -
-      (totalWorkload * EMATIT_WEIGHT_BALANCE);
+      remainingTime * EMATIT_WEIGHT_CAPACITY -
+      totalWorkload * EMATIT_WEIGHT_BALANCE;
 
     return {
       doctorCode,
       remainingTime,
       totalWorkload,
+      totalDuration,
       score,
     };
   });
@@ -802,11 +989,17 @@ function selectBestReplacementForEMATIT(
     `🎯 EMATIT selection for ${day} ${timeSlot}:`,
     evaluations.map(
       (e) =>
-        `${e.doctorCode}(${e.remainingTime}h, ${e.totalWorkload}h total, score=${e.score.toFixed(2)})`
+        `${e.doctorCode}(total:${e.totalDuration}h, remaining:${
+          e.remainingTime
+        }h, workload:${e.totalWorkload}h, score=${e.score.toFixed(2)})`
     )
   );
   console.log(
-    `   → Selected: ${selected.doctorCode} (score=${selected.score.toFixed(2)}, ${selected.remainingTime}h remaining, ${selected.totalWorkload}h cumulative)`
+    `   → Selected: ${selected.doctorCode} (score=${selected.score.toFixed(
+      2
+    )}, slot total: ${selected.totalDuration}h, cumulative: ${
+      selected.totalWorkload
+    }h)`
   );
 
   return selected;
@@ -830,7 +1023,9 @@ export function resolveEMITConflicts(
   dynamicCumulativeWorkload
 ) {
   console.log(
-    `🔧 EMIT Conflict Resolution - Period ${periodIndex + 1}, Cycle: ${cycleType}`
+    `🔧 EMIT Conflict Resolution - Period ${
+      periodIndex + 1
+    }, Cycle: ${cycleType}`
   );
 
   const resolutionLog = [];
@@ -839,7 +1034,10 @@ export function resolveEMITConflicts(
   // ✅ Use the provided dynamic cumulative workload (includes baseline + HTC assignments)
   const cumulativeWorkload = dynamicCumulativeWorkload;
 
-  console.log(`📊 Using full-cycle dynamic workload (baseline + HTC):`, cumulativeWorkload);
+  console.log(
+    `📊 Using full-cycle dynamic workload (baseline + HTC):`,
+    cumulativeWorkload
+  );
 
   // Find all doctors with EMIT skills
   const emitCapableDoctors = findDoctorsWithEMITSkills();
@@ -883,7 +1081,11 @@ export function resolveEMITConflicts(
           }
 
           conflictsResolved++;
-          const logEntry = `✅ Assigned EMIT on ${day} ${timeSlot} to ${doctorCode} (score=${replacement.score.toFixed(2)}: ${replacement.remainingTime}h slot capacity, ${replacement.totalWorkload}h cumulative workload)`;
+          const logEntry = `✅ Assigned EMIT on ${day} ${timeSlot} to ${doctorCode} (score=${replacement.score.toFixed(
+            2
+          )}: ${replacement.remainingTime}h slot capacity, ${
+            replacement.totalWorkload
+          }h cumulative workload)`;
           console.log(logEntry);
           resolutionLog.push(logEntry);
         } else {
@@ -930,7 +1132,9 @@ export function resolveEMATITConflicts(
   dynamicCumulativeWorkload
 ) {
   console.log(
-    `🔧 EMATIT Conflict Resolution - Period ${periodIndex + 1}, Cycle: ${cycleType}`
+    `🔧 EMATIT Conflict Resolution - Period ${
+      periodIndex + 1
+    }, Cycle: ${cycleType}`
   );
 
   const resolutionLog = [];
@@ -939,7 +1143,10 @@ export function resolveEMATITConflicts(
   // ✅ Use the provided dynamic cumulative workload (includes baseline + HTC + EMIT assignments)
   const cumulativeWorkload = dynamicCumulativeWorkload;
 
-  console.log(`📊 Using full-cycle dynamic workload (baseline + HTC + EMIT):`, cumulativeWorkload);
+  console.log(
+    `📊 Using full-cycle dynamic workload (baseline + HTC + EMIT):`,
+    cumulativeWorkload
+  );
 
   // Find all doctors with EMATIT skills
   const ematitCapableDoctors = findDoctorsWithEMATITSkills();
@@ -983,7 +1190,11 @@ export function resolveEMATITConflicts(
           }
 
           conflictsResolved++;
-          const logEntry = `✅ Assigned EMATIT on ${day} ${timeSlot} to ${doctorCode} (score=${replacement.score.toFixed(2)}: ${replacement.remainingTime}h slot capacity, ${replacement.totalWorkload}h cumulative workload)`;
+          const logEntry = `✅ Assigned EMATIT on ${day} ${timeSlot} to ${doctorCode} (score=${replacement.score.toFixed(
+            2
+          )}: ${replacement.remainingTime}h slot capacity, ${
+            replacement.totalWorkload
+          }h cumulative workload)`;
           console.log(logEntry);
           resolutionLog.push(logEntry);
         } else {
