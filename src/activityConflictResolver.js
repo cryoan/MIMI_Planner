@@ -2,8 +2,32 @@
 // Separate module for clarity and explanation to medical team
 // Handles automatic resolution of missing activities (HTC, EMIT, etc.)
 
-import { doctorProfiles, docActivities } from "./doctorSchedules.js";
+import { doctorProfiles, docActivities as staticDocActivities } from "./doctorSchedules.js";
 import { rotation_cycles } from "./customPlanningLogic.js";
+
+// Use dynamic docActivities if provided, otherwise fall back to static
+let docActivities = staticDocActivities;
+
+/**
+ * Set dynamic docActivities for scenario-based modifications
+ * This allows scenarios to override activity durations
+ * @param {Object} dynamicDocActivities - Modified docActivities from scenario
+ */
+export function setDynamicDocActivities(dynamicDocActivities) {
+  if (dynamicDocActivities) {
+    console.log('🔧 Setting dynamic docActivities:', dynamicDocActivities);
+    docActivities = dynamicDocActivities;
+  } else {
+    docActivities = staticDocActivities;
+  }
+}
+
+/**
+ * Reset docActivities to static version
+ */
+export function resetDocActivities() {
+  docActivities = staticDocActivities;
+}
 
 /**
  * HEURISTIC 1: Resolve Missing HTC1/HTC2 Activities due to TP Days

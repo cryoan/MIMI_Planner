@@ -1,0 +1,75 @@
+{
+  "scenarios": [
+    {
+      "id": "base",
+      "name": "Base Configuration",
+      "color": "rgba(54, 162, 235, 0.6)",
+      "description": "Default configuration with standard conflict resolution order",
+      "changes": {}
+    },
+    {
+      "id": "telecs_priority",
+      "name": "TeleCs Priority First",
+      "color": "rgba(255, 99, 132, 0.6)",
+      "description": "Resolve TeleCs assignments before other activities to ensure teleconsultation coverage",
+      "changes": {
+        "conflictResolutionOrder": ["HTC", "TeleCs", "EMIT", "EMATIT"]
+      }
+    },
+    {
+      "id": "AMI_long",
+      "name": "AMI with teleexpertise",
+      "color": "rgba(75, 192, 192, 0.6)",
+      "description": "AMI allows teleexpertise with longer duration of 2 hours",
+      "changes": {
+        "docActivities.AMI.duration": 2
+      }
+    },
+    {
+      "id": "ns_hdj_rotation",
+      "name": "NS with HDJ Rotation",
+      "color": "rgba(255, 206, 86, 0.6)",
+      "description": "Use honeymoon_NS_HDJ rotation cycle instead of default",
+      "changes": {
+        "rotationCycle": "honeymoon_NS_HDJ"
+      }
+    },
+    {
+      "id": "fl_extended_skills",
+      "name": "FL Extended Skills",
+      "color": "rgba(153, 102, 255, 0.6)",
+      "description": "Add HTC2 skills to FL doctor profile for more flexibility",
+      "changes": {
+        "doctorProfiles.FL.skills": ["add", "HTC2"]
+      }
+    },
+    {
+      "id": "emergency_cycle",
+      "name": "Emergency Coverage Cycle",
+      "color": "rgba(255, 159, 64, 0.6)",
+      "description": "Use emergency rotation cycle with minimal changes",
+      "changes": {
+        "rotationCycle": "emergency"
+      }
+    },
+    {
+      "id": "telecs_first_emit_reduced",
+      "name": "Combined: TeleCs First + EMIT Reduced",
+      "color": "rgba(83, 102, 255, 0.6)",
+      "description": "Combine TeleCs priority with reduced EMIT duration",
+      "changes": {
+        "conflictResolutionOrder": ["TeleCs", "HTC", "EMIT", "EMATIT"],
+        "docActivities.EMIT.duration": 2
+      }
+    },
+    {
+      "id": "no_mg_rotation",
+      "name": "MG Unavailable (NoMG Cycle)",
+      "color": "rgba(199, 99, 132, 0.6)",
+      "description": "Use NoMG rotation cycle when MG doctor is unavailable",
+      "changes": {
+        "rotationCycle": "NoMG"
+      }
+    }
+  ]
+}

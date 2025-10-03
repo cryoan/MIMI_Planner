@@ -5,7 +5,9 @@ import {
   resolveEMITConflicts,
   resolveEMATITConflicts,
   resolveTeleCsConflicts,
-  calculateCumulativeWorkloadPerDoctor
+  calculateCumulativeWorkloadPerDoctor,
+  setDynamicDocActivities,
+  resetDocActivities
 } from "./activityConflictResolver.js";
 
 // Custom Planning Logic - Algorithme de Planification Médical Progressif et Fiable
@@ -853,6 +855,9 @@ export function calculateRotationPeriods() {
  * @param {Object} baseSchedule - Planning de base
  * @param {Object} rotationAssignments - Assignations des rotations
  * @param {string} cycleType - Type de cycle de rotation à utiliser
+ * @param {Object} dynamicDoctorProfiles - Dynamic doctor profiles
+ * @param {Object} dynamicWantedActivities - Dynamic wanted activities
+ * @param {Array} conflictResolutionOrder - Order of conflict resolution (default: ["HTC", "EMIT", "EMATIT", "TeleCs"])
  * @returns {Object} Planning avec variations périodiques
  */
 export function createPeriodicVariations(
@@ -860,13 +865,30 @@ export function createPeriodicVariations(
   rotationAssignments,
   cycleType = "honeymoon",
   dynamicDoctorProfiles = null,
-  dynamicWantedActivities = null
+  dynamicWantedActivities = null,
+  conflictResolutionOrder = ["HTC", "EMIT", "EMATIT", "TeleCs"],
+  dynamicDocActivities = null
 ) {
   console.log("Phase 3: Création des variations périodiques...");
+  console.log("🔧 Conflict resolution order:", conflictResolutionOrder);
+
+  // Set dynamic docActivities for conflict resolution
+  if (dynamicDocActivities) {
+    console.log("🎯 Setting dynamic docActivities for conflict resolution:", dynamicDocActivities);
+    setDynamicDocActivities(dynamicDocActivities);
+  }
 
   const profilesData = dynamicDoctorProfiles || doctorProfiles;
   const rotationPeriods = calculateRotationPeriods();
   const periodicSchedule = {};
+
+  // Validate conflict resolution order
+  const requiredResolvers = ["HTC", "EMIT", "EMATIT", "TeleCs"];
+  const missingResolvers = requiredResolvers.filter(r => !conflictResolutionOrder.includes(r));
+  if (missingResolvers.length > 0) {
+    console.warn(`⚠️ Missing conflict resolvers: ${missingResolvers.join(', ')}. Using default order.`);
+    conflictResolutionOrder = ["HTC", "EMIT", "EMATIT", "TeleCs"];
+  }
 
   // Identifier les médecins rigides et flexibles
   const rigidDoctors = [];
@@ -989,184 +1011,98 @@ export function createPeriodicVariations(
   // Clone baseline workload - will be updated as we add HTC/EMIT assignments
   const dynamicCumulativeWorkload = JSON.parse(JSON.stringify(baselineCumulativeWorkload));
 
+  // Map resolver names to functions
+  const resolverFunctions = {
+    HTC: resolveHTCConflicts,
+    EMIT: resolveEMITConflicts,
+    EMATIT: resolveEMATITConflicts,
+    TeleCs: resolveTeleCsConflicts
+  };
+
   rotationPeriods.forEach((period, periodIndex) => {
     console.log(`\n🔧 Resolving conflicts for ${period.name}...`);
 
     // Start with base schedule from Pass 1
     let periodSchedule = deepClone(basePeriodicSchedule[period.name].schedule);
     let baseScheduleSnapshot = deepClone(periodSchedule); // For tracking changes
-
-    // -------------------------------------------------------------------------
-    // Step 1: Apply HTC Conflict Resolution (UNCHANGED)
-    // -------------------------------------------------------------------------
-    console.log(`\n🔧 Applying HTC conflict resolution for ${period.name}...`);
-    const htcResolution = resolveHTCConflicts(
-      periodSchedule,
-      cycleType,
-      periodIndex
-    );
-
     let resolvedSchedule = periodSchedule;
 
-    if (htcResolution.success) {
-      console.log(
-        `✅ HTC conflicts resolved: ${htcResolution.conflictsResolved}/${htcResolution.conflictsDetected}`
-      );
-      if (htcResolution.resolutionLog.length > 0) {
-        htcResolution.resolutionLog.forEach((log) => console.log(`  ${log}`));
+    // Store resolution results for each type
+    const resolutionResults = {};
+
+    // Apply conflict resolvers in the specified order
+    conflictResolutionOrder.forEach((resolverType, index) => {
+      console.log(`\n🔧 Step ${index + 1}: Applying ${resolverType} conflict resolution for ${period.name}...`);
+
+      const resolverFunc = resolverFunctions[resolverType];
+      if (!resolverFunc) {
+        console.warn(`⚠️ Unknown resolver type: ${resolverType}`);
+        return;
       }
-      resolvedSchedule = htcResolution.schedule;
 
-      // ✅ KEY: Update cumulative workload with HTC assignments
-      console.log("📊 Updating cumulative workload with HTC assignments...");
-      updateDynamicWorkload(dynamicCumulativeWorkload, resolvedSchedule, baseScheduleSnapshot);
-      console.log("📊 Updated workload after HTC:", dynamicCumulativeWorkload);
-    } else {
-      console.warn(`⚠️ HTC conflict resolution failed for ${period.name}`);
-    }
+      // All resolvers except HTC need full-cycle data
+      const needsFullCycleData = resolverType !== "HTC";
 
-    // Update snapshot after HTC resolution
-    baseScheduleSnapshot = deepClone(resolvedSchedule);
+      const resolution = needsFullCycleData
+        ? resolverFunc(
+            resolvedSchedule,
+            cycleType,
+            periodIndex,
+            basePeriodicSchedule,
+            dynamicCumulativeWorkload
+          )
+        : resolverFunc(
+            resolvedSchedule,
+            cycleType,
+            periodIndex
+          );
 
-    // -------------------------------------------------------------------------
-    // Step 2: Apply EMIT Conflict Resolution (WITH FULL-CYCLE + HTC WORKLOAD)
-    // -------------------------------------------------------------------------
-    console.log(`\n🔧 Applying EMIT conflict resolution for ${period.name}...`);
-    const emitResolution = resolveEMITConflicts(
-      resolvedSchedule,
-      cycleType,
-      periodIndex,
-      basePeriodicSchedule,           // Full-cycle base schedules
-      dynamicCumulativeWorkload       // Updated with baseline + HTC assignments
-    );
+      if (resolution.success) {
+        console.log(
+          `✅ ${resolverType} conflicts resolved: ${resolution.conflictsResolved}/${resolution.conflictsDetected}`
+        );
+        if (resolution.resolutionLog && resolution.resolutionLog.length > 0) {
+          resolution.resolutionLog.forEach((log) => console.log(`  ${log}`));
+        }
+        resolvedSchedule = resolution.schedule;
 
-    if (emitResolution.success) {
-      console.log(
-        `✅ EMIT conflicts resolved: ${emitResolution.conflictsResolved}/${emitResolution.conflictsDetected}`
-      );
-      if (emitResolution.resolutionLog.length > 0) {
-        emitResolution.resolutionLog.forEach((log) => console.log(`  ${log}`));
+        // Update cumulative workload with new assignments
+        console.log(`📊 Updating cumulative workload with ${resolverType} assignments...`);
+        updateDynamicWorkload(dynamicCumulativeWorkload, resolvedSchedule, baseScheduleSnapshot);
+        console.log(`📊 Workload after ${resolverType}:`, dynamicCumulativeWorkload);
+
+        // Store resolution result
+        resolutionResults[resolverType] = {
+          conflictsDetected: resolution.conflictsDetected,
+          conflictsResolved: resolution.conflictsResolved,
+          resolutionLog: resolution.resolutionLog || [],
+          teleCsAssignments: resolution.teleCsAssignments // Only for TeleCs
+        };
+      } else {
+        console.warn(`⚠️ ${resolverType} conflict resolution failed for ${period.name}`);
       }
-      resolvedSchedule = emitResolution.schedule;
 
-      // ✅ Update cumulative workload with EMIT assignments for next step
-      console.log("📊 Updating cumulative workload with EMIT assignments...");
-      updateDynamicWorkload(dynamicCumulativeWorkload, resolvedSchedule, baseScheduleSnapshot);
-      console.log("📊 Workload after EMIT:", dynamicCumulativeWorkload);
-    } else {
-      console.warn(`⚠️ EMIT conflict resolution failed for ${period.name}`);
-    }
+      // Update snapshot after each resolution step
+      baseScheduleSnapshot = deepClone(resolvedSchedule);
+    });
 
-    // Update snapshot after EMIT resolution
-    baseScheduleSnapshot = deepClone(resolvedSchedule);
-
-    // -------------------------------------------------------------------------
-    // Step 3: Apply EMATIT Conflict Resolution (WITH FULL-CYCLE + HTC + EMIT WORKLOAD)
-    // -------------------------------------------------------------------------
-    console.log(`\n🔧 Applying EMATIT conflict resolution for ${period.name}...`);
-    const ematitResolution = resolveEMATITConflicts(
-      resolvedSchedule,
-      cycleType,
-      periodIndex,
-      basePeriodicSchedule,           // Full-cycle base schedules
-      dynamicCumulativeWorkload       // Updated with baseline + HTC + EMIT assignments
-    );
-
-    if (ematitResolution.success) {
-      console.log(
-        `✅ EMATIT conflicts resolved: ${ematitResolution.conflictsResolved}/${ematitResolution.conflictsDetected}`
-      );
-      if (ematitResolution.resolutionLog.length > 0) {
-        ematitResolution.resolutionLog.forEach((log) => console.log(`  ${log}`));
-      }
-      resolvedSchedule = ematitResolution.schedule;
-
-      // ✅ Update cumulative workload with EMATIT assignments for next step
-      console.log("📊 Updating cumulative workload with EMATIT assignments...");
-      updateDynamicWorkload(dynamicCumulativeWorkload, resolvedSchedule, baseScheduleSnapshot);
-      console.log("📊 Workload after EMATIT:", dynamicCumulativeWorkload);
-    } else {
-      console.warn(`⚠️ EMATIT conflict resolution failed for ${period.name}`);
-    }
-
-    // Update snapshot after EMATIT resolution
-    baseScheduleSnapshot = deepClone(resolvedSchedule);
-
-    // -------------------------------------------------------------------------
-    // Step 4: Apply TeleCs Assignment (WITH FULL-CYCLE + HTC + EMIT + EMATIT WORKLOAD)
-    // -------------------------------------------------------------------------
-    console.log(`\n🔧 Applying TeleCs assignment for ${period.name}...`);
-    const teleCsResolution = resolveTeleCsConflicts(
-      resolvedSchedule,
-      cycleType,
-      periodIndex,
-      basePeriodicSchedule,           // Full-cycle base schedules
-      dynamicCumulativeWorkload       // Updated with baseline + HTC + EMIT + EMATIT assignments
-    );
-
-    if (teleCsResolution.success) {
-      console.log(
-        `✅ TeleCs assigned: ${teleCsResolution.conflictsResolved}/${teleCsResolution.conflictsDetected}`
-      );
-      if (teleCsResolution.resolutionLog.length > 0) {
-        teleCsResolution.resolutionLog.forEach((log) => console.log(`  ${log}`));
-      }
-      resolvedSchedule = teleCsResolution.schedule;
-
-      // ✅ Update cumulative workload with TeleCs assignments for next period
-      console.log("📊 Updating cumulative workload with TeleCs assignments...");
-      updateDynamicWorkload(dynamicCumulativeWorkload, resolvedSchedule, baseScheduleSnapshot);
-      console.log("📊 Final workload after this period:", dynamicCumulativeWorkload);
-
-      // Store final schedule with all four resolution logs
-      finalPeriodicSchedule[period.name] = {
-        period,
-        schedule: resolvedSchedule,
-        htcResolution: htcResolution.success ? {
-          conflictsDetected: htcResolution.conflictsDetected,
-          conflictsResolved: htcResolution.conflictsResolved,
-          resolutionLog: htcResolution.resolutionLog,
-        } : undefined,
-        emitResolution: emitResolution.success ? {
-          conflictsDetected: emitResolution.conflictsDetected,
-          conflictsResolved: emitResolution.conflictsResolved,
-          resolutionLog: emitResolution.resolutionLog,
-        } : undefined,
-        ematitResolution: {
-          conflictsDetected: ematitResolution.conflictsDetected,
-          conflictsResolved: ematitResolution.conflictsResolved,
-          resolutionLog: ematitResolution.resolutionLog,
-        },
-        teleCsResolution: {
-          conflictsDetected: teleCsResolution.conflictsDetected,
-          conflictsResolved: teleCsResolution.conflictsResolved,
-          resolutionLog: teleCsResolution.resolutionLog,
-          teleCsAssignments: teleCsResolution.teleCsAssignments,
-        },
-      };
-    } else {
-      console.warn(`⚠️ TeleCs assignment failed for ${period.name}`);
-      finalPeriodicSchedule[period.name] = {
-        period,
-        schedule: resolvedSchedule,
-        htcResolution: htcResolution.success ? {
-          conflictsDetected: htcResolution.conflictsDetected,
-          conflictsResolved: htcResolution.conflictsResolved,
-          resolutionLog: htcResolution.resolutionLog,
-        } : undefined,
-        emitResolution: emitResolution.success ? {
-          conflictsDetected: emitResolution.conflictsDetected,
-          conflictsResolved: emitResolution.conflictsResolved,
-          resolutionLog: emitResolution.resolutionLog,
-        } : undefined,
-        ematitResolution: {
-          conflictsDetected: ematitResolution.conflictsDetected,
-          conflictsResolved: ematitResolution.conflictsResolved,
-          resolutionLog: ematitResolution.resolutionLog,
-        },
-      };
-    }
+    // Store final schedule with all resolution logs
+    finalPeriodicSchedule[period.name] = {
+      period,
+      schedule: resolvedSchedule,
+      htcResolution: resolutionResults.HTC,
+      emitResolution: resolutionResults.EMIT,
+      ematitResolution: resolutionResults.EMATIT,
+      teleCsResolution: resolutionResults.TeleCs,
+      conflictResolutionOrder // Track the order used
+    };
   });
+
+  // Reset docActivities to static version after processing
+  if (dynamicDocActivities) {
+    console.log("🔄 Resetting docActivities to static version");
+    resetDocActivities();
+  }
 
   return finalPeriodicSchedule;
 }
@@ -1271,11 +1207,13 @@ function validateHoneyMoonCycle(
  * Exécuter l'algorithme complet de planification personnalisée
  * @param {string} cycleType - Type de cycle de rotation ('honeymoon', 'summer', 'emergency')
  * @param {Object} dynamicData - Dynamic data from ScheduleContext
+ * @param {Array} conflictResolutionOrder - Order of conflict resolution
  * @returns {Object} Résultat complet de la planification
  */
 export function executeCustomPlanningAlgorithm(
   cycleType = "honeymoon",
-  dynamicData = null
+  dynamicData = null,
+  conflictResolutionOrder = null
 ) {
   console.log(
     `🚀 Démarrage algorithme de planification personnalisée (cycle: ${cycleType})...`
@@ -1287,7 +1225,11 @@ export function executeCustomPlanningAlgorithm(
     wantedActivities: dynamicWantedActivities = null,
     docActivities: dynamicDocActivities = null,
     rotationTemplates: dynamicRotationTemplates = null,
+    conflictResolutionOrder: dataConflictOrder = null,
   } = dynamicData || {};
+
+  // Use conflict resolution order from parameter, or from data, or default
+  const finalConflictOrder = conflictResolutionOrder || dataConflictOrder || ["HTC", "EMIT", "EMATIT", "TeleCs"];
 
   const startTime = Date.now();
   const result = {
@@ -1325,7 +1267,9 @@ export function executeCustomPlanningAlgorithm(
       phase1Result.rotationAssignments,
       cycleType,
       dynamicDoctorProfiles, // ✅ Pass dynamic data to Phase 3
-      dynamicWantedActivities
+      dynamicWantedActivities,
+      finalConflictOrder, // ✅ Pass conflict resolution order
+      dynamicDocActivities // ✅ Pass dynamic docActivities for activity duration modifications
     );
 
     result.phases.phase3 = periodicSchedule;

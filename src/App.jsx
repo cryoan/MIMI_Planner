@@ -8,6 +8,7 @@ import DoctorSettings from './DoctorSettings';
 import ETAWorkloadInfographic from './ETAWorkloadInfographic';
 import PlanningOverview from './PlanningOverview';
 import ScheduleEvaluationRadar from './ScheduleEvaluationRadar';
+import ScenarioComparison from './ScenarioComparison';
 import ExcelExport from './ExcelExport';
 import { rotation_cycles } from './customPlanningLogic.js';
 
@@ -16,6 +17,7 @@ function AppInner({ selectedRotationCycle, setSelectedRotationCycle }) {
   const { customScheduleData, recalculateSchedules } = useContext(ScheduleContext);
   const [showPlanningOverview, setShowPlanningOverview] = useState(true);
   const [showEvaluationRadar, setShowEvaluationRadar] = useState(true);
+  const [showScenarioComparison, setShowScenarioComparison] = useState(true);
 
   const handlePeriodClick = (periodOrName) => {
     console.log('Period clicked:', periodOrName);
@@ -96,7 +98,22 @@ function AppInner({ selectedRotationCycle, setSelectedRotationCycle }) {
       {/* 3. Workload Analysis Charts */}
       <Workload />
 
-      {/* 3.5 Schedule Evaluation Radar */}
+      {/* 3.5 Scenario Comparison */}
+      <div style={{ marginTop: '20px', marginBottom: '20px' }}>
+        <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+          <input
+            type="checkbox"
+            checked={showScenarioComparison}
+            onChange={(e) => setShowScenarioComparison(e.target.checked)}
+            style={{ marginRight: '8px' }}
+          />
+          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Show Scenario Comparison</span>
+        </label>
+
+        {showScenarioComparison && <ScenarioComparison />}
+      </div>
+
+      {/* 3.6 Schedule Evaluation Radar */}
       <div style={{ marginTop: '20px', marginBottom: '20px' }}>
         <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
           <input

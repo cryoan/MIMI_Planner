@@ -84,7 +84,7 @@ const ScheduleEvaluationRadar = () => {
     const workloadCV = calculateCV(workloadValues);
     const workloadScore = normalizeCVToScore(workloadCV);
 
-    // 2. OVERLOAD EQUITY (% of non-overloaded slots)
+    // 2. NON-OVERLOAD COVERAGE (% of non-overloaded slots)
     // Count total slots and non-overloaded slots across all doctors and periods
     let totalSlots = 0;
     let nonOverloadedSlots = 0;
@@ -121,15 +121,15 @@ const ScheduleEvaluationRadar = () => {
       }
     });
 
-    const overloadScore = totalSlots > 0
+    const nonOverloadCoverage = totalSlots > 0
       ? (nonOverloadedSlots / totalSlots) * 100
       : 100;
 
-    // Debug logging for overload equity
-    console.log("🔍 Overload Equity Debug:", {
+    // Debug logging for non-overload coverage
+    console.log("🔍 Non-Overload Coverage Debug:", {
       totalSlots,
       nonOverloadedSlots,
-      overloadScore,
+      nonOverloadCoverage,
       doctorOverloadDetails,
     });
 
@@ -284,7 +284,7 @@ const ScheduleEvaluationRadar = () => {
       workloadScore,
       workloadCV,
       workloadValues: doctorWorkload,
-      overloadScore,
+      nonOverloadCoverage,
       totalSlots,
       nonOverloadedSlots,
       doctorOverloadDetails,
@@ -311,7 +311,7 @@ const ScheduleEvaluationRadar = () => {
   const radarData = {
     labels: [
       "Workload Equity",
-      "Overload Equity",
+      "Non-Overload Coverage",
       "EMIT Coverage",
       "EMATIT Coverage",
       "AMI Coverage",
@@ -322,7 +322,7 @@ const ScheduleEvaluationRadar = () => {
         label: selectedRotationCycle || "Current Schedule",
         data: [
           metrics.workloadScore,
-          metrics.overloadScore,
+          metrics.nonOverloadCoverage,
           metrics.emitCoverage,
           metrics.ematitCoverage,
           metrics.amiCoverage,
@@ -445,7 +445,7 @@ const ScheduleEvaluationRadar = () => {
             </div>
 
             <div style={{ marginBottom: "15px" }}>
-              <strong>2. Overload Equity (Score: {metrics.overloadScore.toFixed(1)}%)</strong>
+              <strong>2. Non-Overload Coverage (Score: {metrics.nonOverloadCoverage.toFixed(1)}%)</strong>
               <p style={{ margin: "5px 0", fontSize: "14px", color: "#666" }}>
                 {metrics.nonOverloadedSlots} / {metrics.totalSlots} slots within capacity
               </p>
@@ -505,7 +505,7 @@ const ScheduleEvaluationRadar = () => {
                   <strong>Workload Equity</strong>: 100 = perfect equality in total hours, 0 = high variance
                 </li>
                 <li>
-                  <strong>Overload Equity</strong>: 100 = all slots within capacity (≤4h), 0 = all slots overloaded
+                  <strong>Non-Overload Coverage</strong>: 100 = all slots within capacity (≤4h), 0 = all slots overloaded
                 </li>
                 <li>
                   <strong>Coverage metrics</strong> (EMIT, EMATIT, AMI, TeleCs): 100 = all
