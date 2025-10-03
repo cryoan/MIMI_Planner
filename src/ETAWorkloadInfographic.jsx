@@ -66,10 +66,21 @@ const ETAWorkloadInfographic = React.memo(() => {
     const { totalTeleCsHours, teleCsPerDoctor } = calculateTeleCsNeeds();
 
     // Count all backbone activities across all doctors
+    // Handle both single backbone and multiple backbones (like DL)
     doctors.forEach((doctorCode) => {
       const doctor = doctorProfiles[doctorCode];
-      if (doctor.backbone) {
-        Object.values(doctor.backbone).forEach((daySchedule) => {
+
+      // Select active backbone using same logic as collectAllBackboneAssignments
+      let activeBackbone = doctor.backbone;
+
+      if (doctor.backbones && !doctor.backbone) {
+        // For doctors with multiple backbones, use first backbone for aggregate view
+        const firstBackboneName = Object.keys(doctor.backbones)[0];
+        activeBackbone = doctor.backbones[firstBackboneName];
+      }
+
+      if (activeBackbone) {
+        Object.values(activeBackbone).forEach((daySchedule) => {
           Object.values(daySchedule).forEach((timeSlotActivities) => {
             timeSlotActivities.forEach((activity) => {
               activityCounts[activity] = (activityCounts[activity] || 0) + 1;
@@ -324,14 +335,14 @@ const ETAWorkloadInfographic = React.memo(() => {
 
     // Calculate total required hours for all activities
     activityOrder.forEach((activity) => {
-      const totalHours = activityHours[activity] || 0;
-      totalRequiredHours += totalHours;
+      const hours = activityHours[activity] || 0;
+      totalRequiredHours += hours;
     });
 
     // Add each activity based on custom order and hour duration
     activityOrder.forEach((activity) => {
-      const totalHours = activityHours[activity] || 0;
-      for (let i = 0; i < totalHours; i++) {
+      const hours = activityHours[activity] || 0;
+      for (let i = 0; i < hours; i++) {
         if (hourArray.length < totalHours) {
           hourArray.push(activity);
         } else {
@@ -353,8 +364,8 @@ const ETAWorkloadInfographic = React.memo(() => {
       // Clear and rebuild array to show all activities
       hourArray.length = 0;
       activityOrder.forEach((activity) => {
-        const totalHours = activityHours[activity] || 0;
-        for (let i = 0; i < totalHours; i++) {
+        const hours = activityHours[activity] || 0;
+        for (let i = 0; i < hours; i++) {
           hourArray.push(activity);
         }
       });
