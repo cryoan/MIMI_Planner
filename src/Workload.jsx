@@ -170,6 +170,10 @@ import {
   Title,
   Tooltip,
   Legend,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
 } from "chart.js";
 import { ScheduleContext } from "./ScheduleContext";
 import { docActivities as activities } from "./doctorSchedules.js"; // Use the correct docActivities
@@ -181,7 +185,11 @@ ChartJS.register(
   BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler
 );
 
 // Predefined sorted activity order

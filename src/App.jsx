@@ -7,6 +7,7 @@ import { DocAgendaSetting } from './DocAgendaSetting';
 import DoctorSettings from './DoctorSettings';
 import ETAWorkloadInfographic from './ETAWorkloadInfographic';
 import PlanningOverview from './PlanningOverview';
+import ScheduleEvaluationRadar from './ScheduleEvaluationRadar';
 import ExcelExport from './ExcelExport';
 import { rotation_cycles } from './customPlanningLogic.js';
 
@@ -14,6 +15,7 @@ import { rotation_cycles } from './customPlanningLogic.js';
 function AppInner({ selectedRotationCycle, setSelectedRotationCycle }) {
   const { customScheduleData, recalculateSchedules } = useContext(ScheduleContext);
   const [showPlanningOverview, setShowPlanningOverview] = useState(true);
+  const [showEvaluationRadar, setShowEvaluationRadar] = useState(true);
 
   const handlePeriodClick = (periodOrName) => {
     console.log('Period clicked:', periodOrName);
@@ -93,6 +95,21 @@ function AppInner({ selectedRotationCycle, setSelectedRotationCycle }) {
 
       {/* 3. Workload Analysis Charts */}
       <Workload />
+
+      {/* 3.5 Schedule Evaluation Radar */}
+      <div style={{ marginTop: '20px', marginBottom: '20px' }}>
+        <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+          <input
+            type="checkbox"
+            checked={showEvaluationRadar}
+            onChange={(e) => setShowEvaluationRadar(e.target.checked)}
+            style={{ marginRight: '8px' }}
+          />
+          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Show Schedule Evaluation Radar</span>
+        </label>
+
+        {showEvaluationRadar && <ScheduleEvaluationRadar />}
+      </div>
 
       {/* 4. Planning Overview with Toggle */}
       <div style={{ marginTop: '20px', marginBottom: '20px' }}>
