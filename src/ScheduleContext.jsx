@@ -36,6 +36,9 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
   // Track current rotation cycle (can be overridden by scenario)
   const [currentRotationCycle, setCurrentRotationCycle] = useState(selectedRotationCycle);
 
+  // Track conflict resolution order (can be overridden by scenario)
+  const [conflictResolutionOrder, setConflictResolutionOrder] = useState(["HTC", "EMIT", "EMATIT", "TeleCs"]);
+
   // Recalculate planning algorithm when data changes
   const recalculateSchedules = useCallback(() => {
     console.log('ScheduleContext: Recalculating schedules with updated data...');
@@ -50,13 +53,14 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
         rotationTemplates
       };
       console.log('   🚀 Passing to algorithm - AMI:', dynamicData.docActivities?.AMI);
-      const customResult = executeCustomPlanningAlgorithm(currentRotationCycle, dynamicData);
+      console.log('   🚀 Conflict resolution order:', conflictResolutionOrder);
+      const customResult = executeCustomPlanningAlgorithm(currentRotationCycle, dynamicData, conflictResolutionOrder);
       setCustomScheduleData(customResult);
       setRecalculationTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Error recalculating schedules:', error);
     }
-  }, [currentRotationCycle, doctorProfiles, wantedActivities, docActivities, rotationTemplates]);
+  }, [currentRotationCycle, doctorProfiles, wantedActivities, docActivities, rotationTemplates, conflictResolutionOrder]);
 
   // Trigger recalculation when data or rotation cycle changes
   useEffect(() => {
@@ -201,6 +205,7 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
     setRotationTemplates(modifiedConfig.rotationTemplates || initialRotationTemplates);
     setExpectedActivities(modifiedConfig.expectedActivities || initialExpectedActivities);
     setCurrentRotationCycle(modifiedConfig.rotationCycle || selectedRotationCycle);
+    setConflictResolutionOrder(modifiedConfig.conflictResolutionOrder || ["HTC", "EMIT", "EMATIT", "TeleCs"]);
 
     // Mark this scenario as active
     setActiveScenarioId(scenarioId);
@@ -223,7 +228,7 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
 
     // If this is the active scenario, return current metrics
     if (scenarioId === activeScenarioId && customScheduleData) {
-      const metrics = calculateMetricsFromScheduleData(customScheduleData);
+      const metrics = calculateMetricsFromScheduleData(customScheduleData, docActivities);
       scenarioResultsCache.current[scenarioId] = metrics;
       return metrics;
     }
@@ -274,17 +279,20 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
     const result = executeCustomPlanningAlgorithm(cycleToUse, dynamicData, modifiedConfig.conflictResolutionOrder);
 
     // Calculate and cache metrics in ref (no setState during render)
-    const metrics = calculateMetricsFromScheduleData(result);
+    // Use the modified docActivities from this scenario to calculate metrics
+    const metrics = calculateMetricsFromScheduleData(result, modifiedConfig.docActivities);
     scenarioResultsCache.current[scenarioId] = metrics;
 
     return metrics;
-  }, [activeScenarioId, customScheduleData, selectedRotationCycle]);
+  }, [activeScenarioId, customScheduleData, selectedRotationCycle, docActivities]);
 
   /**
    * Calculate metrics from schedule data
    * Extracted from ScheduleEvaluationRadar logic
+   * @param {Object} scheduleData - The schedule data to calculate metrics from
+   * @param {Object} docActivitiesForMetrics - The docActivities used to generate this schedule
    */
-  const calculateMetricsFromScheduleData = useCallback((scheduleData) => {
+  const calculateMetricsFromScheduleData = useCallback((scheduleData, docActivitiesForMetrics) => {
     if (!scheduleData || !scheduleData.periodicSchedule) {
       return {
         workloadScore: 0,
@@ -323,7 +331,7 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
             Object.values(daySchedule).forEach((activities) => {
               if (Array.isArray(activities)) {
                 activities.forEach((activity) => {
-                  const activityData = docActivities[activity];
+                  const activityData = docActivitiesForMetrics[activity];
                   if (activityData && activityData.duration) {
                     doctorWorkload[doctor] += activityData.duration;
                   }
@@ -348,7 +356,7 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
               if (Array.isArray(activities) && !activities.includes("TP")) {
                 totalSlots++;
                 const totalDuration = activities.reduce((sum, activity) => {
-                  const activityData = docActivities[activity];
+                  const activityData = docActivitiesForMetrics[activity];
                   return sum + (activityData?.duration || 1);
                 }, 0);
                 if (totalDuration <= 4) nonOverloadedSlots++;
@@ -401,7 +409,7 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
       amiCoverage,
       telecsCoverage
     };
-  }, [expectedActivities, docActivities, doctorProfiles]);
+  }, [expectedActivities, doctorProfiles]);
 
   return (
     <ScheduleContext.Provider value={{
@@ -436,7 +444,8 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
       activeScenarioId,
       applyScenario,
       getScenarioMetrics,
-      currentRotationCycle
+      currentRotationCycle,
+      conflictResolutionOrder
     }}>
       {children}
     </ScheduleContext.Provider>
