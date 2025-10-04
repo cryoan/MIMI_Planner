@@ -30,6 +30,11 @@ This is a React + Vite application for medical scheduling management called "MIM
 - `ScheduleContext.jsx` - React Context for managing schedule state across components
 - `schedule.jsx` - Contains core scheduling logic, activity definitions, and doctor schedule configurations
 
+**Scenario System:**
+- `ScenarioComparison.jsx` - Scenario comparison component with radar chart visualization
+- `scenarioConfigs.json` - Scenario definitions with configuration changes
+- `scenarioEngine.js` - Applies scenario changes to base configuration
+
 ### Key Features
 
 1. **Medical Activity Scheduling**: Manages different medical activities (HTC1, HTC2, EMIT, HDJ, AMI, etc.) with specific time slots (9am-1pm, 2pm-6pm)
@@ -43,6 +48,12 @@ This is a React + Vite application for medical scheduling management called "MIM
 5. **Excel Export**: Allows exporting schedule data to Excel format
 
 6. **Public Holiday Integration**: Uses `publicHolidays.js` for holiday management
+
+7. **Scenario Comparison System**: Dynamic scenario management with visual comparison
+   - Multiple pre-configured scenarios (AMI duration changes, conflict resolution order, rotation cycles, etc.)
+   - Real-time metrics calculation (workload equity, activity coverage, TeleCs coverage)
+   - Radar chart visualization for comparing scenarios side-by-side
+   - Apply scenarios to reconfigure the entire schedule dynamically
 
 ### Technical Details
 

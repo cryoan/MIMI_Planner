@@ -13,7 +13,7 @@
       "color": "rgba(255, 99, 132, 0.6)",
       "description": "Resolve TeleCs assignments before other activities to ensure teleconsultation coverage",
       "changes": {
-        "conflictResolutionOrder": ["HTC", "TeleCs", "EMIT", "EMATIT"]
+        "conflictResolutionOrder": ["TeleCs", "HTC", "EMIT", "EMATIT"]
       }
     },
     {

@@ -226,10 +226,9 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
       return scenarioResultsCache.current[scenarioId];
     }
 
-    // If this is the active scenario, return current metrics
+    // If this is the active scenario, return current metrics (don't cache to avoid race conditions)
     if (scenarioId === activeScenarioId && customScheduleData) {
       const metrics = calculateMetricsFromScheduleData(customScheduleData, docActivities);
-      scenarioResultsCache.current[scenarioId] = metrics;
       return metrics;
     }
 
@@ -368,10 +367,53 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
     });
     const nonOverloadCoverage = totalSlots > 0 ? (nonOverloadedSlots / totalSlots) * 100 : 100;
 
-    // 3-5. Activity Coverage (simplified - returns 100 for now)
-    const emitCoverage = 100;
-    const ematitCoverage = 100;
-    const amiCoverage = 100;
+    // 3-5. Activity Coverage
+    const calculateActivityCoverage = (activityName) => {
+      const numPeriods = Object.keys(periodicSchedule).length;
+
+      // Count required slots per period from expectedActivities
+      let requiredPerPeriod = 0;
+      Object.values(expectedActivities).forEach((daySchedule) => {
+        Object.values(daySchedule).forEach((slotActivities) => {
+          if (Array.isArray(slotActivities)) {
+            requiredPerPeriod += slotActivities.filter(act => act === activityName).length;
+          }
+        });
+      });
+
+      const totalRequired = requiredPerPeriod * numPeriods;
+
+      // Count missing activities from periodicSchedule
+      let totalMissing = 0;
+      const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+      const slots = ["9am-1pm", "2pm-6pm"];
+
+      Object.values(periodicSchedule).forEach((periodData) => {
+        if (periodData.schedule) {
+          days.forEach((day) => {
+            slots.forEach((slot) => {
+              const assigned = [];
+              Object.values(periodData.schedule).forEach((doctorSchedule) => {
+                if (doctorSchedule[day]?.[slot]) {
+                  assigned.push(...doctorSchedule[day][slot]);
+                }
+              });
+
+              const expected = expectedActivities?.[day]?.[slot] || [];
+              const missing = expected.filter(act => act === activityName && !assigned.includes(act));
+              totalMissing += missing.length;
+            });
+          });
+        }
+      });
+
+      const totalAssigned = totalRequired - totalMissing;
+      return totalRequired > 0 ? Math.min((totalAssigned / totalRequired) * 100, 100) : 100;
+    };
+
+    const emitCoverage = calculateActivityCoverage("EMIT");
+    const ematitCoverage = calculateActivityCoverage("EMATIT");
+    const amiCoverage = calculateActivityCoverage("AMI");
 
     // 6. TeleCs Coverage (HYBRID APPROACH matching ScheduleEvaluationRadar)
     // METHOD 1: Calculate total needed from doctor profile requirements (DENOMINATOR)
