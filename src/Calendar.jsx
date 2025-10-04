@@ -521,7 +521,6 @@ import {
 import { testCustomPlanningLogic, quickValidation } from './testCustomLogic.js';
 import { realTimeDb } from './firebase';
 import { publicHolidays } from './publicHolidays.js'; // Import the holidays JSON file
-import { docActivities } from './doctorSchedules.js'; // Import activities for durations
 import { ScheduleContext } from './ScheduleContext';
 
 console.log('Public Holidays Structure:', publicHolidays);
@@ -686,6 +685,7 @@ const Calendar = ({ year = 2024, month = 'Month1', selectedRotationCycle, setSel
   const customScheduleData = scheduleContext?.customScheduleData || null;
   const recalculationTrigger = scheduleContext?.recalculationTrigger || 0;
   const expectedActivities = scheduleContext?.expectedActivities || {};
+  const docActivities = scheduleContext?.docActivities || {};
 
   // Fallback to local state if props are not provided (for backward compatibility)
   const [localSelectedRotationCycle, setLocalSelectedRotationCycle] = useState(Object.keys(rotation_cycles)[0]);

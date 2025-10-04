@@ -12,26 +12,32 @@ const ScenarioComparison = () => {
     getScenarioMetrics
   } = useContext(ScheduleContext);
 
-  // Scenario visibility state (all visible by default)
+  // Scenario visibility state (only Base Configuration visible by default)
   const [visibleScenarios, setVisibleScenarios] = useState(() => {
     const initial = {};
     scenarioConfigsData.scenarios.forEach(scenario => {
-      initial[scenario.id] = true;
+      initial[scenario.id] = scenario.id === 'base';
     });
     return initial;
   });
 
-  // Compute metrics for all visible scenarios
-  const scenarioMetrics = useMemo(() => {
+  // Store computed metrics in local state
+  const [scenarioMetrics, setScenarioMetrics] = useState({});
+
+  // Compute metrics for visible scenarios asynchronously (avoid setState during render)
+  useEffect(() => {
     const metrics = {};
 
     scenarioConfigsData.scenarios.forEach(scenario => {
       if (visibleScenarios[scenario.id]) {
-        metrics[scenario.id] = getScenarioMetrics(scenario.id);
+        const result = getScenarioMetrics(scenario.id);
+        if (result) {
+          metrics[scenario.id] = result;
+        }
       }
     });
 
-    return metrics;
+    setScenarioMetrics(metrics);
   }, [visibleScenarios, getScenarioMetrics]);
 
   // Toggle scenario visibility in chart
@@ -178,7 +184,9 @@ const ScenarioComparison = () => {
                 style={{
                   padding: '15px',
                   backgroundColor: isActive ? '#e3f2fd' : 'white',
-                  border: isActive ? '2px solid #2196F3' : '1px solid #ddd',
+                  borderTop: isActive ? '2px solid #2196F3' : '1px solid #ddd',
+                  borderRight: isActive ? '2px solid #2196F3' : '1px solid #ddd',
+                  borderBottom: isActive ? '2px solid #2196F3' : '1px solid #ddd',
                   borderRadius: '5px',
                   borderLeft: `5px solid ${color.replace('0.6', '1')}`,
                 }}

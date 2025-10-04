@@ -154,17 +154,19 @@ function deepClone(obj) {
 }
 
 // Helper function to calculate total duration of activities in a time slot
-function calculateSlotDuration(activities) {
+function calculateSlotDuration(activities, dynamicDocActivities = null) {
+  const activitiesData = dynamicDocActivities || docActivities;
+
   if (!Array.isArray(activities)) {
     return 0;
   }
 
   return activities.reduce((total, activity) => {
-    const activityInfo = docActivities[activity];
+    const activityInfo = activitiesData[activity];
     if (activityInfo && typeof activityInfo.duration === "number") {
       return total + activityInfo.duration;
     }
-    // If activity not found in docActivities, assume it takes 4 hours (full slot)
+    // If activity not found in docActivities, assume 4 hours (full slot)
     // This is a conservative approach for unknown activities
     console.warn(
       `Activity "${activity}" not found in docActivities, assuming 4 hours duration`
@@ -176,7 +178,8 @@ function calculateSlotDuration(activities) {
 // Helper function to collect all backbone assignments across all doctors
 function collectAllBackboneAssignments(
   dynamicDoctorProfiles = null,
-  periodIndex = null
+  periodIndex = null,
+  dynamicDocActivities = null
 ) {
   const profilesData = dynamicDoctorProfiles || doctorProfiles;
   const assignments = {};
@@ -226,7 +229,10 @@ function collectAllBackboneAssignments(
             assignments[day][timeSlot].activities.push(...backboneActivities);
 
             // Calculate used capacity
-            const slotDuration = calculateSlotDuration(backboneActivities);
+            const slotDuration = calculateSlotDuration(
+              backboneActivities,
+              dynamicDocActivities
+            );
             assignments[day][timeSlot].usedCapacity += slotDuration;
             assignments[day][timeSlot].remainingCapacity = Math.max(
               0,
@@ -246,9 +252,11 @@ export function computeRemainingRotationTasks(
   templateName,
   dynamicWantedActivities = null,
   dynamicDoctorProfiles = null,
-  periodIndex = null
+  periodIndex = null,
+  dynamicDocActivities = null
 ) {
   const activitiesData = dynamicWantedActivities || wantedActivities;
+  const docActivitiesData = dynamicDocActivities || docActivities;
 
   // Get the base template from wantedActivities
   const baseTemplate = activitiesData[templateName];
@@ -260,7 +268,8 @@ export function computeRemainingRotationTasks(
   // Get all current backbone assignments (with period-specific backbones)
   const backboneAssignments = collectAllBackboneAssignments(
     dynamicDoctorProfiles,
-    periodIndex
+    periodIndex,
+    dynamicDocActivities
   );
 
   // Create the remaining tasks template
@@ -287,7 +296,7 @@ export function computeRemainingRotationTasks(
       let usedCapacity = 0;
 
       for (const activity of remainingActivities) {
-        const activityDuration = docActivities[activity]?.duration || 4;
+        const activityDuration = docActivitiesData[activity]?.duration || 4;
 
         // Only add if it fits in remaining capacity
         if (usedCapacity + activityDuration <= remainingCapacity) {
@@ -586,8 +595,11 @@ function mergeTemplateWithBackbone(
   backbone,
   computedRemainingTasks = null,
   doctorCode = null,
-  dynamicDoctorProfiles = null
+  dynamicDoctorProfiles = null,
+  dynamicDocActivities = null
 ) {
+  const docActivitiesData = dynamicDocActivities || docActivities;
+
   // Use computed remaining tasks if provided, otherwise fall back to static template
   const template = computedRemainingTasks || rotationTemplates[templateName];
   if (!template) {
@@ -664,7 +676,8 @@ function mergeTemplateWithBackbone(
             let usedCapacity = 0;
 
             for (const activity of nonSpecialActivities) {
-              const activityDuration = docActivities[activity]?.duration || 4;
+              const activityDuration =
+                docActivitiesData[activity]?.duration || 4;
 
               if (usedCapacity + activityDuration <= remainingCapacity) {
                 activitiesToAdd.push(activity);
@@ -688,7 +701,8 @@ function mergeTemplateWithBackbone(
             let usedCapacity = 0;
 
             for (const activity of templateActivities) {
-              const activityDuration = docActivities[activity]?.duration || 4;
+              const activityDuration =
+                docActivitiesData[activity]?.duration || 4;
 
               // Only add if it fits in remaining capacity
               if (usedCapacity + activityDuration <= remainingCapacity) {
@@ -718,7 +732,8 @@ export function generateDoctorRotations(
   doctorCode,
   dynamicDoctorProfiles = null,
   dynamicWantedActivities = null,
-  periodIndex = null
+  periodIndex = null,
+  dynamicDocActivities = null
 ) {
   const profilesData = dynamicDoctorProfiles || doctorProfiles;
   const activitiesData = dynamicWantedActivities || wantedActivities;
@@ -761,7 +776,8 @@ export function generateDoctorRotations(
         templateName,
         activitiesData,
         dynamicDoctorProfiles,
-        periodIndex
+        periodIndex,
+        dynamicDocActivities
       );
       // Generate rotation from remaining tasks + backbone
       const baseRotation = mergeTemplateWithBackbone(
@@ -769,7 +785,8 @@ export function generateDoctorRotations(
         activeBackbone,
         remainingTasks,
         doctorCode,
-        dynamicDoctorProfiles
+        dynamicDoctorProfiles,
+        dynamicDocActivities
       );
       generatedRotations[templateName] = baseRotation;
     } else {

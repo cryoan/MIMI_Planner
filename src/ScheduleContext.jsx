@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useDocSchedule } from './schedule';
 import { executeCustomPlanningAlgorithm, generateCustomPlanningReport } from './customPlanningLogic.js';
 import {
@@ -22,6 +22,9 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
   const [activeScenarioId, setActiveScenarioId] = useState('base');
   const [scenarioResults, setScenarioResults] = useState({});
 
+  // Use ref for caching to avoid setState during render
+  const scenarioResultsCache = useRef({});
+
   // Editable data state
   const [doctorProfiles, setDoctorProfiles] = useState(() => initialDoctorProfiles);
   const [docActivities, setDocActivities] = useState(() => initialDocActivities);
@@ -36,6 +39,8 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
   // Recalculate planning algorithm when data changes
   const recalculateSchedules = useCallback(() => {
     console.log('ScheduleContext: Recalculating schedules with updated data...');
+    console.log('   FL backbone in recalculate:', doctorProfiles?.FL?.backbone);
+    console.log('   AMI duration in recalculate:', docActivities?.AMI);
     try {
       // Pass dynamic data to the algorithm
       const dynamicData = {
@@ -44,6 +49,7 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
         docActivities,
         rotationTemplates
       };
+      console.log('   🚀 Passing to algorithm - AMI:', dynamicData.docActivities?.AMI);
       const customResult = executeCustomPlanningAlgorithm(currentRotationCycle, dynamicData);
       setCustomScheduleData(customResult);
       setRecalculationTrigger(prev => prev + 1);
@@ -185,6 +191,10 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
     });
 
     // Update all state with modified configuration
+    console.log('🔄 Updating state with modified config...');
+    console.log('   FL backbone BEFORE state update:', modifiedConfig.doctorProfiles?.FL?.backbone);
+    console.log('   AMI duration BEFORE state update:', modifiedConfig.docActivities?.AMI);
+
     setDoctorProfiles(modifiedConfig.doctorProfiles || initialDoctorProfiles);
     setDocActivities(modifiedConfig.docActivities || initialDocActivities);
     setWantedActivities(modifiedConfig.wantedActivities || initialWantedActivities);
@@ -195,8 +205,10 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
     // Mark this scenario as active
     setActiveScenarioId(scenarioId);
 
+    // Clear scenario cache when switching scenarios
+    scenarioResultsCache.current = {};
+
     console.log(`✅ Scenario ${scenarioId} applied successfully`);
-    console.log('🔍 Verify docActivities after state update:', docActivities);
   }, [selectedRotationCycle]);
 
   /**
@@ -204,14 +216,16 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
    * Used for chart overlay comparison
    */
   const getScenarioMetrics = useCallback((scenarioId) => {
-    // Check if we have cached results for this scenario
-    if (scenarioResults[scenarioId]) {
-      return scenarioResults[scenarioId];
+    // Check if we have cached results for this scenario (use ref to avoid setState during render)
+    if (scenarioResultsCache.current[scenarioId]) {
+      return scenarioResultsCache.current[scenarioId];
     }
 
     // If this is the active scenario, return current metrics
     if (scenarioId === activeScenarioId && customScheduleData) {
-      return calculateMetricsFromScheduleData(customScheduleData);
+      const metrics = calculateMetricsFromScheduleData(customScheduleData);
+      scenarioResultsCache.current[scenarioId] = metrics;
+      return metrics;
     }
 
     // Otherwise, we need to compute this scenario
@@ -259,15 +273,12 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
 
     const result = executeCustomPlanningAlgorithm(cycleToUse, dynamicData, modifiedConfig.conflictResolutionOrder);
 
-    // Calculate and cache metrics
+    // Calculate and cache metrics in ref (no setState during render)
     const metrics = calculateMetricsFromScheduleData(result);
-    setScenarioResults(prev => ({
-      ...prev,
-      [scenarioId]: metrics
-    }));
+    scenarioResultsCache.current[scenarioId] = metrics;
 
     return metrics;
-  }, [scenarioResults, activeScenarioId, customScheduleData, selectedRotationCycle]);
+  }, [activeScenarioId, customScheduleData, selectedRotationCycle]);
 
   /**
    * Calculate metrics from schedule data

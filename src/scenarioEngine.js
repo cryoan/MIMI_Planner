@@ -61,14 +61,19 @@ function setByPath(obj, path, value) {
   const keys = path.split('.');
   let current = obj;
 
+  console.log(`🔧 setByPath called: path="${path}", value=${JSON.stringify(value)}`);
+  console.log(`   Keys to traverse: [${keys.join(', ')}]`);
+
   for (let i = 0; i < keys.length - 1; i++) {
     const key = keys[i];
+    console.log(`   Step ${i}: Accessing key="${key}", current[${key}] type=${typeof current[key]}`);
 
     // Validate that we're not creating invalid paths
     if (current[key] === null || current[key] === undefined) {
       // Create intermediate object only if parent exists
       if (typeof current === 'object' && current !== null) {
         current[key] = {};
+        console.log(`   Created intermediate object at "${key}"`);
       } else {
         console.error(`Cannot set property '${key}' on non-object at path: ${keys.slice(0, i).join('.')}`);
         return;
@@ -82,7 +87,10 @@ function setByPath(obj, path, value) {
   }
 
   const finalKey = keys[keys.length - 1];
+  console.log(`   Final step: Setting "${finalKey}" = ${JSON.stringify(value)}`);
+  console.log(`   Before: current[${finalKey}] = ${JSON.stringify(current[finalKey])}`);
   current[finalKey] = value;
+  console.log(`   After: current[${finalKey}] = ${JSON.stringify(current[finalKey])}`);
 
   console.log(`✅ Set ${path} = ${JSON.stringify(value)}`);
 }
@@ -172,7 +180,7 @@ export function applyScenarioChanges(baseConfig, scenario) {
   console.log('🔍 Base config before changes:', {
     docActivitiesKeys: Object.keys(modifiedConfig.docActivities || {}),
     doctorProfilesKeys: Object.keys(modifiedConfig.doctorProfiles || {}),
-    sampleAMI: modifiedConfig.docActivities?.AMI
+    AMI_BEFORE: modifiedConfig.docActivities?.AMI
   });
 
   // Apply each change
@@ -187,8 +195,9 @@ export function applyScenarioChanges(baseConfig, scenario) {
 
   console.log('🔍 Modified config after changes:', {
     docActivitiesKeys: Object.keys(modifiedConfig.docActivities || {}),
-    sampleAMI: modifiedConfig.docActivities?.AMI,
-    conflictResolutionOrder: modifiedConfig.conflictResolutionOrder
+    AMI_AFTER: modifiedConfig.docActivities?.AMI,
+    conflictResolutionOrder: modifiedConfig.conflictResolutionOrder,
+    FLBackbone: modifiedConfig.doctorProfiles?.FL?.backbone
   });
 
   return modifiedConfig;

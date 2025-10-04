@@ -70,6 +70,18 @@
       "changes": {
         "rotationCycle": "NoMG"
       }
+    },
+    {
+      "id": "fl_tp_thursday",
+      "name": "FL TP Thursday",
+      "color": "rgba(255, 99, 71, 0.6)",
+      "description": "Change FL doctor's TP (Travail Personnel) day from Wednesday to Thursday",
+      "changes": {
+        "doctorProfiles.FL.backbone.Wednesday.9am-1pm": ["replace", []],
+        "doctorProfiles.FL.backbone.Wednesday.2pm-6pm": ["replace", []],
+        "doctorProfiles.FL.backbone.Thursday.9am-1pm": ["replace", ["TP"]],
+        "doctorProfiles.FL.backbone.Thursday.2pm-6pm": ["replace", ["TP"]]
+      }
     }
   ]
 }

@@ -580,7 +580,8 @@ const hasMultipleRotations = (doctorCode, profilesData = null) => {
  */
 export function assignRigidDoctors(
   dynamicDoctorProfiles = null,
-  dynamicWantedActivities = null
+  dynamicWantedActivities = null,
+  dynamicDocActivities = null
 ) {
   console.log("Phase 1.1: Assignation des médecins rigides...");
 
@@ -614,7 +615,9 @@ export function assignRigidDoctors(
       const generatedRotations = generateDoctorRotations(
         doctorCode,
         dynamicDoctorProfiles,
-        dynamicWantedActivities
+        dynamicWantedActivities,
+        null,
+        dynamicDocActivities
       );
 
       if (generatedRotations[rotationName]) {
@@ -740,14 +743,16 @@ export function selectUniqueRotationPairs(
  */
 export function createBaseScheduling(
   dynamicDoctorProfiles = null,
-  dynamicWantedActivities = null
+  dynamicWantedActivities = null,
+  dynamicDocActivities = null
 ) {
   console.log("Phase 1: Constitution du planning de base...");
 
   // Phase 1.1: Médecins rigides
   const rigidResult = assignRigidDoctors(
     dynamicDoctorProfiles,
-    dynamicWantedActivities
+    dynamicWantedActivities,
+    dynamicDocActivities
   );
 
   // Phase 1.2: Médecins souples
@@ -766,7 +771,9 @@ export function createBaseScheduling(
         const generatedRotations = generateDoctorRotations(
           doctorCode,
           dynamicDoctorProfiles,
-          dynamicWantedActivities
+          dynamicWantedActivities,
+          null,
+          dynamicDocActivities
         );
 
         if (generatedRotations[rotationName]) {
@@ -949,7 +956,8 @@ export function createPeriodicVariations(
           doctor,
           dynamicDoctorProfiles,
           dynamicWantedActivities,
-          periodIndex
+          periodIndex,
+          dynamicDocActivities
         );
 
         if (generatedRotations[activity]) {
@@ -978,7 +986,8 @@ export function createPeriodicVariations(
           "DL",
           dynamicDoctorProfiles,
           dynamicWantedActivities,
-          periodIndex
+          periodIndex,
+          dynamicDocActivities
         );
         if (generatedRotations[selectedRotation]) {
           periodSchedule["DL"] = deepClone(generatedRotations[selectedRotation]);
@@ -1228,6 +1237,8 @@ export function executeCustomPlanningAlgorithm(
     conflictResolutionOrder: dataConflictOrder = null,
   } = dynamicData || {};
 
+  console.log('📥 executeCustomPlanningAlgorithm received dynamicDocActivities.AMI:', dynamicDocActivities?.AMI);
+
   // Use conflict resolution order from parameter, or from data, or default
   const finalConflictOrder = conflictResolutionOrder || dataConflictOrder || ["HTC", "EMIT", "EMATIT", "TeleCs"];
 
@@ -1246,7 +1257,8 @@ export function executeCustomPlanningAlgorithm(
     console.log("\n📋 PHASE 1: Constitution progressive du planning");
     const phase1Result = createBaseScheduling(
       dynamicDoctorProfiles,
-      dynamicWantedActivities
+      dynamicWantedActivities,
+      dynamicDocActivities
     );
     result.phases.phase1 = phase1Result;
 

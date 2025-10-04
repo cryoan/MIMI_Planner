@@ -4,7 +4,6 @@ import { fr } from "date-fns/locale";
 import { activityColors } from "./schedule";
 import { ScheduleContext } from "./ScheduleContext";
 import { rotation_cycles } from "./customPlanningLogic";
-import { docActivities, doctorProfiles } from "./doctorSchedules";
 
 const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -17,6 +16,8 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
   const scheduleContext = React.useContext(ScheduleContext);
   const expectedActivities = scheduleContext?.expectedActivities || {};
   const selectedRotationCycle = scheduleContext?.selectedRotationCycle || "honeymoon_NS_noHDJ";
+  const docActivities = scheduleContext?.docActivities || {};
+  const doctorProfiles = scheduleContext?.doctorProfiles || {};
 
   // Get periods directly from custom planning logic results
   const getPeriods = () => {
