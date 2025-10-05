@@ -34,15 +34,7 @@
         "rotationCycle": "honeymoon_NS_HDJ"
       }
     },
-    {
-      "id": "fl_extended_skills",
-      "name": "FL Extended Skills",
-      "color": "rgba(153, 102, 255, 0.6)",
-      "description": "Add HTC2 skills to FL doctor profile for more flexibility",
-      "changes": {
-        "doctorProfiles.FL.skills": ["add", "HTC2"]
-      }
-    },
+
     {
       "id": "emergency_cycle",
       "name": "Emergency Coverage Cycle",
@@ -81,6 +73,24 @@
         "doctorProfiles.FL.backbone.Wednesday.2pm-6pm": ["replace", []],
         "doctorProfiles.FL.backbone.Thursday.9am-1pm": ["replace", ["TP"]],
         "doctorProfiles.FL.backbone.Thursday.2pm-6pm": ["replace", ["TP"]]
+      }
+    },
+    {
+      "id": "bm_emit_mon_thu",
+      "name": "BM EMIT Monday/Thursday",
+      "color": "rgba(139, 195, 74, 0.6)",
+      "description": "Change BM's EMIT days from Thursday/Friday to Monday/Thursday with TP on other days",
+      "changes": {
+        "doctorProfiles.BM.backbone.Monday.9am-1pm": ["replace", ["EMIT"]],
+        "doctorProfiles.BM.backbone.Monday.2pm-6pm": ["replace", ["EMIT"]],
+        "doctorProfiles.BM.backbone.Tuesday.9am-1pm": ["replace", ["TP"]],
+        "doctorProfiles.BM.backbone.Tuesday.2pm-6pm": ["replace", ["TP"]],
+        "doctorProfiles.BM.backbone.Wednesday.9am-1pm": ["replace", ["TP"]],
+        "doctorProfiles.BM.backbone.Wednesday.2pm-6pm": ["replace", ["TP"]],
+        "doctorProfiles.BM.backbone.Thursday.9am-1pm": ["replace", ["EMIT"]],
+        "doctorProfiles.BM.backbone.Thursday.2pm-6pm": ["replace", ["EMIT"]],
+        "doctorProfiles.BM.backbone.Friday.9am-1pm": ["replace", ["TP"]],
+        "doctorProfiles.BM.backbone.Friday.2pm-6pm": ["replace", ["TP"]]
       }
     }
   ]
