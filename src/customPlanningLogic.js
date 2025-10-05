@@ -1,4 +1,8 @@
-import { doctorProfiles, generateDoctorRotations, docActivities } from "./doctorSchedules.js";
+import {
+  doctorProfiles,
+  generateDoctorRotations,
+  docActivities,
+} from "./doctorSchedules.js";
 import { expectedActivities as staticExpectedActivities } from "./schedule.jsx";
 import {
   resolveHTCConflicts,
@@ -7,7 +11,7 @@ import {
   resolveTeleCsConflicts,
   calculateCumulativeWorkloadPerDoctor,
   setDynamicDocActivities,
-  resetDocActivities
+  resetDocActivities,
 } from "./activityConflictResolver.js";
 
 // Custom Planning Logic - Algorithme de Planification Médical Progressif et Fiable
@@ -271,19 +275,24 @@ export const rotation_cycles = {
  * @param {Object} resolvedSchedule - Schedule after conflict resolution (HTC or EMIT)
  * @param {Object} baseSchedule - Original schedule before resolution
  */
-function updateDynamicWorkload(dynamicWorkload, resolvedSchedule, baseSchedule) {
+function updateDynamicWorkload(
+  dynamicWorkload,
+  resolvedSchedule,
+  baseSchedule
+) {
   const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const SLOTS = ["9am-1pm", "2pm-6pm"];
 
   Object.keys(resolvedSchedule).forEach((doctor) => {
     DAYS.forEach((day) => {
       SLOTS.forEach((slot) => {
-        const resolvedActivities = resolvedSchedule[doctor]?.[day]?.[slot] || [];
+        const resolvedActivities =
+          resolvedSchedule[doctor]?.[day]?.[slot] || [];
         const baseActivities = baseSchedule[doctor]?.[day]?.[slot] || [];
 
         // Find newly added activities (in resolved but not in base)
         const addedActivities = resolvedActivities.filter(
-          activity => !baseActivities.includes(activity)
+          (activity) => !baseActivities.includes(activity)
         );
 
         // Add their duration to the dynamic workload
@@ -881,7 +890,10 @@ export function createPeriodicVariations(
 
   // Set dynamic docActivities for conflict resolution
   if (dynamicDocActivities) {
-    console.log("🎯 Setting dynamic docActivities for conflict resolution:", dynamicDocActivities);
+    console.log(
+      "🎯 Setting dynamic docActivities for conflict resolution:",
+      dynamicDocActivities
+    );
     setDynamicDocActivities(dynamicDocActivities);
   }
 
@@ -891,9 +903,15 @@ export function createPeriodicVariations(
 
   // Validate conflict resolution order
   const requiredResolvers = ["HTC", "EMIT", "EMATIT", "TeleCs"];
-  const missingResolvers = requiredResolvers.filter(r => !conflictResolutionOrder.includes(r));
+  const missingResolvers = requiredResolvers.filter(
+    (r) => !conflictResolutionOrder.includes(r)
+  );
   if (missingResolvers.length > 0) {
-    console.warn(`⚠️ Missing conflict resolvers: ${missingResolvers.join(', ')}. Using default order.`);
+    console.warn(
+      `⚠️ Missing conflict resolvers: ${missingResolvers.join(
+        ", "
+      )}. Using default order.`
+    );
     conflictResolutionOrder = ["HTC", "EMIT", "EMATIT", "TeleCs"];
   }
 
@@ -943,7 +961,10 @@ export function createPeriodicVariations(
     });
 
     // 2. Appliquer le système HoneyMoon pour les médecins flexibles
-    const newFlexibleAssignments = applyHoneyMoonRotation(periodIndex, cycleType);
+    const newFlexibleAssignments = applyHoneyMoonRotation(
+      periodIndex,
+      cycleType
+    );
     console.log(
       `🔍 ${period.name} - Flexible assignments to apply:`,
       newFlexibleAssignments
@@ -979,7 +1000,8 @@ export function createPeriodicVariations(
       doctorProfiles["DL"]?.rotationSetting?.length === 2
     ) {
       const backboneIndex = periodIndex % 2;
-      const selectedRotation = doctorProfiles["DL"].rotationSetting[backboneIndex];
+      const selectedRotation =
+        doctorProfiles["DL"].rotationSetting[backboneIndex];
 
       try {
         const generatedRotations = generateDoctorRotations(
@@ -990,7 +1012,9 @@ export function createPeriodicVariations(
           dynamicDocActivities
         );
         if (generatedRotations[selectedRotation]) {
-          periodSchedule["DL"] = deepClone(generatedRotations[selectedRotation]);
+          periodSchedule["DL"] = deepClone(
+            generatedRotations[selectedRotation]
+          );
           console.log(`  🏥 DL backbone alternance: ${selectedRotation}`);
         }
       } catch (error) {
@@ -1006,26 +1030,36 @@ export function createPeriodicVariations(
   });
 
   // Calculate full-cycle baseline workload BEFORE any conflict resolution
-  console.log("\n📊 Calculating full-cycle baseline workload (before conflict resolution)...");
-  const baselineCumulativeWorkload = calculateCumulativeWorkloadPerDoctor(basePeriodicSchedule);
-  console.log("📊 Baseline workload across all periods:", baselineCumulativeWorkload);
+  console.log(
+    "\n📊 Calculating full-cycle baseline workload (before conflict resolution)..."
+  );
+  const baselineCumulativeWorkload =
+    calculateCumulativeWorkloadPerDoctor(basePeriodicSchedule);
+  console.log(
+    "📊 Baseline workload across all periods:",
+    baselineCumulativeWorkload
+  );
 
   // ===========================================================================
   // PASS 2: Apply conflict resolution with full-cycle workload visibility
   // HTC resolution runs first, then EMIT resolution sees HTC adjustments
   // ===========================================================================
-  console.log("\n🔄 PASS 2: Applying conflict resolution with full-cycle fairness...");
+  console.log(
+    "\n🔄 PASS 2: Applying conflict resolution with full-cycle fairness..."
+  );
   const finalPeriodicSchedule = {};
 
   // Clone baseline workload - will be updated as we add HTC/EMIT assignments
-  const dynamicCumulativeWorkload = JSON.parse(JSON.stringify(baselineCumulativeWorkload));
+  const dynamicCumulativeWorkload = JSON.parse(
+    JSON.stringify(baselineCumulativeWorkload)
+  );
 
   // Map resolver names to functions
   const resolverFunctions = {
     HTC: resolveHTCConflicts,
     EMIT: resolveEMITConflicts,
     EMATIT: resolveEMATITConflicts,
-    TeleCs: resolveTeleCsConflicts
+    TeleCs: resolveTeleCsConflicts,
   };
 
   rotationPeriods.forEach((period, periodIndex) => {
@@ -1041,7 +1075,11 @@ export function createPeriodicVariations(
 
     // Apply conflict resolvers in the specified order
     conflictResolutionOrder.forEach((resolverType, index) => {
-      console.log(`\n🔧 Step ${index + 1}: Applying ${resolverType} conflict resolution for ${period.name}...`);
+      console.log(
+        `\n🔧 Step ${
+          index + 1
+        }: Applying ${resolverType} conflict resolution for ${period.name}...`
+      );
 
       const resolverFunc = resolverFunctions[resolverType];
       if (!resolverFunc) {
@@ -1060,11 +1098,7 @@ export function createPeriodicVariations(
             basePeriodicSchedule,
             dynamicCumulativeWorkload
           )
-        : resolverFunc(
-            resolvedSchedule,
-            cycleType,
-            periodIndex
-          );
+        : resolverFunc(resolvedSchedule, cycleType, periodIndex);
 
       if (resolution.success) {
         console.log(
@@ -1076,19 +1110,30 @@ export function createPeriodicVariations(
         resolvedSchedule = resolution.schedule;
 
         // Update cumulative workload with new assignments
-        console.log(`📊 Updating cumulative workload with ${resolverType} assignments...`);
-        updateDynamicWorkload(dynamicCumulativeWorkload, resolvedSchedule, baseScheduleSnapshot);
-        console.log(`📊 Workload after ${resolverType}:`, dynamicCumulativeWorkload);
+        console.log(
+          `📊 Updating cumulative workload with ${resolverType} assignments...`
+        );
+        updateDynamicWorkload(
+          dynamicCumulativeWorkload,
+          resolvedSchedule,
+          baseScheduleSnapshot
+        );
+        console.log(
+          `📊 Workload after ${resolverType}:`,
+          dynamicCumulativeWorkload
+        );
 
         // Store resolution result
         resolutionResults[resolverType] = {
           conflictsDetected: resolution.conflictsDetected,
           conflictsResolved: resolution.conflictsResolved,
           resolutionLog: resolution.resolutionLog || [],
-          teleCsAssignments: resolution.teleCsAssignments // Only for TeleCs
+          teleCsAssignments: resolution.teleCsAssignments, // Only for TeleCs
         };
       } else {
-        console.warn(`⚠️ ${resolverType} conflict resolution failed for ${period.name}`);
+        console.warn(
+          `⚠️ ${resolverType} conflict resolution failed for ${period.name}`
+        );
       }
 
       // Update snapshot after each resolution step
@@ -1103,7 +1148,7 @@ export function createPeriodicVariations(
       emitResolution: resolutionResults.EMIT,
       ematitResolution: resolutionResults.EMATIT,
       teleCsResolution: resolutionResults.TeleCs,
-      conflictResolutionOrder // Track the order used
+      conflictResolutionOrder, // Track the order used
     };
   });
 
@@ -1237,10 +1282,14 @@ export function executeCustomPlanningAlgorithm(
     conflictResolutionOrder: dataConflictOrder = null,
   } = dynamicData || {};
 
-  console.log('📥 executeCustomPlanningAlgorithm received dynamicDocActivities.AMI:', dynamicDocActivities?.AMI);
+  console.log(
+    "📥 executeCustomPlanningAlgorithm received dynamicDocActivities.AMI:",
+    dynamicDocActivities?.AMI
+  );
 
   // Use conflict resolution order from parameter, or from data, or default
-  const finalConflictOrder = conflictResolutionOrder || dataConflictOrder || ["HTC", "EMIT", "EMATIT", "TeleCs"];
+  const finalConflictOrder = conflictResolutionOrder ||
+    dataConflictOrder || ["HTC", "EMIT", "EMATIT", "TeleCs"];
 
   const startTime = Date.now();
   const result = {
