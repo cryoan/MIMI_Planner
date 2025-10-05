@@ -443,13 +443,45 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
       ? Math.min((totalTelecsAssigned / totalTelecsNeeded) * 100, 100)
       : 100;
 
+    // Calculate raw counts for bar chart display
+    // Total missing activities (all types combined)
+    let totalMissingActivities = 0;
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const slots = ["9am-1pm", "2pm-6pm"];
+
+    Object.values(periodicSchedule).forEach((periodData) => {
+      if (periodData.schedule) {
+        days.forEach((day) => {
+          slots.forEach((slot) => {
+            const assigned = [];
+            Object.values(periodData.schedule).forEach((doctorSchedule) => {
+              if (doctorSchedule[day]?.[slot]) {
+                assigned.push(...doctorSchedule[day][slot]);
+              }
+            });
+
+            const expected = expectedActivities?.[day]?.[slot] || [];
+            const missing = expected.filter(act => !assigned.includes(act));
+            totalMissingActivities += missing.length;
+          });
+        });
+      }
+    });
+
+    // Total overloaded slots count
+    const totalOverloadedSlots = totalSlots - nonOverloadedSlots;
+
     return {
       workloadScore,
       nonOverloadCoverage,
       emitCoverage,
       ematitCoverage,
       amiCoverage,
-      telecsCoverage
+      telecsCoverage,
+      // Raw counts for bar chart
+      totalMissingActivities,
+      totalOverloadedSlots,
+      totalTeleCsMissing
     };
   }, [expectedActivities, doctorProfiles]);
 

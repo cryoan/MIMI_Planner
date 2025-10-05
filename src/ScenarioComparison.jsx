@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect, useMemo } from 'react';
-import { Radar } from 'react-chartjs-2';
+import { Radar, Bar } from 'react-chartjs-2';
 import { ScheduleContext } from './ScheduleContext';
 import scenarioConfigsData from './scenarioConfigs.json';
 import { applyScenarioChanges, getDefaultScenarioColor } from './scenarioEngine';
@@ -23,6 +23,9 @@ const ScenarioComparison = () => {
 
   // Store computed metrics in local state
   const [scenarioMetrics, setScenarioMetrics] = useState({});
+
+  // Bar chart view mode: 'by-indicator' or 'by-scenario'
+  const [barChartViewMode, setBarChartViewMode] = useState('by-indicator');
 
   // Compute metrics for visible scenarios asynchronously (avoid setState during render)
   useEffect(() => {
@@ -104,6 +107,96 @@ const ScenarioComparison = () => {
     };
   }, [visibleScenarios, scenarioMetrics, activeScenarioId]);
 
+  // Prepare bar chart data clustered by indicator (X-axis = indicators, datasets = scenarios)
+  const barChartDataByIndicator = useMemo(() => {
+    const datasets = [];
+
+    scenarioConfigsData.scenarios.forEach((scenario, index) => {
+      if (!visibleScenarios[scenario.id]) {
+        return;
+      }
+
+      const metrics = scenarioMetrics[scenario.id];
+      if (!metrics) {
+        return;
+      }
+
+      const color = scenario.color || getDefaultScenarioColor(index);
+      const isActive = activeScenarioId === scenario.id;
+
+      // Create one dataset per scenario with 3 data points (one per metric)
+      datasets.push({
+        label: scenario.name,
+        data: [
+          metrics.totalMissingActivities || 0,
+          metrics.totalOverloadedSlots || 0,
+          metrics.totalTeleCsMissing || 0,
+        ],
+        backgroundColor: color.replace('0.6', '0.6'),
+        borderColor: color.replace('0.6', isActive ? '1' : '0.8'),
+        borderWidth: isActive ? 2 : 1,
+      });
+    });
+
+    return {
+      labels: ['Activités manquantes', 'Créneaux surchargés', 'TeleCs manquantes'],
+      datasets,
+    };
+  }, [visibleScenarios, scenarioMetrics, activeScenarioId]);
+
+  // Prepare bar chart data clustered by scenario (X-axis = scenarios, datasets = indicators)
+  const barChartDataByScenario = useMemo(() => {
+    const datasets = [];
+    const scenarioLabels = [];
+
+    scenarioConfigsData.scenarios.forEach((scenario, index) => {
+      if (!visibleScenarios[scenario.id]) {
+        return;
+      }
+
+      const metrics = scenarioMetrics[scenario.id];
+      if (!metrics) {
+        return;
+      }
+
+      scenarioLabels.push(scenario.name);
+
+      // Initialize datasets on first iteration
+      if (datasets.length === 0) {
+        datasets.push({
+          label: 'Activités manquantes',
+          data: [],
+          backgroundColor: 'rgba(255, 99, 132, 0.6)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 1,
+        });
+        datasets.push({
+          label: 'Créneaux surchargés',
+          data: [],
+          backgroundColor: 'rgba(255, 159, 64, 0.6)',
+          borderColor: 'rgba(255, 159, 64, 1)',
+          borderWidth: 1,
+        });
+        datasets.push({
+          label: 'TeleCs manquantes',
+          data: [],
+          backgroundColor: 'rgba(54, 162, 235, 0.6)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1,
+        });
+      }
+
+      datasets[0].data.push(metrics.totalMissingActivities || 0);
+      datasets[1].data.push(metrics.totalOverloadedSlots || 0);
+      datasets[2].data.push(metrics.totalTeleCsMissing || 0);
+    });
+
+    return {
+      labels: scenarioLabels,
+      datasets,
+    };
+  }, [visibleScenarios, scenarioMetrics]);
+
   const chartOptions = {
     scales: {
       r: {
@@ -155,13 +248,101 @@ const ScenarioComparison = () => {
     maintainAspectRatio: true,
   };
 
+  const barChartOptions = useMemo(() => ({
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1,
+        },
+        title: {
+          display: true,
+          text: 'Nombre de problèmes',
+        },
+      },
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top',
+      },
+      title: {
+        display: true,
+        text: barChartViewMode === 'by-indicator'
+          ? 'Problèmes par indicateur'
+          : 'Scénarios par problème',
+        font: {
+          size: 16,
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: function (context) {
+            return `${context.dataset.label}: ${context.parsed.y}`;
+          },
+        },
+      },
+    },
+    responsive: true,
+    maintainAspectRatio: true,
+  }), [barChartViewMode]);
+
   return (
     <div style={{ marginBottom: '30px', padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
       <h2 style={{ marginTop: 0 }}>📊 Scenario Comparison</h2>
 
-      {/* Chart */}
+      {/* Radar Chart */}
       <div style={{ maxWidth: '900px', margin: '0 auto 30px' }}>
         <Radar data={chartData} options={chartOptions} />
+      </div>
+
+      {/* Bar Chart for Issues */}
+      <div style={{ maxWidth: '900px', margin: '0 auto 30px' }}>
+        {/* Toggle buttons for bar chart view */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '10px',
+          marginBottom: '20px'
+        }}>
+          <button
+            onClick={() => setBarChartViewMode('by-indicator')}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: barChartViewMode === 'by-indicator' ? '#4CAF50' : '#e0e0e0',
+              color: barChartViewMode === 'by-indicator' ? 'white' : '#333',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: barChartViewMode === 'by-indicator' ? 'bold' : 'normal',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            📊 Problèmes par indicateur
+          </button>
+          <button
+            onClick={() => setBarChartViewMode('by-scenario')}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: barChartViewMode === 'by-scenario' ? '#4CAF50' : '#e0e0e0',
+              color: barChartViewMode === 'by-scenario' ? 'white' : '#333',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: barChartViewMode === 'by-scenario' ? 'bold' : 'normal',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            📈 Scénarios par problème
+          </button>
+        </div>
+
+        <Bar
+          data={barChartViewMode === 'by-indicator' ? barChartDataByIndicator : barChartDataByScenario}
+          options={barChartOptions}
+        />
       </div>
 
       {/* Scenario List */}
