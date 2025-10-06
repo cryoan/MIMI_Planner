@@ -320,6 +320,17 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
 
     const normalizeCVToScore = (cv) => Math.max(0, 100 - Math.min(cv * 2, 100));
 
+    // Helper: Calculate MAD (Mean Absolute Deviation) from mean
+    const calculateMAD = (values) => {
+      if (!values || values.length === 0) return 0;
+      const validValues = values.filter((v) => v !== null && v !== undefined);
+      if (validValues.length === 0) return 0;
+      if (validValues.length === 1) return 0;
+      const mean = validValues.reduce((a, b) => a + b, 0) / validValues.length;
+      const absoluteDeviations = validValues.map(val => Math.abs(val - mean));
+      return absoluteDeviations.reduce((a, b) => a + b, 0) / validValues.length;
+    };
+
     // 1. Workload Equity
     const doctorWorkload = {};
     Object.values(periodicSchedule).forEach((periodData) => {
@@ -343,6 +354,7 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
     });
     const workloadCV = calculateCV(Object.values(doctorWorkload));
     const workloadScore = normalizeCVToScore(workloadCV);
+    const workloadMAD = calculateMAD(Object.values(doctorWorkload));
 
     // 2. Non-Overload Coverage
     let totalSlots = 0;
@@ -481,7 +493,9 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
       // Raw counts for bar chart
       totalMissingActivities,
       totalOverloadedSlots,
-      totalTeleCsMissing
+      totalTeleCsMissing,
+      // Workload deviation in hours
+      workloadMAD
     };
   }, [expectedActivities, doctorProfiles]);
 

@@ -108,6 +108,7 @@ const ScenarioComparison = () => {
   }, [visibleScenarios, scenarioMetrics, activeScenarioId]);
 
   // Prepare bar chart data clustered by indicator (X-axis = indicators, datasets = scenarios)
+  // Split into two dataset groups: count-based metrics and hours-based metric
   const barChartDataByIndicator = useMemo(() => {
     const datasets = [];
 
@@ -124,22 +125,39 @@ const ScenarioComparison = () => {
       const color = scenario.color || getDefaultScenarioColor(index);
       const isActive = activeScenarioId === scenario.id;
 
-      // Create one dataset per scenario with 3 data points (one per metric)
+      // Count-based metrics (first 3 bars)
       datasets.push({
         label: scenario.name,
         data: [
           metrics.totalMissingActivities || 0,
           metrics.totalOverloadedSlots || 0,
           metrics.totalTeleCsMissing || 0,
+          null, // null for MAD position
         ],
         backgroundColor: color.replace('0.6', '0.6'),
         borderColor: color.replace('0.6', isActive ? '1' : '0.8'),
         borderWidth: isActive ? 2 : 1,
+        yAxisID: 'y-count',
+      });
+
+      // Hours-based metric (MAD - 4th bar) - use same scenario color
+      datasets.push({
+        label: `${scenario.name} (MAD)`,
+        data: [
+          null, // null for first 3 positions
+          null,
+          null,
+          metrics.workloadMAD || 0,
+        ],
+        backgroundColor: color.replace('0.6', '0.6'),
+        borderColor: color.replace('0.6', isActive ? '1' : '0.8'),
+        borderWidth: isActive ? 2 : 1,
+        yAxisID: 'y-hours',
       });
     });
 
     return {
-      labels: ['Activités manquantes', 'Créneaux surchargés', 'TeleCs manquantes'],
+      labels: ['Activités manquantes', 'Créneaux surchargés', 'TeleCs manquantes', 'MAD (heures)'],
       datasets,
     };
   }, [visibleScenarios, scenarioMetrics, activeScenarioId]);
@@ -169,6 +187,7 @@ const ScenarioComparison = () => {
           backgroundColor: 'rgba(255, 99, 132, 0.6)',
           borderColor: 'rgba(255, 99, 132, 1)',
           borderWidth: 1,
+          yAxisID: 'y-count',
         });
         datasets.push({
           label: 'Créneaux surchargés',
@@ -176,6 +195,7 @@ const ScenarioComparison = () => {
           backgroundColor: 'rgba(255, 159, 64, 0.6)',
           borderColor: 'rgba(255, 159, 64, 1)',
           borderWidth: 1,
+          yAxisID: 'y-count',
         });
         datasets.push({
           label: 'TeleCs manquantes',
@@ -183,12 +203,22 @@ const ScenarioComparison = () => {
           backgroundColor: 'rgba(54, 162, 235, 0.6)',
           borderColor: 'rgba(54, 162, 235, 1)',
           borderWidth: 1,
+          yAxisID: 'y-count',
+        });
+        datasets.push({
+          label: 'MAD (heures)',
+          data: [],
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1,
+          yAxisID: 'y-hours',
         });
       }
 
       datasets[0].data.push(metrics.totalMissingActivities || 0);
       datasets[1].data.push(metrics.totalOverloadedSlots || 0);
       datasets[2].data.push(metrics.totalTeleCsMissing || 0);
+      datasets[3].data.push(metrics.workloadMAD || 0);
     });
 
     return {
@@ -250,7 +280,9 @@ const ScenarioComparison = () => {
 
   const barChartOptions = useMemo(() => ({
     scales: {
-      y: {
+      'y-count': {
+        type: 'linear',
+        position: 'left',
         beginAtZero: true,
         ticks: {
           stepSize: 1,
@@ -258,6 +290,23 @@ const ScenarioComparison = () => {
         title: {
           display: true,
           text: 'Nombre de problèmes',
+          color: '#666',
+        },
+        grid: {
+          drawOnChartArea: true,
+        },
+      },
+      'y-hours': {
+        type: 'linear',
+        position: 'right',
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'MAD (heures)',
+          color: '#666',
+        },
+        grid: {
+          drawOnChartArea: false,
         },
       },
     },
@@ -265,6 +314,16 @@ const ScenarioComparison = () => {
       legend: {
         display: true,
         position: 'top',
+        labels: {
+          // Filter out duplicate MAD entries in legend for by-indicator view
+          filter: function(legendItem, chartData) {
+            if (barChartViewMode === 'by-indicator') {
+              // Only show non-MAD labels (hide "(MAD)" entries)
+              return !legendItem.text.includes('(MAD)');
+            }
+            return true;
+          },
+        },
       },
       title: {
         display: true,
@@ -278,7 +337,13 @@ const ScenarioComparison = () => {
       tooltip: {
         callbacks: {
           label: function (context) {
-            return `${context.dataset.label}: ${context.parsed.y}`;
+            let label = context.dataset.label || '';
+            // Remove (MAD) suffix for cleaner tooltip
+            label = label.replace(' (MAD)', '');
+            const value = context.parsed.y;
+            const yAxisId = context.dataset.yAxisID;
+            const unit = yAxisId === 'y-hours' ? 'h' : '';
+            return `${label}: ${value.toFixed(1)}${unit}`;
           },
         },
       },
