@@ -8,15 +8,6 @@
       "changes": {}
     },
     {
-      "id": "telecs_priority",
-      "name": "TeleCs Priority First",
-      "color": "rgba(255, 99, 132, 0.6)",
-      "description": "Resolve TeleCs assignments before other activities to ensure teleconsultation coverage",
-      "changes": {
-        "conflictResolutionOrder": ["TeleCs", "HTC", "EMIT", "EMATIT"]
-      }
-    },
-    {
       "id": "AMI_long",
       "name": "AMI with teleexpertise",
       "color": "rgba(75, 192, 192, 0.6)",
@@ -35,25 +26,6 @@
       }
     },
 
-    {
-      "id": "emergency_cycle",
-      "name": "Emergency Coverage Cycle",
-      "color": "rgba(255, 159, 64, 0.6)",
-      "description": "Use emergency rotation cycle with minimal changes",
-      "changes": {
-        "rotationCycle": "emergency"
-      }
-    },
-    {
-      "id": "telecs_first_emit_reduced",
-      "name": "Combined: TeleCs First + EMIT Reduced",
-      "color": "rgba(83, 102, 255, 0.6)",
-      "description": "Combine TeleCs priority with reduced EMIT duration",
-      "changes": {
-        "conflictResolutionOrder": ["TeleCs", "HTC", "EMIT", "EMATIT"],
-        "docActivities.EMIT.duration": 2
-      }
-    },
     {
       "id": "no_mg_rotation",
       "name": "MG Unavailable (NoMG Cycle)",
@@ -91,6 +63,22 @@
         "doctorProfiles.BM.backbone.Thursday.2pm-6pm": ["replace", ["EMIT"]],
         "doctorProfiles.BM.backbone.Friday.9am-1pm": ["replace", ["TP"]],
         "doctorProfiles.BM.backbone.Friday.2pm-6pm": ["replace", ["TP"]]
+      }
+    },
+    {
+      "id": "no_friday_staff",
+      "name": "No Friday Staff",
+      "color": "rgba(103, 58, 183, 0.6)",
+      "description": "Remove all Friday afternoon Staff activities to declutter the schedule",
+      "changes": {
+        "doctorProfiles.YC.backbone.Friday.2pm-6pm": ["replace", ["Chefferie"]],
+        "doctorProfiles.FL.backbone.Friday.2pm-6pm": ["replace", []],
+        "doctorProfiles.NS.backbone.Friday.2pm-6pm": ["replace", []],
+        "doctorProfiles.GC.backbone.Friday.2pm-6pm": ["replace", []],
+        "doctorProfiles.CL.backbone.Friday.2pm-6pm": ["replace", []],
+        "doctorProfiles.MG.backbone.Friday.2pm-6pm": ["replace", []],
+        "doctorProfiles.RNV.backbone.Friday.2pm-6pm": ["replace", []],
+        "doctorProfiles.MDLC.backbone.Friday.2pm-6pm": ["replace", []]
       }
     }
   ]
