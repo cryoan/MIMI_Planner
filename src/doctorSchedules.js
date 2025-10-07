@@ -64,7 +64,7 @@ export const docActivities = {
   },
   Staff: {
     name: "Staff",
-    duration: 2,
+    duration: 0,
   },
 };
 
@@ -296,7 +296,8 @@ export function computeRemainingRotationTasks(
       let usedCapacity = 0;
 
       for (const activity of remainingActivities) {
-        const activityDuration = docActivitiesData[activity]?.duration || 4;
+        // ✅ Use ?? to handle 0-duration activities correctly
+        const activityDuration = docActivitiesData[activity]?.duration ?? 4;
 
         // Only add if it fits in remaining capacity
         if (usedCapacity + activityDuration <= remainingCapacity) {

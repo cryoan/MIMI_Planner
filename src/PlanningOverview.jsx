@@ -97,7 +97,8 @@ const PlanningOverview = ({ customScheduleData, onPeriodClick }) => {
 
     return activities.reduce((total, activity) => {
       const activityInfo = docActivities[activity];
-      if (activityInfo && typeof activityInfo.duration === "number") {
+      // ✅ Check for !== undefined to handle 0-duration activities correctly
+      if (activityInfo && activityInfo.duration !== undefined) {
         return total + activityInfo.duration;
       }
       // If activity not found, assume 1 hour (conservative for unknown activities)

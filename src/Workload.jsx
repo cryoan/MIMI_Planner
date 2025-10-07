@@ -47,8 +47,9 @@
 //   const processActivities = (activitiesList, doctor) => {
 //     activitiesList.forEach((activity) => {
 //       const activityData = activities[activity] || {};
-//       const duration = activityData.duration || 1; // Default duration is 1 if not found
-
+//       // ✅ Use ?? to handle 0-duration activities correctly
+//       const duration = activityData.duration ?? 1; // Default duration is 1 if not found
+//
 //       if (!doctorActivities[doctor]) {
 //         doctorActivities[doctor] = {};
 //       }
@@ -217,7 +218,8 @@ const aggregateActivities = (combo) => {
   const processActivities = (activitiesList, doctor) => {
     activitiesList.forEach((activity) => {
       const activityData = activities[activity] || {};
-      const duration = activityData.duration || 1; // Default duration is 1 if not found
+      // ✅ Use ?? to handle 0-duration activities correctly
+      const duration = activityData.duration ?? 1; // Default duration is 1 if not found
 
       if (!doctorActivities[doctor]) {
         doctorActivities[doctor] = {};
@@ -255,7 +257,8 @@ const aggregateActivitiesFromPeriodicData = (customScheduleData) => {
   const processActivities = (activitiesList, doctor, periodName, day, slot) => {
     activitiesList.forEach((activity) => {
       const activityData = activities[activity] || {};
-      const duration = activityData.duration || 1; // Default duration is 1 if not found
+      // ✅ Use ?? to handle 0-duration activities correctly
+      const duration = activityData.duration ?? 1; // Default duration is 1 if not found
 
       if (!doctorActivities[doctor]) {
         doctorActivities[doctor] = {};
@@ -448,7 +451,8 @@ const aggregateActivitiesFromCustomData = (customSchedule) => {
   const processActivities = (activitiesList, doctor) => {
     activitiesList.forEach((activity) => {
       const activityData = activities[activity] || {};
-      const duration = activityData.duration || 1; // Default duration is 1 if not found
+      // ✅ Use ?? to handle 0-duration activities correctly
+      const duration = activityData.duration ?? 1; // Default duration is 1 if not found
 
       if (!doctorActivities[doctor]) {
         doctorActivities[doctor] = {};

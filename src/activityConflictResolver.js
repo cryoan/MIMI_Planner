@@ -2,7 +2,10 @@
 // Separate module for clarity and explanation to medical team
 // Handles automatic resolution of missing activities (HTC, EMIT, etc.)
 
-import { doctorProfiles, docActivities as staticDocActivities } from "./doctorSchedules.js";
+import {
+  doctorProfiles,
+  docActivities as staticDocActivities,
+} from "./doctorSchedules.js";
 import { rotation_cycles } from "./customPlanningLogic.js";
 
 // Use dynamic docActivities if provided, otherwise fall back to static
@@ -15,7 +18,7 @@ let docActivities = staticDocActivities;
  */
 export function setDynamicDocActivities(dynamicDocActivities) {
   if (dynamicDocActivities) {
-    console.log('🔧 Setting dynamic docActivities:', dynamicDocActivities);
+    console.log("🔧 Setting dynamic docActivities:", dynamicDocActivities);
     docActivities = dynamicDocActivities;
   } else {
     docActivities = staticDocActivities;
@@ -133,7 +136,7 @@ const EMATIT_WEIGHT_BALANCE = 0.1;
  * - Doctor has HTC1 (1h) + Cs (3h) = 4h (0h overload) → Can add EMIT (3h) → 7h total (3h overload) ❌ Exceeds threshold
  * - Doctor has HTC1 (1h) = 1h → Can add EMIT (3h) → 4h total (0h overload) ✓ Within threshold
  */
-const MAX_SLOT_OVERLOAD_THRESHOLD = 1;
+const MAX_SLOT_OVERLOAD_THRESHOLD = 0;
 
 /**
  * Check if a doctor has TP on a specific day
@@ -183,7 +186,8 @@ function calculateDayAvailability(doctorSchedule, day) {
     // Calculate used capacity based on activity durations
     let usedCapacity = 0;
     activities.forEach((activity) => {
-      const activityDuration = docActivities[activity]?.duration || 4;
+      // ✅ Use ?? to handle 0-duration activities correctly
+      const activityDuration = docActivities[activity]?.duration ?? 4;
       usedCapacity += activityDuration;
     });
 
@@ -226,7 +230,8 @@ function calculateSlotAvailability(doctorSchedule, day, timeSlot) {
   // Calculate used capacity based on activity durations
   let usedCapacity = 0;
   activities.forEach((activity) => {
-    const activityDuration = docActivities[activity]?.duration || 4;
+    // ✅ Use ?? to handle 0-duration activities correctly
+    const activityDuration = docActivities[activity]?.duration ?? 4;
     usedCapacity += activityDuration;
   });
 
@@ -266,12 +271,14 @@ function calculateSlotDurationIfAdded(
   // Calculate current used capacity
   let usedCapacity = 0;
   activities.forEach((activity) => {
-    const activityDuration = docActivities[activity]?.duration || 4;
+    // ✅ Use ?? to handle 0-duration activities correctly
+    const activityDuration = docActivities[activity]?.duration ?? 4;
     usedCapacity += activityDuration;
   });
 
   // Add the new activity duration
-  const newActivityDuration = docActivities[newActivity]?.duration || 4;
+  // ✅ Use ?? to handle 0-duration activities correctly
+  const newActivityDuration = docActivities[newActivity]?.duration ?? 4;
 
   return usedCapacity + newActivityDuration;
 }
@@ -318,7 +325,8 @@ function calculateCumulativeWorkloadPerDoctor(fullCycleSchedules) {
             if (Array.isArray(activitiesList)) {
               activitiesList.forEach((activity) => {
                 const activityData = docActivities[activity] || {};
-                const duration = activityData.duration || 1;
+                // ✅ Use ?? to handle 0-duration activities correctly
+                const duration = activityData.duration ?? 1;
                 doctorWorkload[doctor] += duration;
               });
             }
@@ -1261,7 +1269,8 @@ function countBackboneTeleCs(doctorCode, profile, periodIndex) {
 
   // Handle doctors with multiple backbones (e.g., DL)
   if (profile.backbones && periodIndex !== null) {
-    const backboneNames = profile.rotationSetting || Object.keys(profile.backbones);
+    const backboneNames =
+      profile.rotationSetting || Object.keys(profile.backbones);
     const backboneIndex = periodIndex % backboneNames.length;
     const backboneName = backboneNames[backboneIndex];
     activeBackbone = profile.backbones[backboneName];
@@ -1329,7 +1338,11 @@ export function resolveTeleCsConflicts(
     }
 
     // Count TeleCs in backbone
-    const backboneTeleCs = countBackboneTeleCs(doctorCode, profile, periodIndex);
+    const backboneTeleCs = countBackboneTeleCs(
+      doctorCode,
+      profile,
+      periodIndex
+    );
 
     // If backbone already satisfies the need, skip this doctor entirely
     if (backboneTeleCs >= neededCount) {
@@ -1340,7 +1353,9 @@ export function resolveTeleCsConflicts(
     }
 
     console.log(
-      `📞 ${doctorCode} needs ${neededCount} TeleCs (${backboneTeleCs} in backbone, ${neededCount - backboneTeleCs} additional needed)`
+      `📞 ${doctorCode} needs ${neededCount} TeleCs (${backboneTeleCs} in backbone, ${
+        neededCount - backboneTeleCs
+      } additional needed)`
     );
 
     // Count existing TeleCs in schedule (total, including backbone)
@@ -1361,7 +1376,9 @@ export function resolveTeleCsConflicts(
       });
     });
 
-    console.log(`   Total existing TeleCs in schedule: ${existingCount} (${backboneTeleCs} from backbone)`);
+    console.log(
+      `   Total existing TeleCs in schedule: ${existingCount} (${backboneTeleCs} from backbone)`
+    );
 
     // Calculate remaining needed (additional TeleCs beyond current schedule)
     const remainingNeeded = neededCount - existingCount;
@@ -1372,7 +1389,9 @@ export function resolveTeleCsConflicts(
       return;
     }
 
-    console.log(`   ⚠️ ${doctorCode} needs ${remainingNeeded} more TeleCs to reach ${neededCount} total`);
+    console.log(
+      `   ⚠️ ${doctorCode} needs ${remainingNeeded} more TeleCs to reach ${neededCount} total`
+    );
     conflictsDetected += remainingNeeded;
 
     // Find available slots for TeleCs
@@ -1399,7 +1418,8 @@ export function resolveTeleCsConflicts(
           timeSlot
         );
 
-        const teleCsDuration = docActivities["TeleCs"]?.duration || 3;
+        // ✅ Use ?? to handle 0-duration activities correctly
+        const teleCsDuration = docActivities["TeleCs"]?.duration ?? 3;
 
         if (remainingCapacity >= teleCsDuration) {
           availableSlots.push({ day, timeSlot, remainingCapacity });
@@ -1448,7 +1468,9 @@ export function resolveTeleCsConflicts(
       console.warn(`   ${logEntry}`);
       resolutionLog.push(logEntry);
     } else {
-      console.log(`   ✅ ${doctorCode} TeleCs satisfied (backbone: ${backboneTeleCs}, additional: ${additionalAssigned}, total: ${totalAssigned})`);
+      console.log(
+        `   ✅ ${doctorCode} TeleCs satisfied (backbone: ${backboneTeleCs}, additional: ${additionalAssigned}, total: ${totalAssigned})`
+      );
     }
   });
 

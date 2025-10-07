@@ -69,6 +69,13 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
     }
   }, [doc, selectedRotationCycle, doctorProfiles, rotationTemplates, recalculateSchedules]);
 
+  // ✅ Clear scenario metrics cache when docActivities changes
+  // This ensures bar charts recalculate when activity durations are modified
+  useEffect(() => {
+    console.log('🔄 docActivities changed - clearing scenario metrics cache');
+    scenarioResultsCache.current = {};
+  }, [docActivities]);
+
   // Data update methods
   const updateDoctorProfiles = useCallback((newProfiles) => {
     setDoctorProfiles(newProfiles);
@@ -342,7 +349,8 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
               if (Array.isArray(activities)) {
                 activities.forEach((activity) => {
                   const activityData = docActivitiesForMetrics[activity];
-                  if (activityData && activityData.duration) {
+                  // ✅ Use !== undefined to handle 0-duration activities correctly
+                  if (activityData && activityData.duration !== undefined) {
                     doctorWorkload[doctor] += activityData.duration;
                   }
                 });
@@ -368,7 +376,8 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
                 totalSlots++;
                 const totalDuration = activities.reduce((sum, activity) => {
                   const activityData = docActivitiesForMetrics[activity];
-                  return sum + (activityData?.duration || 1);
+                  // ✅ Use ?? to handle 0-duration activities correctly
+                  return sum + (activityData?.duration ?? 1);
                 }, 0);
                 if (totalDuration <= 4) nonOverloadedSlots++;
               }

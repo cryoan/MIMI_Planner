@@ -297,7 +297,8 @@ function updateDynamicWorkload(
 
         // Add their duration to the dynamic workload
         addedActivities.forEach((activity) => {
-          const duration = docActivities[activity]?.duration || 1;
+          // ✅ Use ?? to handle 0-duration activities correctly
+          const duration = docActivities[activity]?.duration ?? 1;
           if (!dynamicWorkload[doctor]) {
             dynamicWorkload[doctor] = 0;
           }
@@ -1286,6 +1287,15 @@ export function executeCustomPlanningAlgorithm(
     "📥 executeCustomPlanningAlgorithm received dynamicDocActivities.AMI:",
     dynamicDocActivities?.AMI
   );
+
+  // ✅ Set dynamic docActivities at the START to ensure all conflict resolvers use correct durations
+  if (dynamicDocActivities) {
+    console.log(
+      "🎯 Setting dynamic docActivities at algorithm start:",
+      dynamicDocActivities
+    );
+    setDynamicDocActivities(dynamicDocActivities);
+  }
 
   // Use conflict resolution order from parameter, or from data, or default
   const finalConflictOrder = conflictResolutionOrder ||
