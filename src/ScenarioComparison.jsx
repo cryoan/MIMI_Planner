@@ -27,6 +27,21 @@ const ScenarioComparison = () => {
   // Bar chart view mode: 'by-indicator' or 'by-scenario'
   const [barChartViewMode, setBarChartViewMode] = useState('by-indicator');
 
+  // Check if active scenario is a combination (not in scenarioConfigsData)
+  const isActiveCombination = useMemo(() => {
+    return !scenarioConfigsData.scenarios.find(s => s.id === activeScenarioId);
+  }, [activeScenarioId]);
+
+  // Get active scenario display name
+  const activeScenarioName = useMemo(() => {
+    const scenario = scenarioConfigsData.scenarios.find(s => s.id === activeScenarioId);
+    if (scenario) {
+      return scenario.name;
+    }
+    // It's a combination ID
+    return activeScenarioId.split('_').join(' + ').replace(/-/g, ' ');
+  }, [activeScenarioId]);
+
   // Compute metrics for visible scenarios asynchronously (avoid setState during render)
   useEffect(() => {
     const metrics = {};
@@ -41,7 +56,7 @@ const ScenarioComparison = () => {
     });
 
     setScenarioMetrics(metrics);
-  }, [visibleScenarios, getScenarioMetrics]);
+  }, [visibleScenarios, getScenarioMetrics, activeScenarioId]);
 
   // Toggle scenario visibility in chart
   const toggleScenarioVisibility = (scenarioId) => {
@@ -355,6 +370,32 @@ const ScenarioComparison = () => {
   return (
     <div style={{ marginBottom: '30px', padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
       <h2 style={{ marginTop: 0 }}>📊 Scenario Comparison</h2>
+
+      {/* Active Combination Info Banner */}
+      {isActiveCombination && (
+        <div style={{
+          padding: '15px',
+          marginBottom: '20px',
+          backgroundColor: '#fff3cd',
+          border: '2px solid #ffc107',
+          borderRadius: '6px',
+          maxWidth: '900px',
+          margin: '0 auto 20px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '24px' }}>🎯</span>
+            <div>
+              <strong style={{ fontSize: '14px', color: '#333' }}>Active Combination:</strong>
+              <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
+                {activeScenarioName}
+              </div>
+              <div style={{ fontSize: '11px', color: '#888', marginTop: '4px', fontStyle: 'italic' }}>
+                This is a combined scenario from the 72-scenario analysis. The chart shows live metrics for this configuration.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Radar Chart */}
       <div style={{ maxWidth: '900px', margin: '0 auto 30px' }}>

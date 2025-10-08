@@ -224,6 +224,14 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
   }, [selectedRotationCycle]);
 
   /**
+   * Clear scenario metrics cache
+   */
+  const clearScenarioCache = useCallback(() => {
+    scenarioResultsCache.current = {};
+    console.log('🗑️ Scenario cache cleared');
+  }, []);
+
+  /**
    * Calculate metrics for a specific scenario without applying it
    * Used for chart overlay comparison
    */
@@ -234,7 +242,12 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
     }
 
     // If this is the active scenario, return current metrics (don't cache to avoid race conditions)
-    if (scenarioId === activeScenarioId && customScheduleData) {
+    // ALSO: If 'base' is requested but a combination is active (not in scenarioConfigs), return current metrics
+    const isActiveCombination = !scenarioConfigsData.scenarios.find(s => s.id === activeScenarioId);
+    const shouldReturnCurrentMetrics = (scenarioId === activeScenarioId) ||
+                                       (scenarioId === 'base' && isActiveCombination);
+
+    if (shouldReturnCurrentMetrics && customScheduleData) {
       const metrics = calculateMetricsFromScheduleData(customScheduleData, docActivities);
       return metrics;
     }
@@ -539,9 +552,12 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
 
       // Scenario management
       activeScenarioId,
+      setActiveScenarioId,
       applyScenario,
       getScenarioMetrics,
+      clearScenarioCache,
       currentRotationCycle,
+      setCurrentRotationCycle,
       conflictResolutionOrder
     }}>
       {children}

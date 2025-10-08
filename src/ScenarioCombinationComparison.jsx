@@ -1,5 +1,7 @@
 import React, { useState, useContext, useEffect, useCallback } from 'react';
 import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS } from 'chart.js';
+import annotationPlugin from 'chartjs-plugin-annotation';
 import { ScheduleContext } from './ScheduleContext';
 import {
   calculateAllCombinationMetrics,
@@ -8,8 +10,12 @@ import {
   clearResultsCache,
   getCacheInfo
 } from './scenarioBatchProcessor';
-import { mergeScenariosChanges } from './scenarioCombinationGenerator';
+import { mergeScenariosChanges, scenarioGroups } from './scenarioCombinationGenerator';
 import { applyScenarioChanges } from './scenarioEngine';
+import scenarioConfigsData from './scenarioConfigs.json';
+
+// Register annotation plugin
+ChartJS.register(annotationPlugin);
 import {
   doctorProfiles as initialDoctorProfiles,
   docActivities as initialDocActivities,
@@ -22,11 +28,14 @@ import './Calendar.css';
 const ScenarioCombinationComparison = () => {
   const {
     applyScenario,
+    setActiveScenarioId,
+    clearScenarioCache,
     updateDoctorProfiles,
     updateDocActivities,
     updateWantedActivities,
     updateRotationTemplates,
     updateExpectedActivities,
+    setCurrentRotationCycle,
     recalculateSchedules
   } = useContext(ScheduleContext);
 
@@ -35,6 +44,15 @@ const ScenarioCombinationComparison = () => {
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [showChart, setShowChart] = useState(false);
   const [cacheInfo, setCacheInfo] = useState(null);
+
+  // Filter state: { BM: 'BM-EMIT-JV', FL: null, NS: 'NS-TP-J', ... }
+  const [selectedFilters, setSelectedFilters] = useState(() => {
+    const initial = {};
+    Object.keys(scenarioGroups).forEach(groupKey => {
+      initial[groupKey] = null;
+    });
+    return initial;
+  });
 
   // Calculate metrics function (uses same logic as ScheduleContext)
   const calculateMetrics = useCallback((scheduleData, docActivitiesForMetrics, expectedActivitiesForMetrics = initialExpectedActivities) => {
@@ -210,6 +228,35 @@ const ScenarioCombinationComparison = () => {
     console.log('🗑️ Cache cleared');
   };
 
+  // Clear all filters
+  const handleClearFilters = () => {
+    const clearedFilters = {};
+    Object.keys(scenarioGroups).forEach(groupKey => {
+      clearedFilters[groupKey] = null;
+    });
+    setSelectedFilters(clearedFilters);
+  };
+
+  // Find matched scenario index based on selected filters
+  const findMatchedScenarioIndex = () => {
+    if (!results) return -1;
+
+    // Get non-null filter values
+    const activeFilters = Object.values(selectedFilters).filter(v => v !== null);
+
+    // If no filters selected, no match
+    if (activeFilters.length === 0) return -1;
+
+    // Find index where ALL active filters are present in atomicScenarios
+    return results.findIndex(r => {
+      const atomicScenarios = r.combination.atomicScenarios;
+      return activeFilters.every(filter => atomicScenarios.includes(filter));
+    });
+  };
+
+  const matchedIndex = findMatchedScenarioIndex();
+  const matchCount = matchedIndex >= 0 ? 1 : 0;
+
   // Handle "Apply" button for a specific combination
   const handleApplyCombination = (combination) => {
     console.log('🎯 Applying combination:', combination.name);
@@ -240,9 +287,16 @@ const ScenarioCombinationComparison = () => {
       if (modifiedConfig.wantedActivities) updateWantedActivities(modifiedConfig.wantedActivities);
       if (modifiedConfig.rotationTemplates) updateRotationTemplates(modifiedConfig.rotationTemplates);
       if (modifiedConfig.expectedActivities) updateExpectedActivities(modifiedConfig.expectedActivities);
+      if (modifiedConfig.rotationCycle) setCurrentRotationCycle(modifiedConfig.rotationCycle);
 
       // Trigger recalculation
       recalculateSchedules();
+
+      // Clear scenario cache (like applyScenario does)
+      clearScenarioCache();
+
+      // Update active scenario ID to this combination
+      setActiveScenarioId(combination.id);
 
       alert(`✅ Scénario appliqué: ${combination.name}`);
     } catch (error) {
@@ -285,6 +339,14 @@ const ScenarioCombinationComparison = () => {
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    onClick: (_event, elements) => {
+      if (elements.length > 0) {
+        const clickedIndex = elements[0].index;
+        if (results && results[clickedIndex]) {
+          handleApplyCombination(results[clickedIndex].combination);
+        }
+      }
+    },
     scales: {
       x: {
         stacked: true,
@@ -330,18 +392,146 @@ const ScenarioCombinationComparison = () => {
           },
           label: (context) => {
             return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}`;
+          },
+          footer: () => {
+            return 'Cliquez sur la barre pour appliquer ce scénario';
           }
         }
       },
       legend: {
         position: 'bottom'
-      }
+      },
+      annotation: matchedIndex >= 0 ? {
+        annotations: {
+          matchedScenario: {
+            type: 'label',
+            xValue: matchedIndex,
+            yValue: 0,
+            content: '🎯 Trouvé',
+            backgroundColor: 'rgba(255, 193, 7, 0.9)',
+            color: 'black',
+            font: {
+              size: 14,
+              weight: 'bold'
+            },
+            padding: 8,
+            borderRadius: 4,
+            yAdjust: -30
+          },
+          matchedLine: {
+            type: 'line',
+            xMin: matchedIndex,
+            xMax: matchedIndex,
+            yMin: 0,
+            yMax: 'max',
+            borderColor: 'rgba(255, 193, 7, 0.8)',
+            borderWidth: 3,
+            borderDash: [5, 5]
+          }
+        }
+      } : {}
     }
   };
 
   return (
     <div style={{ padding: '20px', backgroundColor: '#f9f9f9' }}>
       <h2 style={{ marginTop: 0 }}>🧬 Analyse Exhaustive des Combinaisons de Scénarios</h2>
+
+      {/* Dynamic Filter Section */}
+      {results && (
+        <div style={{
+          marginBottom: '20px',
+          padding: '20px',
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h3 style={{ margin: 0 }}>🔍 Recherche de Scénario</h3>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <span style={{
+                fontSize: '14px',
+                fontWeight: 'bold',
+                color: matchCount > 0 ? '#4CAF50' : '#999'
+              }}>
+                {matchCount}/{results.length} correspondance{matchCount > 1 ? 's' : ''}
+              </span>
+              <button
+                onClick={handleClearFilters}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  backgroundColor: '#ff9800',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                Effacer les filtres
+              </button>
+            </div>
+          </div>
+
+          {/* Dynamic filter groups */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
+            {Object.entries(scenarioGroups).map(([groupKey, scenarioIds]) => {
+              return (
+                <div key={groupKey} style={{
+                  flex: '1 1 180px',
+                  minWidth: '180px',
+                  padding: '12px',
+                  backgroundColor: '#f5f5f5',
+                  borderRadius: '6px',
+                  border: '2px solid #e0e0e0'
+                }}>
+                  <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '14px', color: '#333' }}>
+                    {groupKey}
+                  </div>
+                  {scenarioIds.map(scenarioId => {
+                    const scenarioInfo = scenarioConfigsData.scenarios.find(s => s.id === scenarioId);
+                    const displayName = scenarioInfo?.name || scenarioId;
+                    const isSelected = selectedFilters[groupKey] === scenarioId;
+
+                    return (
+                      <label
+                        key={scenarioId}
+                        style={{
+                          display: 'block',
+                          padding: '6px 8px',
+                          marginBottom: '4px',
+                          cursor: 'pointer',
+                          backgroundColor: isSelected ? '#2196F3' : 'white',
+                          color: isSelected ? 'white' : '#333',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name={groupKey}
+                          value={scenarioId}
+                          checked={isSelected}
+                          onChange={(e) => {
+                            setSelectedFilters(prev => ({
+                              ...prev,
+                              [groupKey]: e.target.checked ? scenarioId : null
+                            }));
+                          }}
+                          style={{ marginRight: '6px' }}
+                        />
+                        {displayName}
+                      </label>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Control Buttons */}
       <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -532,8 +722,11 @@ const ScenarioCombinationComparison = () => {
         <ul style={{ fontSize: '13px', margin: '8px 0', paddingLeft: '20px' }}>
           <li>Cliquez sur "Best Scenario" pour calculer toutes les combinaisons (15-30 secondes)</li>
           <li>Les résultats sont automatiquement sauvegardés en cache</li>
+          <li><strong>🔍 Recherche:</strong> Utilisez les filtres pour trouver un scénario spécifique (0 ou 1 résultat avec logique AND)</li>
           <li>Le graphique montre les 72 scénarios triés du meilleur (gauche) au pire (droite)</li>
-          <li>Cliquez sur "Appliquer" pour utiliser un scénario dans l'application</li>
+          <li><strong>🎯 Scénario trouvé:</strong> Un marqueur jaune "🎯 Trouvé" apparaît au-dessus de la barre correspondante</li>
+          <li><strong>Clic sur barre:</strong> Cliquez directement sur n'importe quelle barre du graphique pour appliquer ce scénario</li>
+          <li>Cliquez sur "Appliquer" dans le tableau Top 10 pour utiliser un scénario</li>
           <li>Score total = Activités manquantes + Créneaux surchargés + TeleCs manquantes (MAD non inclus car en heures)</li>
         </ul>
       </div>
