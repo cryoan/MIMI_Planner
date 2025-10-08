@@ -340,7 +340,7 @@ const ScenarioCombinationComparison = () => {
   };
 
   return (
-    <div style={{ padding: '20px', backgroundColor: '#f9f9f9', minHeight: '100vh' }}>
+    <div style={{ padding: '20px', backgroundColor: '#f9f9f9' }}>
       <h2 style={{ marginTop: 0 }}>🧬 Analyse Exhaustive des Combinaisons de Scénarios</h2>
 
       {/* Control Buttons */}
@@ -431,9 +431,11 @@ const ScenarioCombinationComparison = () => {
           backgroundColor: 'white',
           borderRadius: '8px',
           padding: '20px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          maxWidth: 'calc(100vw - 80px)',
+          width: '100%'
         }}>
-          <div style={{ height: '600px', width: '100%', overflowX: 'auto' }}>
+          <div style={{ height: '600px', width: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
             <div style={{ minWidth: '2000px', height: '100%' }}>
               <Bar data={chartData} options={chartOptions} />
             </div>
