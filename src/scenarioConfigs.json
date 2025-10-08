@@ -8,50 +8,17 @@
       "changes": {}
     },
     {
-      "id": "AMI_long",
-      "name": "AMI with teleexpertise",
-      "color": "rgba(75, 192, 192, 0.6)",
-      "description": "AMI allows teleexpertise with longer duration of 2 hours",
-      "changes": {
-        "docActivities.AMI.duration": 2
-      }
-    },
-    {
-      "id": "ns_hdj_rotation",
-      "name": "NS with HDJ Rotation",
-      "color": "rgba(255, 206, 86, 0.6)",
-      "description": "Use honeymoon_NS_HDJ rotation cycle instead of default",
-      "changes": {
-        "rotationCycle": "honeymoon_NS_HDJ"
-      }
-    },
-
-    {
-      "id": "no_mg_rotation",
-      "name": "MG Unavailable (NoMG Cycle)",
-      "color": "rgba(199, 99, 132, 0.6)",
-      "description": "Use NoMG rotation cycle when MG doctor is unavailable",
-      "changes": {
-        "rotationCycle": "NoMG"
-      }
-    },
-    {
-      "id": "fl_tp_thursday",
-      "name": "FL TP Thursday",
-      "color": "rgba(255, 99, 71, 0.6)",
-      "description": "Change FL doctor's TP (Travail Personnel) day from Wednesday to Thursday",
-      "changes": {
-        "doctorProfiles.FL.backbone.Wednesday.9am-1pm": ["replace", []],
-        "doctorProfiles.FL.backbone.Wednesday.2pm-6pm": ["replace", []],
-        "doctorProfiles.FL.backbone.Thursday.9am-1pm": ["replace", ["TP"]],
-        "doctorProfiles.FL.backbone.Thursday.2pm-6pm": ["replace", ["TP"]]
-      }
-    },
-    {
-      "id": "bm_emit_mon_thu",
-      "name": "BM EMIT Monday/Thursday",
+      "id": "BM-EMIT-JV",
+      "name": "BM EMIT Jeudi/Vendredi",
       "color": "rgba(139, 195, 74, 0.6)",
-      "description": "Change BM's EMIT days from Thursday/Friday to Monday/Thursday with TP on other days",
+      "description": "BM a EMIT les Jeudi et Vendredi (configuration par défaut)",
+      "changes": {}
+    },
+    {
+      "id": "BM-EMIT-LJ",
+      "name": "BM EMIT Lundi/Jeudi",
+      "color": "rgba(139, 195, 74, 0.6)",
+      "description": "BM a EMIT les Lundi et Jeudi",
       "changes": {
         "doctorProfiles.BM.backbone.Monday.9am-1pm": ["replace", ["EMIT"]],
         "doctorProfiles.BM.backbone.Monday.2pm-6pm": ["replace", ["EMIT"]],
@@ -63,6 +30,105 @@
         "doctorProfiles.BM.backbone.Thursday.2pm-6pm": ["replace", ["EMIT"]],
         "doctorProfiles.BM.backbone.Friday.9am-1pm": ["replace", ["TP"]],
         "doctorProfiles.BM.backbone.Friday.2pm-6pm": ["replace", ["TP"]]
+      }
+    },
+    {
+      "id": "FL-TP-Mer",
+      "name": "FL TP Mercredi",
+      "color": "rgba(255, 99, 71, 0.6)",
+      "description": "FL a TP le Mercredi (configuration par défaut)",
+      "changes": {}
+    },
+    {
+      "id": "FL-TP-J",
+      "name": "FL TP Jeudi",
+      "color": "rgba(255, 99, 71, 0.6)",
+      "description": "FL a TP le Jeudi",
+      "changes": {
+        "doctorProfiles.FL.backbone.Wednesday.9am-1pm": ["replace", []],
+        "doctorProfiles.FL.backbone.Wednesday.2pm-6pm": ["replace", []],
+        "doctorProfiles.FL.backbone.Thursday.9am-1pm": ["replace", ["TP"]],
+        "doctorProfiles.FL.backbone.Thursday.2pm-6pm": ["replace", ["TP"]]
+      }
+    },
+    {
+      "id": "FL-TP-L",
+      "name": "FL TP Lundi",
+      "color": "rgba(255, 99, 71, 0.6)",
+      "description": "FL a TP le Lundi",
+      "changes": {
+        "doctorProfiles.FL.backbone.Wednesday.9am-1pm": ["replace", []],
+        "doctorProfiles.FL.backbone.Wednesday.2pm-6pm": ["replace", []],
+        "doctorProfiles.FL.backbone.Monday.9am-1pm": ["replace", ["TP"]],
+        "doctorProfiles.FL.backbone.Monday.2pm-6pm": ["replace", ["TP"]]
+      }
+    },
+    {
+      "id": "NS-TP-0",
+      "name": "NS sans TP",
+      "color": "rgba(156, 39, 176, 0.6)",
+      "description": "NS n'a pas de TP (configuration par défaut)",
+      "changes": {}
+    },
+    {
+      "id": "NS-TP-J",
+      "name": "NS TP Jeudi",
+      "color": "rgba(156, 39, 176, 0.6)",
+      "description": "NS a TP le Jeudi",
+      "changes": {
+        "doctorProfiles.NS.backbone.Thursday.9am-1pm": ["replace", ["TP"]],
+        "doctorProfiles.NS.backbone.Thursday.2pm-6pm": ["replace", ["TP"]]
+      }
+    },
+    {
+      "id": "NS-TP-L",
+      "name": "NS TP Lundi",
+      "color": "rgba(156, 39, 176, 0.6)",
+      "description": "NS a TP le Lundi",
+      "changes": {
+        "doctorProfiles.NS.backbone.Monday.9am-1pm": ["replace", ["TP"]],
+        "doctorProfiles.NS.backbone.Monday.2pm-6pm": ["replace", ["TP"]]
+      }
+    },
+    {
+      "id": "AMI-1",
+      "name": "AMI 1 heure",
+      "color": "rgba(75, 192, 192, 0.6)",
+      "description": "AMI dure 1 heure (configuration par défaut)",
+      "changes": {}
+    },
+    {
+      "id": "AMI-2",
+      "name": "AMI 2 heures",
+      "color": "rgba(75, 192, 192, 0.6)",
+      "description": "AMI dure 2 heures (permet la téléexpertise)",
+      "changes": {
+        "docActivities.AMI.duration": 2
+      }
+    },
+    {
+      "id": "Rotation-NS-NoHDJ",
+      "name": "Rotation NS sans HDJ",
+      "color": "rgba(255, 206, 86, 0.6)",
+      "description": "Utilise le cycle honeymoon_NS_noHDJ (configuration par défaut)",
+      "changes": {}
+    },
+    {
+      "id": "Rotation-NS-HDJ",
+      "name": "Rotation NS avec HDJ",
+      "color": "rgba(255, 206, 86, 0.6)",
+      "description": "Utilise le cycle honeymoon_NS_HDJ où NS fait du HDJ",
+      "changes": {
+        "rotationCycle": "honeymoon_NS_HDJ"
+      }
+    },
+    {
+      "id": "no_mg_rotation",
+      "name": "MG Unavailable (NoMG Cycle)",
+      "color": "rgba(199, 99, 132, 0.6)",
+      "description": "Use NoMG rotation cycle when MG doctor is unavailable",
+      "changes": {
+        "rotationCycle": "NoMG"
       }
     },
     {

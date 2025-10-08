@@ -9,6 +9,7 @@ import ETAWorkloadInfographic from './ETAWorkloadInfographic';
 import PlanningOverview from './PlanningOverview';
 import ScheduleEvaluationRadar from './ScheduleEvaluationRadar';
 import ScenarioComparison from './ScenarioComparison';
+import ScenarioCombinationComparison from './ScenarioCombinationComparison';
 import ExcelExport from './ExcelExport';
 import { rotation_cycles } from './customPlanningLogic.js';
 
@@ -18,6 +19,7 @@ function AppInner({ selectedRotationCycle, setSelectedRotationCycle }) {
   const [showPlanningOverview, setShowPlanningOverview] = useState(true);
   const [showEvaluationRadar, setShowEvaluationRadar] = useState(true);
   const [showScenarioComparison, setShowScenarioComparison] = useState(true);
+  const [showCombinationComparison, setShowCombinationComparison] = useState(false);
 
   const handlePeriodClick = (periodOrName) => {
     console.log('Period clicked:', periodOrName);
@@ -98,7 +100,22 @@ function AppInner({ selectedRotationCycle, setSelectedRotationCycle }) {
       {/* 3. Workload Analysis Charts */}
       <Workload />
 
-      {/* 3.5 Scenario Comparison */}
+      {/* 3.5 Scenario Combination Analysis (Best Scenario) */}
+      <div style={{ marginTop: '20px', marginBottom: '20px' }}>
+        <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+          <input
+            type="checkbox"
+            checked={showCombinationComparison}
+            onChange={(e) => setShowCombinationComparison(e.target.checked)}
+            style={{ marginRight: '8px' }}
+          />
+          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Show Best Scenario Analysis (72 combinations)</span>
+        </label>
+
+        {showCombinationComparison && <ScenarioCombinationComparison />}
+      </div>
+
+      {/* 3.6 Scenario Comparison */}
       <div style={{ marginTop: '20px', marginBottom: '20px' }}>
         <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
           <input
@@ -113,7 +130,7 @@ function AppInner({ selectedRotationCycle, setSelectedRotationCycle }) {
         {showScenarioComparison && <ScenarioComparison />}
       </div>
 
-      {/* 3.6 Schedule Evaluation Radar */}
+      {/* 3.7 Schedule Evaluation Radar */}
       <div style={{ marginTop: '20px', marginBottom: '20px' }}>
         <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
           <input
