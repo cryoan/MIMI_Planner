@@ -44,6 +44,7 @@ const ScenarioCombinationComparison = () => {
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [showChart, setShowChart] = useState(false);
   const [cacheInfo, setCacheInfo] = useState(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Filter state: { BM: 'BM-EMIT-JV', FL: null, NS: 'NS-TP-J', ... }
   const [selectedFilters, setSelectedFilters] = useState(() => {
@@ -594,25 +595,6 @@ const ScenarioCombinationComparison = () => {
         )}
       </div>
 
-      {/* Cache Info */}
-      {cacheInfo && cacheInfo.exists && (
-        <div style={{
-          padding: '15px',
-          backgroundColor: cacheInfo.valid ? '#e3f2fd' : '#fff3cd',
-          borderRadius: '4px',
-          marginBottom: '20px',
-          border: `2px solid ${cacheInfo.valid ? '#2196F3' : '#ffc107'}`
-        }}>
-          <strong>ℹ️ Cache Info:</strong><br />
-          {cacheInfo.resultCount} scénarios en cache (âge: {cacheInfo.age.toFixed(1)}h)
-          {results && results.length > 0 && (
-            <>
-              <br />
-              <strong>Meilleur score:</strong> {results[0]?.totalScore} - {results[0]?.combination.name}
-            </>
-          )}
-        </div>
-      )}
 
       {/* Stacked Bar Chart */}
       {showChart && chartData && (
@@ -633,102 +615,46 @@ const ScenarioCombinationComparison = () => {
         </div>
       )}
 
-      {/* Top 10 Table */}
-      {results && results.length > 0 && (
-        <div style={{ marginTop: '30px' }}>
-          <h3>🏆 Top 10 Meilleurs Scénarios</h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontSize: '14px',
-              backgroundColor: 'white',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-            }}>
-              <thead style={{ backgroundColor: '#f5f5f5' }}>
-                <tr>
-                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Rang</th>
-                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'left' }}>Nom du Scénario</th>
-                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'center' }}>Score Total</th>
-                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'center' }}>Activités ✗</th>
-                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'center' }}>Créneaux ⚠</th>
-                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'center' }}>TeleCs ✗</th>
-                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'center' }}>MAD (h)</th>
-                  <th style={{ padding: '12px', border: '1px solid #ddd', textAlign: 'center' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.slice(0, 10).map((r, i) => (
-                  <tr key={r.combination.id} style={{
-                    backgroundColor: i === 0 ? '#fff3cd' : i % 2 === 0 ? '#f9f9f9' : 'white'
-                  }}>
-                    <td style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center', fontSize: '18px' }}>
-                      {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
-                    </td>
-                    <td style={{ padding: '10px', border: '1px solid #ddd', fontSize: '11px', maxWidth: '300px' }}>
-                      {r.combination.name}
-                    </td>
-                    <td style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center' }}>
-                      <strong style={{ fontSize: '16px', color: i === 0 ? '#4CAF50' : 'inherit' }}>
-                        {r.totalScore}
-                      </strong>
-                    </td>
-                    <td style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center' }}>
-                      {r.metrics.totalMissingActivities}
-                    </td>
-                    <td style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center' }}>
-                      {r.metrics.totalOverloadedSlots}
-                    </td>
-                    <td style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center' }}>
-                      {r.metrics.totalTeleCsMissing}
-                    </td>
-                    <td style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center' }}>
-                      {r.metrics.workloadMAD.toFixed(2)}
-                    </td>
-                    <td style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center' }}>
-                      <button
-                        onClick={() => handleApplyCombination(r.combination)}
-                        style={{
-                          padding: '6px 12px',
-                          fontSize: '12px',
-                          backgroundColor: '#4CAF50',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '3px',
-                          cursor: 'pointer',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        Appliquer
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
-      {/* Help Section */}
-      <div style={{
-        marginTop: '30px',
-        padding: '15px',
-        backgroundColor: '#fff3cd',
-        border: '1px solid #ffc107',
-        borderRadius: '5px'
-      }}>
-        <strong>💡 Mode d'emploi:</strong>
-        <ul style={{ fontSize: '13px', margin: '8px 0', paddingLeft: '20px' }}>
-          <li>Cliquez sur "Best Scenario" pour calculer toutes les combinaisons (15-30 secondes)</li>
-          <li>Les résultats sont automatiquement sauvegardés en cache</li>
-          <li><strong>🔍 Recherche:</strong> Utilisez les filtres pour trouver un scénario spécifique (0 ou 1 résultat avec logique AND)</li>
-          <li>Le graphique montre les 72 scénarios triés du meilleur (gauche) au pire (droite)</li>
-          <li><strong>🎯 Scénario trouvé:</strong> Un marqueur jaune "🎯 Trouvé" apparaît au-dessus de la barre correspondante</li>
-          <li><strong>Clic sur barre:</strong> Cliquez directement sur n'importe quelle barre du graphique pour appliquer ce scénario</li>
-          <li>Cliquez sur "Appliquer" dans le tableau Top 10 pour utiliser un scénario</li>
-          <li>Score total = Activités manquantes + Créneaux surchargés + TeleCs manquantes (MAD non inclus car en heures)</li>
-        </ul>
+      {/* Help Section - Toggleable */}
+      <div style={{ marginTop: '30px' }}>
+        <button
+          onClick={() => setShowHelp(!showHelp)}
+          style={{
+            padding: '10px 20px',
+            fontSize: '14px',
+            backgroundColor: '#ffc107',
+            color: '#333',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            marginBottom: showHelp ? '15px' : '0'
+          }}
+        >
+          {showHelp ? '🔼 Masquer le mode d\'emploi' : '💡 Afficher le mode d\'emploi'}
+        </button>
+
+        {showHelp && (
+          <div style={{
+            padding: '15px',
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: '5px'
+          }}>
+            <strong>💡 Mode d'emploi:</strong>
+            <ul style={{ fontSize: '13px', margin: '8px 0', paddingLeft: '20px' }}>
+              <li>Cliquez sur "Best Scenario" pour calculer toutes les combinaisons (15-30 secondes)</li>
+              <li>Les résultats sont automatiquement sauvegardés en cache</li>
+              <li><strong>🔍 Recherche:</strong> Utilisez les filtres pour trouver un scénario spécifique (0 ou 1 résultat avec logique AND)</li>
+              <li>Le graphique montre les 72 scénarios triés du meilleur (gauche) au pire (droite)</li>
+              <li><strong>🎯 Scénario trouvé:</strong> Un marqueur jaune "🎯 Trouvé" apparaît au-dessus de la barre correspondante</li>
+              <li><strong>Clic sur barre:</strong> Cliquez directement sur n'importe quelle barre du graphique pour appliquer ce scénario</li>
+              <li>Score total = Activités manquantes + Créneaux surchargés + TeleCs manquantes (MAD non inclus car en heures)</li>
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

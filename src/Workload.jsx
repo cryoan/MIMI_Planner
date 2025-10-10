@@ -538,6 +538,7 @@ const Workload = () => {
 
   const chartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     scales: {
       x: {
         beginAtZero: true,
@@ -561,8 +562,8 @@ const Workload = () => {
   };
 
   return (
-    <div className="chart-container">
-      <div className="chart-wrapper">
+    <div className="chart-container" style={{ height: 'auto', padding: '20px' }}>
+      <div className="chart-wrapper" style={{ height: '600px' }}>
         <h3>Volume de travail médical sur 1 cycle</h3>
         {Object.keys(doctorActivities).length > 0 ? (
           <Bar data={chartData()} options={chartOptions} />

@@ -27,6 +27,9 @@ const ScenarioComparison = () => {
   // Bar chart view mode: 'by-indicator' or 'by-scenario'
   const [barChartViewMode, setBarChartViewMode] = useState('by-indicator');
 
+  // Toggle for showing/hiding scenario list (hidden by default)
+  const [showScenarios, setShowScenarios] = useState(false);
+
   // Check if active scenario is a combination (not in scenarioConfigsData)
   const isActiveCombination = useMemo(() => {
     return !scenarioConfigsData.scenarios.find(s => s.id === activeScenarioId);
@@ -397,66 +400,95 @@ const ScenarioComparison = () => {
         </div>
       )}
 
-      {/* Radar Chart */}
-      <div style={{ maxWidth: '900px', margin: '0 auto 30px' }}>
-        <Radar data={chartData} options={chartOptions} />
-      </div>
-
-      {/* Bar Chart for Issues */}
-      <div style={{ maxWidth: '900px', margin: '0 auto 30px' }}>
-        {/* Toggle buttons for bar chart view */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: '10px',
-          marginBottom: '20px'
-        }}>
-          <button
-            onClick={() => setBarChartViewMode('by-indicator')}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: barChartViewMode === 'by-indicator' ? '#4CAF50' : '#e0e0e0',
-              color: barChartViewMode === 'by-indicator' ? 'white' : '#333',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: barChartViewMode === 'by-indicator' ? 'bold' : 'normal',
-              transition: 'all 0.3s ease',
-            }}
-          >
-            📊 Problèmes par indicateur
-          </button>
-          <button
-            onClick={() => setBarChartViewMode('by-scenario')}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: barChartViewMode === 'by-scenario' ? '#4CAF50' : '#e0e0e0',
-              color: barChartViewMode === 'by-scenario' ? 'white' : '#333',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: barChartViewMode === 'by-scenario' ? 'bold' : 'normal',
-              transition: 'all 0.3s ease',
-            }}
-          >
-            📈 Scénarios par problème
-          </button>
+      {/* Horizontal Layout: Radar Chart (left) + Bar Chart (right) */}
+      <div style={{
+        display: 'flex',
+        gap: '20px',
+        marginBottom: '30px',
+        alignItems: 'flex-start'
+      }}>
+        {/* Radar Chart - Left Column */}
+        <div style={{ flex: '1', minWidth: 0 }}>
+          <Radar data={chartData} options={chartOptions} />
         </div>
 
-        <Bar
-          data={barChartViewMode === 'by-indicator' ? barChartDataByIndicator : barChartDataByScenario}
-          options={barChartOptions}
-        />
+        {/* Bar Chart for Issues - Right Column */}
+        <div style={{ flex: '1', minWidth: 0 }}>
+          {/* Toggle buttons for bar chart view */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '10px',
+            marginBottom: '20px'
+          }}>
+            <button
+              onClick={() => setBarChartViewMode('by-indicator')}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: barChartViewMode === 'by-indicator' ? '#4CAF50' : '#e0e0e0',
+                color: barChartViewMode === 'by-indicator' ? 'white' : '#333',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: barChartViewMode === 'by-indicator' ? 'bold' : 'normal',
+                transition: 'all 0.3s ease',
+              }}
+            >
+              📊 Problèmes par indicateur
+            </button>
+            <button
+              onClick={() => setBarChartViewMode('by-scenario')}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: barChartViewMode === 'by-scenario' ? '#4CAF50' : '#e0e0e0',
+                color: barChartViewMode === 'by-scenario' ? 'white' : '#333',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: barChartViewMode === 'by-scenario' ? 'bold' : 'normal',
+                transition: 'all 0.3s ease',
+              }}
+            >
+              📈 Scénarios par problème
+            </button>
+          </div>
+
+          <Bar
+            data={barChartViewMode === 'by-indicator' ? barChartDataByIndicator : barChartDataByScenario}
+            options={barChartOptions}
+          />
+        </div>
       </div>
 
-      {/* Scenario List */}
-      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-        <h3>Scenarios</h3>
-        <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
-          Click checkboxes to toggle visibility in chart. Click "Apply" to update entire app with that scenario.
-        </p>
+      {/* Toggle Button for Scenarios Section */}
+      <div style={{ maxWidth: '900px', margin: '30px auto 0' }}>
+        <button
+          onClick={() => setShowScenarios(!showScenarios)}
+          style={{
+            padding: '10px 20px',
+            fontSize: '14px',
+            backgroundColor: '#ffc107',
+            color: '#333',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+          }}
+        >
+          {showScenarios ? '🔼 Masquer les scénarios' : '▶ Afficher les scénarios'}
+        </button>
+      </div>
+
+      {/* Scenario List - Collapsible */}
+      {showScenarios && (
+        <div style={{ maxWidth: '900px', margin: '20px auto 0' }}>
+          <h3>Scenarios</h3>
+          <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+            Click checkboxes to toggle visibility in chart. Click "Apply" to update entire app with that scenario.
+          </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '15px' }}>
           {scenarioConfigsData.scenarios.map((scenario, index) => {
@@ -537,26 +569,25 @@ const ScenarioComparison = () => {
             );
           })}
         </div>
-      </div>
 
-      {/* Legend Helper */}
-      <div style={{
-        marginTop: '20px',
-        padding: '15px',
-        backgroundColor: '#fff3cd',
-        border: '1px solid #ffc107',
-        borderRadius: '5px',
-        maxWidth: '900px',
-        margin: '20px auto 0'
-      }}>
-        <strong>💡 How to use:</strong>
-        <ul style={{ fontSize: '13px', margin: '8px 0', paddingLeft: '20px' }}>
-          <li>Uncheck scenarios to hide them from the chart</li>
-          <li>Click "Apply Scenario" to recalculate the entire schedule with that configuration</li>
-          <li>Active scenario is highlighted and affects Calendar, Workload, and all other views</li>
-          <li>Click chart legend items to toggle visibility</li>
-        </ul>
+        {/* Legend Helper */}
+        <div style={{
+          marginTop: '20px',
+          padding: '15px',
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffc107',
+          borderRadius: '5px',
+        }}>
+          <strong>💡 How to use:</strong>
+          <ul style={{ fontSize: '13px', margin: '8px 0', paddingLeft: '20px' }}>
+            <li>Uncheck scenarios to hide them from the chart</li>
+            <li>Click "Apply Scenario" to recalculate the entire schedule with that configuration</li>
+            <li>Active scenario is highlighted and affects Calendar, Workload, and all other views</li>
+            <li>Click chart legend items to toggle visibility</li>
+          </ul>
+        </div>
       </div>
+      )}
     </div>
   );
 };

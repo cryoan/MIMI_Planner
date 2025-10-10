@@ -322,10 +322,6 @@ const ETAWorkloadInfographic = React.memo(() => {
     draggedOverItem: null,
   });
 
-  // State for collapsible sections
-  const [isGridExpanded, setIsGridExpanded] = React.useState(false);
-  const [isBarChartExpanded, setIsBarChartExpanded] = React.useState(false);
-  const [isSharedChartExpanded, setIsSharedChartExpanded] = React.useState(false);
 
   // Create hourArray based on custom activity order
   const createCustomHourArray = () => {
@@ -674,10 +670,10 @@ const ETAWorkloadInfographic = React.memo(() => {
   return (
     <div className="eta-workload-infographic">
       <div className="infographic-header">
-        <h3>Activités prévues et ETP disponibles</h3>
+        <h3>ETA Grid visualization</h3>
       </div>
 
-      {/* Collapsible Section 1: ETA Grid */}
+      {/* ETA Grid - Always Expanded */}
       <div
         style={{
           border: "1px solid #ddd",
@@ -686,26 +682,7 @@ const ETAWorkloadInfographic = React.memo(() => {
           backgroundColor: "#fff",
         }}
       >
-        <div
-          onClick={() => setIsGridExpanded(!isGridExpanded)}
-          style={{
-            padding: "15px 20px",
-            backgroundColor: "#f8f9fa",
-            borderRadius: "8px 8px 0 0",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderBottom: isGridExpanded ? "1px solid #ddd" : "none",
-          }}
-        >
-          <h3 style={{ margin: 0, fontSize: "18px", color: "#333" }}>
-            {isGridExpanded ? "▼" : "▶"} ETA Grid Visualization
-          </h3>
-        </div>
-
-        {isGridExpanded && (
-          <div style={{ padding: "20px" }}>
+        <div style={{ padding: "20px" }}>
             {hasOverflow && (
               <div
                 style={{
@@ -874,7 +851,7 @@ const ETAWorkloadInfographic = React.memo(() => {
                   style={{ backgroundColor: getActivityColor(activity) }}
                 ></div>
                 <span>
-                  {activity}: {(hours / 40).toFixed(1)} ETP ({hours}h)
+                  {activity} ({activityHoursPerSlot}h): {(hours / 40).toFixed(1)} ETP ({hours}h)
                 </span>
               </div>
             );
@@ -942,336 +919,6 @@ const ETAWorkloadInfographic = React.memo(() => {
         </div>
       </div>
           </div>
-        )}
-      </div>
-
-      {/* Collapsible Section 2: Activity Duration Breakdown */}
-      <div
-        style={{
-          border: "1px solid #ddd",
-          borderRadius: "8px",
-          marginBottom: "20px",
-          backgroundColor: "#fff",
-        }}
-      >
-        <div
-          onClick={() => setIsBarChartExpanded(!isBarChartExpanded)}
-          style={{
-            padding: "15px 20px",
-            backgroundColor: "#f8f9fa",
-            borderRadius: "8px 8px 0 0",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderBottom: isBarChartExpanded ? "1px solid #ddd" : "none",
-          }}
-        >
-          <h3 style={{ margin: 0, fontSize: "18px", color: "#333" }}>
-            {isBarChartExpanded ? "▼" : "▶"} Activity Duration Breakdown
-          </h3>
-        </div>
-
-        {isBarChartExpanded && (
-          <div
-            className="bar-chart-section"
-            style={{
-              padding: "20px",
-              backgroundColor: "#f9f9f9",
-            }}
-          >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: "20px",
-          }}
-        >
-          <div style={{ width: "800px", height: "400px" }}>
-            <Bar
-              data={barChartData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    display: false, // Hide legend since colors are self-explanatory
-                  },
-                  tooltip: {
-                    callbacks: {
-                      label: function (context) {
-                        const activity = context.label;
-                        const hours = context.parsed.y;
-                        const etpValue = (hours / 40).toFixed(1);
-                        const percentage = (
-                          (hours / totalUsedHours) *
-                          100
-                        ).toFixed(1);
-
-                        const result = [`${activity}`];
-
-                        // Check if this is a combined activity
-                        if (
-                          mainActivityBreakdown[activity] &&
-                          Object.keys(mainActivityBreakdown[activity]).length >
-                            1
-                        ) {
-                          // Combined activity - show breakdown
-                          result.push(`Total: ${hours}h (${etpValue} ETP)`);
-                          result.push("Breakdown:");
-                          Object.entries(
-                            mainActivityBreakdown[activity]
-                          ).forEach(([subActivity, subHours]) => {
-                            if (subHours > 0) {
-                              result.push(`  • ${subActivity}: ${subHours}h`);
-                            }
-                          });
-                        } else {
-                          // Single activity - show standard info
-                          result.push(`${hours}h (${etpValue} ETP)`);
-                        }
-
-                        result.push(`${percentage}% of total used time`);
-                        return result;
-                      },
-                    },
-                  },
-                },
-                scales: {
-                  x: {
-                    title: {
-                      display: true,
-                      text: "Activities",
-                    },
-                    ticks: {
-                      maxRotation: 45,
-                      minRotation: 45,
-                    },
-                  },
-                  y: {
-                    title: {
-                      display: true,
-                      text: "Duration (hours)",
-                    },
-                    beginAtZero: true,
-                    ticks: {
-                      callback: function (value) {
-                        return value + "h";
-                      },
-                    },
-                  },
-                },
-              }}
-            />
-          </div>
-        </div>
-        <div
-          style={{ fontSize: "14px", color: "#6c757d", textAlign: "center" }}
-        >
-          <p>
-            <strong>Individual Activity Duration:</strong> Each bar represents
-            the total weekly hours for that activity.
-          </p>
-          <p style={{ fontSize: "12px", fontStyle: "italic" }}>
-            Hover over bars for detailed information including ETP values and
-            percentage of total time.
-          </p>
-        </div>
-          </div>
-        )}
-      </div>
-
-      {/* Collapsible Section 3: Shared Activities */}
-      <div
-        style={{
-          border: "1px solid #ddd",
-          borderRadius: "8px",
-          marginBottom: "20px",
-          backgroundColor: "#fff",
-        }}
-      >
-        <div
-          onClick={() => setIsSharedChartExpanded(!isSharedChartExpanded)}
-          style={{
-            padding: "15px 20px",
-            backgroundColor: "#f8f9fa",
-            borderRadius: "8px 8px 0 0",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderBottom: isSharedChartExpanded ? "1px solid #ddd" : "none",
-          }}
-        >
-          <h3 style={{ margin: 0, fontSize: "18px", color: "#333" }}>
-            {isSharedChartExpanded ? "▼" : "▶"} Durée des activités à partager
-          </h3>
-        </div>
-
-        {isSharedChartExpanded && (
-          <div
-            className="shared-bar-chart-section"
-            style={{
-              padding: "20px",
-              backgroundColor: "#f0f8ff",
-            }}
-          >
-        <div
-          style={{
-            marginBottom: "15px",
-            padding: "10px",
-            backgroundColor: "#e6f3ff",
-            borderRadius: "6px",
-            border: "1px solid #b3d9ff",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "14px",
-              color: "#0066cc",
-              fontWeight: "bold",
-              marginBottom: "5px",
-            }}
-          >
-            💡 About Shared Activities
-          </div>
-          <div
-            style={{ fontSize: "13px", color: "#004499", lineHeight: "1.4" }}
-          >
-            This chart shows <strong>remaining workload</strong> available for
-            rotation assignments after subtracting activities already covered by
-            doctor backbones. For example, if BM's backbone covers EMIT on
-            Thursday/Friday, those hours are excluded from shared EMIT workload.
-          </div>
-        </div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: "20px",
-          }}
-        >
-          <div style={{ width: "800px", height: "400px" }}>
-            <Bar
-              data={sharedBarChartData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    display: false, // Hide legend since colors are self-explanatory
-                  },
-                  tooltip: {
-                    callbacks: {
-                      label: function (context) {
-                        const activity = context.label;
-                        const sharedHours = context.parsed.y;
-                        const etpValue = (sharedHours / 40).toFixed(1);
-                        const percentage =
-                          totalSharedHours > 0
-                            ? ((sharedHours / totalSharedHours) * 100).toFixed(
-                                1
-                              )
-                            : "0";
-
-                        const result = [`${activity} - Shared Workload`];
-
-                        // Check if this is a combined activity
-                        if (
-                          activityBreakdown[activity] &&
-                          Object.keys(activityBreakdown[activity]).length > 1
-                        ) {
-                          // Combined activity - show breakdown
-                          result.push(
-                            `Total Shared: ${sharedHours}h (${etpValue} ETP)`
-                          );
-                          result.push("Breakdown:");
-                          Object.entries(activityBreakdown[activity]).forEach(
-                            ([subActivity, hours]) => {
-                              if (hours > 0) {
-                                result.push(`  • ${subActivity}: ${hours}h`);
-                              }
-                            }
-                          );
-
-                          // Calculate total hours for backbone calculation
-                          const totalHours = Object.keys(
-                            activityBreakdown[activity]
-                          ).reduce((sum, subActivity) => {
-                            return sum + (activityHours[subActivity] || 0);
-                          }, 0);
-                          const backboneHours = totalHours - sharedHours;
-                          result.push(`Total Backbone: ${backboneHours}h`);
-                          result.push(`Total Overall: ${totalHours}h`);
-                        } else {
-                          // Single activity - show standard info
-                          const originalActivity = activity.replace(
-                            " (Total)",
-                            ""
-                          );
-                          const totalHours =
-                            activityHours[originalActivity] || 0;
-                          const backboneHours = totalHours - sharedHours;
-                          result.push(
-                            `Shared: ${sharedHours}h (${etpValue} ETP)`
-                          );
-                          result.push(`Backbone: ${backboneHours}h`);
-                          result.push(`Total: ${totalHours}h`);
-                        }
-
-                        result.push(`${percentage}% of shared workload`);
-                        return result;
-                      },
-                    },
-                  },
-                },
-                scales: {
-                  x: {
-                    title: {
-                      display: true,
-                      text: "Activities",
-                    },
-                    ticks: {
-                      maxRotation: 45,
-                      minRotation: 45,
-                    },
-                  },
-                  y: {
-                    title: {
-                      display: true,
-                      text: "Shared Duration (hours)",
-                    },
-                    beginAtZero: true,
-                    ticks: {
-                      callback: function (value) {
-                        return value + "h";
-                      },
-                    },
-                  },
-                },
-              }}
-            />
-          </div>
-        </div>
-        <div
-          style={{ fontSize: "14px", color: "#6c757d", textAlign: "center" }}
-        >
-          <p>
-            <strong>Total Shared Workload:</strong> {totalSharedHours}h (
-            {(totalSharedHours / 40).toFixed(1)} ETP) •
-            <strong> Total Original Workload:</strong> {totalUsedHours}h (
-            {(totalUsedHours / 40).toFixed(1)} ETP)
-          </p>
-          <p style={{ fontSize: "12px", fontStyle: "italic" }}>
-            <strong>Reduction from Backbone Coverage:</strong>{" "}
-            {totalUsedHours - totalSharedHours}h (
-            {((totalUsedHours - totalSharedHours) / 40).toFixed(1)} ETP) • Shows
-            hours already handled by doctor backbones and not available for
-            rotation assignments.
-          </p>
-        </div>
-          </div>
-        )}
       </div>
     </div>
   );
