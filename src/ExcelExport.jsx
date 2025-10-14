@@ -25,6 +25,7 @@ export const activityColors = {
   RTT: '#FFAB91',
   FMC: '#FFCCBC',
   WE: '#5E35B1',
+  Staff: '#7B68EE',
   Chefferie: 'black'
 };
 

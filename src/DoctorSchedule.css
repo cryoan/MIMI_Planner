@@ -152,8 +152,8 @@
 
 /* Doctor Settings Styles */
 .doctor-settings-container {
-  max-width: 1200px;
-  margin: 20px auto;
+  width: 100%;
+  margin: 0;
   padding: 20px;
 }
 
@@ -738,12 +738,15 @@
 }
 
 .main-tab-content {
+  width: 100%;
   min-height: 500px;
 }
 
 /* Rotation Templates Manager Styling */
 .rotation-templates-manager {
   padding: 20px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .templates-header {
@@ -976,6 +979,8 @@
 /* Doctors Manager specific styling */
 .doctors-manager {
   padding: 20px;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Doctor Summary */
@@ -1314,8 +1319,8 @@
 
 /* Round Robin Planner Styles */
 .round-robin-planner {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   padding: 20px;
 }
 

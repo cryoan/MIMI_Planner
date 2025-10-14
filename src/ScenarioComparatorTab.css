@@ -1,0 +1,43 @@
+.scenario-comparator-tab {
+  padding: 20px;
+  max-width: 100%;
+}
+
+.tab-title {
+  margin-bottom: 30px;
+  font-size: 28px;
+  color: #2c3e50;
+  border-bottom: 3px solid #3498db;
+  padding-bottom: 15px;
+}
+
+.section-container {
+  margin-bottom: 40px;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.two-column-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.chart-column {
+  min-height: 300px;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .two-column-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Make sure charts fit within their containers */
+.chart-column > div {
+  max-width: 100%;
+}

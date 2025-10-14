@@ -1,0 +1,187 @@
+/* Side Menu Container */
+.side-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+  color: white;
+  transition: width 0.3s ease;
+  z-index: 1000;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.side-menu.open {
+  width: 250px;
+}
+
+.side-menu.closed {
+  width: 0px;
+  overflow: hidden;
+}
+
+/* Hamburger Button (when menu closed) */
+.hamburger-button {
+  position: fixed;
+  top: 15px;
+  left: 15px;
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  border: none;
+  color: white;
+  width: 45px;
+  height: 45px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  z-index: 1001;
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.hamburger-button:hover {
+  background: linear-gradient(135deg, #2980b9, #21618c);
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(52, 152, 219, 0.4);
+}
+
+/* Menu Toggle Button (close button when open) */
+.menu-toggle {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: white;
+  width: 30px;
+  height: 30px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.menu-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Menu Header */
+.menu-header {
+  padding: 20px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 20px;
+  margin-top: 50px;
+}
+
+.menu-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: white;
+}
+
+/* Menu Items */
+.menu-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 10px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+  font-size: 15px;
+}
+
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.menu-item.active {
+  background: rgba(52, 152, 219, 0.3);
+  color: white;
+  font-weight: 600;
+  border-left: 3px solid #3498db;
+}
+
+.menu-icon {
+  font-size: 24px;
+  min-width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Closed state - center icons */
+.side-menu.closed .menu-item {
+  justify-content: center;
+  padding: 15px 10px;
+}
+
+.side-menu.closed .menu-label {
+  display: none;
+}
+
+/* Overlay for mobile */
+.side-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: none;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .side-menu {
+    transform: translateX(-100%);
+  }
+
+  .side-menu.open {
+    transform: translateX(0);
+    width: 250px;
+  }
+
+  .side-menu-overlay {
+    display: block;
+  }
+}
+
+/* Accessibility */
+.menu-item:focus {
+  outline: 2px solid #3498db;
+  outline-offset: 2px;
+}
+
+.menu-toggle:focus {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}

@@ -1,5 +1,5 @@
 .calendar-container {
-  margin: 0 40px; /* Adds a 20px margin to both sides of the calendar */
+  margin: 0 20px; /* Smaller margins for better width usage */
 }
 
 .calendar {
@@ -130,7 +130,6 @@
 
 .chart-wrapper {
   width: 100%;
-  max-width: 1200px; /* Maximum width for the chart */
   height: 100%;
 }
 

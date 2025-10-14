@@ -6,6 +6,7 @@ import {
 import { activityColors } from "./schedule";
 import RotationCycleSelector from "./RotationCycleSelector";
 import { ScheduleContext } from "./ScheduleContext";
+import ScenarioComparatorTab from "./ScenarioComparatorTab";
 
 // Custom function to merge rotation template with backbone constraints
 // Backbone always takes precedence (overrides template when conflicts occur)
@@ -67,6 +68,12 @@ const DoctorSettings = ({
         >
           Rotations
         </button>
+        <button
+          className={activeTab === "scenarios" ? "active" : ""}
+          onClick={() => setActiveTab("scenarios")}
+        >
+          Scenario Comparator
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -79,6 +86,7 @@ const DoctorSettings = ({
             setSelectedRotationCycle={setSelectedRotationCycle}
           />
         )}
+        {activeTab === "scenarios" && <ScenarioComparatorTab />}
       </div>
     </div>
   );
