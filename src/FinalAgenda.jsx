@@ -1,6 +1,7 @@
 import React from 'react';
 import Calendar from './Calendar';
 import ExcelExport from './ExcelExport';
+import { PLANNING_CONFIG } from './customPlanningLogic.js';
 
 const FinalAgenda = ({ selectedRotationCycle, setSelectedRotationCycle }) => {
   return (
@@ -10,19 +11,15 @@ const FinalAgenda = ({ selectedRotationCycle, setSelectedRotationCycle }) => {
       {/* Excel Export Button */}
       <ExcelExport />
 
-      {/* 2024 Calendar */}
-      <Calendar
-        year="2024"
-        selectedRotationCycle={selectedRotationCycle}
-        setSelectedRotationCycle={setSelectedRotationCycle}
-      />
-
-      {/* 2025 Calendar */}
-      <Calendar
-        year="2025"
-        selectedRotationCycle={selectedRotationCycle}
-        setSelectedRotationCycle={setSelectedRotationCycle}
-      />
+      {/* Dynamic Calendar rendering based on PLANNING_CONFIG */}
+      {PLANNING_CONFIG.yearsToPlan.map((year) => (
+        <Calendar
+          key={year}
+          year={year}
+          selectedRotationCycle={selectedRotationCycle}
+          setSelectedRotationCycle={setSelectedRotationCycle}
+        />
+      ))}
     </div>
   );
 };

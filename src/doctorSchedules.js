@@ -1,5 +1,7 @@
 // the hierarchy is activity > rotation > doctor
 
+import { getDLStateForWeek } from './periodCalculator.js';
+
 export const docActivities = {
   // duration for 1 plage of activity
   AMI: {
@@ -148,6 +150,69 @@ export const rotationTemplates = {
   },
 };
 
+// ============================================================================
+// WEEK-AWARE HDJ TEMPLATE COMPUTATION
+// ============================================================================
+
+/**
+ * Compute HDJ template for a specific week, accounting for DL's HDJ presence
+ *
+ * This function dynamically adjusts the HDJ template based on DL's state for the week:
+ * - If DL is on HDJ for this week, subtract DL's HDJ activities from the base template
+ * - If DL is on MPO for this week, use the full base HDJ template
+ *
+ * @param {number} weekNumber - ISO week number (1-52)
+ * @param {number} year - Year (2024 or 2025)
+ * @returns {Object} Week-specific HDJ template
+ */
+export function computeWeeklyHDJTemplate(weekNumber, year) {
+  // Get base HDJ template
+  const baseHDJTemplate = deepClone(wantedActivities.HDJ);
+
+  // Get DL's state for this week
+  const dlState = getDLStateForWeek(weekNumber, year);
+
+  if (!dlState) {
+    console.warn(`No DL state found for week ${year}-W${weekNumber}, using full HDJ template`);
+    return baseHDJTemplate;
+  }
+
+  // If DL is on MPO, use full HDJ template (no subtraction needed)
+  if (dlState.state === "MPO") {
+    return baseHDJTemplate;
+  }
+
+  // If DL is on HDJ, subtract DL's HDJ activities from the template
+  if (dlState.state === "HDJ") {
+    const dlHDJBackbone = doctorProfiles.DL.backbones.HDJ;
+    const adjustedTemplate = deepClone(baseHDJTemplate);
+
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+    const timeSlots = ["9am-1pm", "2pm-6pm"];
+
+    days.forEach(day => {
+      timeSlots.forEach(slot => {
+        const baseActivities = adjustedTemplate[day][slot] || [];
+        const dlActivities = dlHDJBackbone[day]?.[slot] || [];
+
+        // Remove DL's HDJ activities from the template
+        adjustedTemplate[day][slot] = baseActivities.filter(activity => {
+          // Only remove HDJ activities that DL is covering
+          if (activity === "HDJ" && dlActivities.includes("HDJ")) {
+            return false; // DL is covering this slot, remove it
+          }
+          return true; // Keep other activities
+        });
+      });
+    });
+
+    console.log(`📊 Week ${year}-W${weekNumber}: DL on ${dlState.state}, adjusted HDJ template`, adjustedTemplate);
+    return adjustedTemplate;
+  }
+
+  return baseHDJTemplate;
+}
+
 // Helper function to deep clone objects
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -179,7 +244,9 @@ function calculateSlotDuration(activities, dynamicDocActivities = null) {
 function collectAllBackboneAssignments(
   dynamicDoctorProfiles = null,
   periodIndex = null,
-  dynamicDocActivities = null
+  dynamicDocActivities = null,
+  weekNumber = null,
+  year = null
 ) {
   const profilesData = dynamicDoctorProfiles || doctorProfiles;
   const assignments = {};
@@ -203,8 +270,15 @@ function collectAllBackboneAssignments(
     // Handle doctors with multiple backbones (e.g., DL)
     let activeBackbone = doctor.backbone;
 
-    if (doctor.backbones && periodIndex !== null) {
-      // Select backbone based on period index and rotation setting
+    // Special handling for DL: use week-based backbone selection (2-week rhythm)
+    if (doctorCode === "DL" && doctor.backbones && weekNumber !== null && year !== null) {
+      const dlState = getDLStateForWeek(weekNumber, year);
+      if (dlState) {
+        activeBackbone = doctor.backbones[dlState.state];
+        console.log(`🔧 collectAllBackboneAssignments: DL backbone for ${year}-W${weekNumber}: ${dlState.state}`);
+      }
+    } else if (doctor.backbones && periodIndex !== null) {
+      // Select backbone based on period index and rotation setting (for non-DL doctors)
       const backboneNames =
         doctor.rotationSetting || Object.keys(doctor.backbones);
       const backboneIndex = periodIndex % backboneNames.length;
@@ -253,23 +327,36 @@ export function computeRemainingRotationTasks(
   dynamicWantedActivities = null,
   dynamicDoctorProfiles = null,
   periodIndex = null,
-  dynamicDocActivities = null
+  dynamicDocActivities = null,
+  weekNumber = null,
+  year = null
 ) {
   const activitiesData = dynamicWantedActivities || wantedActivities;
   const docActivitiesData = dynamicDocActivities || docActivities;
 
   // Get the base template from wantedActivities
-  const baseTemplate = activitiesData[templateName];
+  // Special case: For HDJ template, use week-aware computation if week info is provided
+  let baseTemplate;
+  if (templateName === "HDJ" && weekNumber !== null && year !== null) {
+    baseTemplate = computeWeeklyHDJTemplate(weekNumber, year);
+    console.log(`✅ Using week-aware HDJ template for ${year}-W${weekNumber}`);
+  } else {
+    baseTemplate = activitiesData[templateName];
+  }
+
   if (!baseTemplate) {
     console.error(`Template ${templateName} not found in wantedActivities`);
     return {};
   }
 
   // Get all current backbone assignments (with period-specific backbones)
+  // ✅ WEEK-AWARE: Pass week and year to ensure DL's backbone is correctly selected
   const backboneAssignments = collectAllBackboneAssignments(
     dynamicDoctorProfiles,
     periodIndex,
-    dynamicDocActivities
+    dynamicDocActivities,
+    weekNumber,
+    year
   );
 
   // Create the remaining tasks template
@@ -734,7 +821,9 @@ export function generateDoctorRotations(
   dynamicDoctorProfiles = null,
   dynamicWantedActivities = null,
   periodIndex = null,
-  dynamicDocActivities = null
+  dynamicDocActivities = null,
+  weekNumber = null,
+  year = null
 ) {
   const profilesData = dynamicDoctorProfiles || doctorProfiles;
   const activitiesData = dynamicWantedActivities || wantedActivities;
@@ -753,7 +842,14 @@ export function generateDoctorRotations(
   // Determine which backbone to use
   let activeBackbone = doctor.backbone;
 
-  if (doctor.backbones && periodIndex !== null) {
+  // Special handling for DL: use week-based backbone selection
+  if (doctorCode === "DL" && doctor.backbones && weekNumber !== null && year !== null) {
+    const dlState = getDLStateForWeek(weekNumber, year);
+    if (dlState) {
+      activeBackbone = doctor.backbones[dlState.state];
+      console.log(`📊 DL backbone for ${year}-W${weekNumber}: ${dlState.state}`);
+    }
+  } else if (doctor.backbones && periodIndex !== null) {
     // Select backbone based on period index and rotation setting
     const backboneNames =
       doctor.rotationSetting || Object.keys(doctor.backbones);
@@ -771,14 +867,16 @@ export function generateDoctorRotations(
   // Generate base rotations from remaining tasks (dynamic computation)
   rotationSetting.forEach((templateName) => {
     // Check if template exists in wantedActivities (we now use this instead of rotationTemplates)
-    if (activitiesData[templateName]) {
-      // Compute remaining tasks for this template
+    if (activitiesData[templateName] || templateName === "HDJ") {
+      // Compute remaining tasks for this template (with week info for HDJ)
       const remainingTasks = computeRemainingRotationTasks(
         templateName,
         activitiesData,
         dynamicDoctorProfiles,
         periodIndex,
-        dynamicDocActivities
+        dynamicDocActivities,
+        weekNumber,
+        year
       );
       // Generate rotation from remaining tasks + backbone
       const baseRotation = mergeTemplateWithBackbone(

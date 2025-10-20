@@ -3,6 +3,7 @@ import './Calendar.css';
 import { ScheduleProvider } from './ScheduleContext';
 import MainLayout from './MainLayout';
 import { rotation_cycles } from './customPlanningLogic.js';
+import './testPeriodSystem.js'; // Load test functions into window.testPeriodSystem
 
 // Main App component with ScheduleProvider wrapper
 function App() {
