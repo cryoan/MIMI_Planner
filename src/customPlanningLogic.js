@@ -13,17 +13,390 @@ import {
   setDynamicDocActivities,
   resetDocActivities,
 } from "./activityConflictResolver.js";
+import {
+  getRegularDoctorPeriod,
+  getDLStateForWeek,
+  getPeriodIndexForWeek,
+  initializePeriodSystem,
+  scheduleConfig,
+  isHolidayWeek
+} from "./periodCalculator.js";
 
 // Custom Planning Logic - Algorithme de Planification Médical Progressif et Fiable
 // Implémentation en 3 phases selon les spécifications utilisateur
 
 console.log("Custom Planning Logic Module Loaded");
 
+// Initialize period system on module load
+initializePeriodSystem();
+
+/**
+ * Year Configuration - Change this to plan different years
+ * Examples:
+ * - [2024] - only 2024 (weeks 44-52)
+ * - [2025] - only 2025 (weeks 1-52)
+ * - [2026] - only 2026 (weeks 1-52)
+ * - [2024, 2025] - both 2024 and 2025
+ * - [2024, 2025, 2026] - all three years
+ */
+export const PLANNING_CONFIG = {
+  yearsToPlan: [2026],  // Default: plan for 2026 only
+};
+
 /**
  * Configuration de l'algorithme
  */
 const TIME_SLOTS = ["9am-1pm", "2pm-6pm"];
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+// ============================================================================
+// WEEK-BY-WEEK SCHEDULE GENERATION (NEW ARCHITECTURE)
+// ============================================================================
+
+/**
+ * Generate schedules week-by-week using the new hierarchical period system
+ * This replaces the old period-based generation with week-aware generation
+ *
+ * @param {Object} baseSchedule - Base schedule for rigid doctors
+ * @param {Object} rotationAssignments - Doctor rotation assignments
+ * @param {string} cycleType - Rotation cycle type (honeymoon, NoMG, etc.)
+ * @param {Object} dynamicDoctorProfiles - Dynamic doctor profiles
+ * @param {Object} dynamicWantedActivities - Dynamic wanted activities
+ * @param {Array} conflictResolutionOrder - Order of conflict resolution
+ * @param {Object} dynamicDocActivities - Dynamic activity durations
+ * @returns {Object} Weekly schedules with full metadata
+ */
+function generateWeekByWeekSchedules(
+  baseSchedule,
+  rotationAssignments,
+  cycleType,
+  dynamicDoctorProfiles = null,
+  dynamicWantedActivities = null,
+  conflictResolutionOrder = ["HTC", "EMIT", "EMATIT", "TeleCs"],
+  dynamicDocActivities = null
+) {
+  console.log("🗓️ Generating week-by-week schedules using new architecture...");
+
+  const profilesData = dynamicDoctorProfiles || doctorProfiles;
+  const weeklySchedules = {};
+
+  // Set dynamic docActivities for conflict resolution
+  if (dynamicDocActivities) {
+    setDynamicDocActivities(dynamicDocActivities);
+  }
+
+  // Define weeks to generate based on PLANNING_CONFIG
+  const weeksToGenerate = [];
+  PLANNING_CONFIG.yearsToPlan.forEach(year => {
+    if (year === 2024) {
+      // 2024 starts from week 44 (when planning data begins)
+      weeksToGenerate.push(...Array.from({ length: 9 }, (_, i) => ({ week: 44 + i, year: 2024 })));
+    } else {
+      // Full year (weeks 1-52)
+      weeksToGenerate.push(...Array.from({ length: 52 }, (_, i) => ({ week: i + 1, year })));
+    }
+  });
+
+  console.log(`📅 Planning for year(s): ${PLANNING_CONFIG.yearsToPlan.join(', ')} (${weeksToGenerate.length} weeks total)`);
+
+  // Identify rigid vs flexible doctors
+  const rigidDoctors = [];
+  const flexibleDoctors = [];
+
+  Object.entries(rotationAssignments).forEach(([doctorCode]) => {
+    const profile = profilesData[doctorCode];
+    if (profile?.rotationSetting?.length <= 1) {
+      rigidDoctors.push(doctorCode);
+    } else {
+      flexibleDoctors.push(doctorCode);
+    }
+  });
+
+  console.log(`🔒 Rigid doctors: ${rigidDoctors.join(", ")}`);
+  console.log(`🔄 Flexible doctors: ${flexibleDoctors.join(", ")}`);
+
+  // Get rotation cycle
+  const selectedCycle = rotation_cycles[cycleType] || rotation_cycles.honeymoon_NS_noHDJ;
+
+  // Generate schedule for each week
+  weeksToGenerate.forEach(({ week, year }) => {
+    const weekKey = `${year}-W${String(week).padStart(2, '0')}`;
+    console.log(`\n📅 Generating schedule for ${weekKey}...`);
+
+    // Get period info for this week
+    const periodInfo = getRegularDoctorPeriod(week, year);
+    const dlState = getDLStateForWeek(week, year);
+    const periodIndex = periodInfo ? periodInfo.periodNumber - 1 : 0;
+    const isVacationWeek = isHolidayWeek(week, year);
+
+    // Handle vacation weeks specially (display backbone schedules)
+    if (!periodInfo && isVacationWeek) {
+      console.log(`  🏖️ Vacation week detected - using backbone schedules`);
+
+      // Generate backbone schedules for all doctors
+      const weekSchedule = {};
+
+      // All doctors use their base/backbone schedule during vacation
+      Object.keys(rotationAssignments).forEach((doctorCode) => {
+        if (doctorCode === "DL") {
+          // DL continues its 2-week HDJ/MPO rotation even during vacation
+          try {
+            const dlRotations = generateDoctorRotations(
+              "DL",
+              dynamicDoctorProfiles,
+              dynamicWantedActivities,
+              periodIndex,
+              dynamicDocActivities,
+              week,
+              year
+            );
+
+            if (dlState && dlRotations[dlState.state]) {
+              weekSchedule["DL"] = deepClone(dlRotations[dlState.state]);
+              console.log(`  🏥 DL: ${dlState.state} (vacation week, week ${dlState.weekInCycle}/${scheduleConfig.DL.cycleWeeks})`);
+            } else if (baseSchedule[doctorCode]) {
+              weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
+            }
+          } catch (error) {
+            console.error(`  ❌ Error with DL during vacation:`, error);
+            if (baseSchedule[doctorCode]) {
+              weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
+            }
+          }
+        } else {
+          // Other doctors use their backbone schedule
+          if (baseSchedule[doctorCode]) {
+            weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
+            console.log(`  🏖️ ${doctorCode}: backbone schedule (vacation)`);
+          }
+        }
+      });
+
+      // Store vacation week schedule (no conflict resolution needed)
+      weeklySchedules[weekKey] = {
+        week,
+        year,
+        periodInfo: { periodId: 'VACATION', periodNumber: 0, parentPeriod: 'Vacation Week' },
+        dlState,
+        schedule: weekSchedule
+      };
+
+      return; // Skip normal processing for vacation weeks
+    }
+
+    if (!periodInfo) {
+      console.warn(`⚠️ No period info for ${weekKey}, skipping...`);
+      return;
+    }
+
+    console.log(`  Period: ${periodInfo.periodId}, DL state: ${dlState?.state}`);
+
+    const weekSchedule = {};
+
+    // 1. Keep rigid doctors unchanged
+    rigidDoctors.forEach((doctorCode) => {
+      if (baseSchedule[doctorCode]) {
+        weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
+        console.log(`  🔒 ${doctorCode}: rigid schedule maintained`);
+      }
+    });
+
+    // 2. Get rotation assignments for this period from the cycle
+    const cycleIndex = periodIndex % selectedCycle.periods.length;
+    const periodRotations = selectedCycle.periods[cycleIndex];
+
+    console.log(`  📊 Period details:`, {
+      periodNumber: periodInfo.periodNumber,
+      periodIndex,
+      cycleIndex,
+      parentPeriod: periodInfo.parentPeriod,
+      halfNumber: periodInfo.halfNumber,
+      weekInPeriod: periodInfo.weekInPeriod,
+      totalWeeksInPeriod: periodInfo.totalWeeksInPeriod
+    });
+
+    console.log(`  🎯 Period rotations (cycle ${cycleIndex}):`, periodRotations);
+    console.log(`  🔄 Flexible doctor assignments:`, {
+      MDLC: periodRotations.MDLC || Object.entries(periodRotations).find(([_, doc]) => doc === 'MDLC')?.[0],
+      RNV: periodRotations.RNV || Object.entries(periodRotations).find(([_, doc]) => doc === 'RNV')?.[0],
+      MG: periodRotations.MG || Object.entries(periodRotations).find(([_, doc]) => doc === 'MG')?.[0],
+      FL: periodRotations.FL || Object.entries(periodRotations).find(([_, doc]) => doc === 'FL')?.[0],
+      CL: periodRotations.CL || Object.entries(periodRotations).find(([_, doc]) => doc === 'CL')?.[0],
+      NS: periodRotations.NS || Object.entries(periodRotations).find(([_, doc]) => doc === 'NS')?.[0]
+    });
+
+    // 3. Generate schedules for flexible doctors with WEEK-AWARE rotation generation
+    flexibleDoctors.forEach((doctorCode) => {
+      const assignedActivity = periodRotations[doctorCode] ||
+                               Object.entries(periodRotations).find(([_, doc]) => doc === doctorCode)?.[0];
+
+      if (!assignedActivity && doctorCode !== "DL") {
+        console.warn(`  ⚠️ No activity assignment for ${doctorCode} in period ${periodIndex}`);
+        weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
+        return;
+      }
+
+      try {
+        // ✅ WEEK-AWARE GENERATION: Pass week and year to generateDoctorRotations
+        const generatedRotations = generateDoctorRotations(
+          doctorCode,
+          dynamicDoctorProfiles,
+          dynamicWantedActivities,
+          periodIndex,
+          dynamicDocActivities,
+          week,  // ✅ NEW: Week parameter
+          year   // ✅ NEW: Year parameter
+        );
+
+        if (generatedRotations[assignedActivity]) {
+          weekSchedule[doctorCode] = deepClone(generatedRotations[assignedActivity]);
+          console.log(`  ✅ ${doctorCode}: assigned to ${assignedActivity} (week-aware)`);
+        } else {
+          weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
+          console.warn(`  ⚠️ Activity ${assignedActivity} not found for ${doctorCode}`);
+        }
+      } catch (error) {
+        console.error(`  ❌ Error generating rotation for ${doctorCode}:`, error);
+        weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
+      }
+    });
+
+    // 4. Special handling for DL (always use week-based backbone)
+    if (rotationAssignments["DL"]) {
+      try {
+        // ✅ DL uses week-aware backbone selection (implemented in generateDoctorRotations)
+        const dlRotations = generateDoctorRotations(
+          "DL",
+          dynamicDoctorProfiles,
+          dynamicWantedActivities,
+          periodIndex,
+          dynamicDocActivities,
+          week,  // ✅ Week-based backbone selection
+          year
+        );
+
+        if (dlState && dlRotations[dlState.state]) {
+          weekSchedule["DL"] = deepClone(dlRotations[dlState.state]);
+          console.log(`  🏥 DL: ${dlState.state} (week ${dlState.weekInCycle}/${scheduleConfig.DL.cycleWeeks})`);
+        }
+      } catch (error) {
+        console.error(`  ❌ Error with DL backbone:`, error);
+      }
+    }
+
+    // 5. Apply conflict resolution to this week's schedule
+    console.log(`  🔧 Applying conflict resolution for ${weekKey}...`);
+
+    // Calculate cumulative workload up to this week for balanced assignments
+    const cumulativeWorkload = calculateCumulativeWorkloadPerDoctor(weeklySchedules);
+
+    // Apply conflict resolvers in the specified order
+    let resolvedSchedule = weekSchedule;
+
+    conflictResolutionOrder.forEach(conflictType => {
+      if (conflictType === "HTC") {
+        const htcResult = resolveHTCConflicts(resolvedSchedule, cycleType, periodIndex);
+        if (htcResult.success) {
+          resolvedSchedule = htcResult.schedule;
+          console.log(`    ✅ HTC conflicts resolved`);
+        }
+      } else if (conflictType === "EMIT") {
+        const emitResult = resolveEMITConflicts(
+          resolvedSchedule,
+          cycleType,
+          periodIndex,
+          weeklySchedules,
+          cumulativeWorkload
+        );
+        if (emitResult.success) {
+          resolvedSchedule = emitResult.schedule;
+          console.log(`    ✅ EMIT conflicts resolved`);
+        }
+      } else if (conflictType === "EMATIT") {
+        const ematitResult = resolveEMATITConflicts(
+          resolvedSchedule,
+          cycleType,
+          periodIndex,
+          weeklySchedules,
+          cumulativeWorkload
+        );
+        if (ematitResult.success) {
+          resolvedSchedule = ematitResult.schedule;
+          console.log(`    ✅ EMATIT conflicts resolved`);
+        }
+      } else if (conflictType === "TeleCs") {
+        const telecsResult = resolveTeleCsConflicts(
+          resolvedSchedule,
+          cycleType,
+          periodIndex,
+          weeklySchedules,
+          cumulativeWorkload
+        );
+        if (telecsResult.success) {
+          resolvedSchedule = telecsResult.schedule;
+          console.log(`    ✅ TeleCs assigned`);
+        }
+      }
+    });
+
+    // Store the RESOLVED schedule with metadata
+    weeklySchedules[weekKey] = {
+      week,
+      year,
+      periodInfo,
+      dlState,
+      schedule: resolvedSchedule  // ✅ Use resolved schedule instead of base schedule
+    };
+  });
+
+  console.log(`✅ Generated ${Object.keys(weeklySchedules).length} weekly schedules`);
+  return weeklySchedules;
+}
+
+// Helper function for deep cloning
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+/**
+ * Convert weekly schedules to period format for backward compatibility
+ * Groups weeks by period and provides the same structure as createPeriodicVariations
+ *
+ * @param {Object} weeklySchedules - Weekly schedules from generateWeekByWeekSchedules
+ * @returns {Object} Period-based schedule format
+ */
+function convertWeeklySchedulesToPeriodFormat(weeklySchedules) {
+  const periodicSchedule = {};
+
+  Object.entries(weeklySchedules).forEach(([weekKey, weekData]) => {
+    const { week, year, periodInfo, dlState, schedule } = weekData;
+
+    // Use period ID as the key (e.g., "P1", "P2", etc.)
+    const periodKey = periodInfo.periodId;
+
+    if (!periodicSchedule[periodKey]) {
+      periodicSchedule[periodKey] = {
+        period: periodInfo,
+        weeks: [],
+        schedule: null  // Will use the last week's schedule as representative
+      };
+    }
+
+    // Store week info
+    periodicSchedule[periodKey].weeks.push({
+      weekKey,
+      week,
+      year,
+      dlState
+    });
+
+    // Use this week's schedule (last week in period will be used)
+    periodicSchedule[periodKey].schedule = schedule;
+  });
+
+  console.log(`📦 Converted ${Object.keys(weeklySchedules).length} weekly schedules to ${Object.keys(periodicSchedule).length} periods`);
+  return periodicSchedule;
+}
 
 /**
  * Activity-centric rotation cycles with descriptions and metadata
@@ -554,9 +927,6 @@ export const getEmptySchedule = () => ({
   Thursday: { "9am-1pm": [], "2pm-6pm": [] },
   Friday: { "9am-1pm": [], "2pm-6pm": [] },
 });
-
-// Deep clone utility
-const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
 
 // Vérifier si un médecin a une seule rotation possible
 const hasSingleRotation = (doctorCode, profilesData = null) => {
@@ -1321,30 +1691,36 @@ export function executeCustomPlanningAlgorithm(
     );
     result.phases.phase1 = phase1Result;
 
-    // PHASE 2: Simplifiée - Pas de résolution automatique des conflits
-    console.log("\n✅ PHASE 2: Simplifiée - Planning de base conservé");
-    const adjustedSchedule = phase1Result.schedule; // Garder le planning tel quel
+    // PHASE 2: Conflict Resolution (Applied Week-by-Week in Phase 3)
+    console.log("\n🔧 PHASE 2: Conflict Resolution Active (Applied per Week)");
+    const adjustedSchedule = phase1Result.schedule; // Base schedule before weekly conflict resolution
 
     result.phases.phase2 = {
       description:
-        "Phase 2 simplifiée - pas de résolution automatique des conflits",
+        "Conflict resolution enabled - applied week-by-week during schedule generation",
       adjustedSchedule,
     };
 
-    // PHASE 3: Variation périodique
-    console.log("\n🔄 PHASE 3: Création des variations périodiques");
-    const periodicSchedule = createPeriodicVariations(
+    // PHASE 3: Variation périodique (NEW WEEK-BY-WEEK SYSTEM)
+    console.log("\n🔄 PHASE 3: Création des variations périodiques (week-by-week)");
+
+    // ✅ NEW: Use week-by-week generation with hierarchical period system
+    const weeklySchedules = generateWeekByWeekSchedules(
       adjustedSchedule,
       phase1Result.rotationAssignments,
       cycleType,
-      dynamicDoctorProfiles, // ✅ Pass dynamic data to Phase 3
+      dynamicDoctorProfiles,
       dynamicWantedActivities,
-      finalConflictOrder, // ✅ Pass conflict resolution order
-      dynamicDocActivities // ✅ Pass dynamic docActivities for activity duration modifications
+      finalConflictOrder,
+      dynamicDocActivities
     );
+
+    // Convert to period format for backward compatibility
+    const periodicSchedule = convertWeeklySchedulesToPeriodFormat(weeklySchedules);
 
     result.phases.phase3 = periodicSchedule;
     result.periodicSchedule = periodicSchedule;
+    result.weeklySchedules = weeklySchedules; // ✅ NEW: Also store weekly schedules
     result.finalSchedule = adjustedSchedule;
 
     // Statistiques
