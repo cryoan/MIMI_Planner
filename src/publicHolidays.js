@@ -28,6 +28,19 @@ const holidays = {
     'Armistice de 1918': 'Mardi 11 novembre 2025',
     Noël: 'Jeudi 25 décembre 2025',
   },
+  2026: {
+    "Jour de l'An": 'Jeudi 1er janvier 2026',
+    'Lundi de Pâques': 'Lundi 6 avril 2026',
+    'Fête du Travail': 'Vendredi 1er mai 2026',
+    'Victoire de 1945': 'Vendredi 8 mai 2026',
+    Ascension: 'Jeudi 14 mai 2026',
+    'Lundi de Pentecôte': 'Lundi 25 mai 2026',
+    'Fête nationale': 'Mardi 14 juillet 2026',
+    Assomption: 'Samedi 15 août 2026',
+    Toussaint: 'Dimanche 1er novembre 2026',
+    'Armistice de 1918': 'Mercredi 11 novembre 2026',
+    Noël: 'Vendredi 25 décembre 2026',
+  },
 };
 
 // Data for vacation periods
@@ -43,7 +56,7 @@ const vacationData = {
     },
   },
   2025: {
-    'Vacances d’hiver': {
+    "Vacances d'hiver": {
       Début: 'samedi 8 février 2025',
       Fin: 'lundi 24 février 2025',
     },
@@ -51,13 +64,39 @@ const vacationData = {
       Début: 'samedi 5 avril 2025',
       Fin: 'mardi 22 avril 2025',
     },
-    'Pont de l’Ascension': {
+    "Pont de l'Ascension": {
       Début: 'mercredi 28 mai 2025',
       Fin: 'lundi 2 juin 2025',
     },
     'Grandes vacances': {
       Début: 'samedi 5 juillet 2025',
-      Fin: 'samedi 5 septembre 2025',
+      Fin: 'dimanche 31 août 2025',
+    },
+    'Vacances de la Toussaint': {
+      Début: 'samedi 18 octobre 2025',
+      Fin: 'lundi 3 novembre 2025',
+    },
+    'Vacances de Noël': {
+      Début: 'samedi 20 décembre 2025',
+      Fin: 'lundi 5 janvier 2026',
+    },
+  },
+  2026: {
+    "Vacances d'hiver": {
+      Début: 'samedi 14 février 2026',
+      Fin: 'lundi 2 mars 2026',
+    },
+    'Vacances de printemps': {
+      Début: 'samedi 11 avril 2026',
+      Fin: 'lundi 27 avril 2026',
+    },
+    "Pont de l'Ascension": {
+      Début: 'vendredi 15 mai 2026',
+      Fin: 'samedi 16 mai 2026',
+    },
+    'Grandes vacances': {
+      Début: 'samedi 4 juillet 2026',
+      Fin: 'dimanche 30 août 2026',
     },
   },
 };
@@ -133,12 +172,23 @@ const transformPublicHolidays = (holidays) => {
 const convertToPublicHolidayFormat = (vacationData) => {
   const publicHolidays = {};
 
+  console.log('🔍 Converting vacation data to week format...');
+
   Object.keys(vacationData).forEach((year) => {
     Object.keys(vacationData[year]).forEach((vacationName) => {
       const startDate = parseFrenchDate(
         vacationData[year][vacationName]['Début']
       );
       const endDate = parseFrenchDate(vacationData[year][vacationName]['Fin']);
+
+      const startWeek = getISOWeek(startDate);
+      const endWeek = getISOWeek(endDate);
+
+      if (year === '2026') {
+        console.log(`  ${year} - ${vacationName}:`);
+        console.log(`    Dates: ${vacationData[year][vacationName]['Début']} → ${vacationData[year][vacationName]['Fin']}`);
+        console.log(`    Weeks: W${startWeek} → W${endWeek}`);
+      }
 
       let currentDate = startDate;
 
