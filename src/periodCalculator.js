@@ -23,7 +23,7 @@ export const scheduleConfig = {
   DL: {
     rhythmType: "fixed",
     cycleWeeks: 2, // 2-week alternating rhythm
-    startWeek: 1, // Starting week in 2026
+    startWeek: 2, // Starting week in 2026
     startYear: 2026,
     startState: "HDJ", // Starts with HDJ
     states: ["HDJ", "MPO"], // Alternating states
@@ -206,6 +206,27 @@ function calculateInterHolidayPeriods(holidayPeriods) {
   console.log("\n🔍 Calculating inter-holiday periods...");
   console.log(`  Processing ${holidayPeriods.length} vacation periods`);
 
+  if (holidayPeriods.length === 0) {
+    console.warn("  ⚠️ No holiday periods found!");
+    return interHolidayPeriods;
+  }
+
+  // ✅ NEW: Add period from START OF YEAR to first vacation
+  const firstHoliday = holidayPeriods[0];
+  if (firstHoliday.startWeek > 1) {
+    const durationWeeks = firstHoliday.startWeek - 1;
+    interHolidayPeriods.push({
+      periodName: `Start of ${firstHoliday.startYear}`,
+      startWeek: 1,
+      startYear: firstHoliday.startYear,
+      endWeek: firstHoliday.startWeek - 1,
+      endYear: firstHoliday.startYear,
+      durationWeeks,
+    });
+    console.log(`  ✅ Added beginning of year period: ${firstHoliday.startYear}-W1 to W${firstHoliday.startWeek - 1} (${durationWeeks} weeks)`);
+  }
+
+  // Original logic: periods BETWEEN vacations
   for (let i = 0; i < holidayPeriods.length - 1; i++) {
     const currentHoliday = holidayPeriods[i];
     const nextHoliday = holidayPeriods[i + 1];
@@ -245,8 +266,23 @@ function calculateInterHolidayPeriods(holidayPeriods) {
     }
   }
 
+  // ✅ NEW: Add period from last vacation to END OF YEAR
+  const lastHoliday = holidayPeriods[holidayPeriods.length - 1];
+  if (lastHoliday.endWeek < 52) {
+    const durationWeeks = 52 - lastHoliday.endWeek;
+    interHolidayPeriods.push({
+      periodName: `End of ${lastHoliday.endYear}`,
+      startWeek: lastHoliday.endWeek + 1,
+      startYear: lastHoliday.endYear,
+      endWeek: 52,
+      endYear: lastHoliday.endYear,
+      durationWeeks,
+    });
+    console.log(`  ✅ Added end of year period: ${lastHoliday.endYear}-W${lastHoliday.endWeek + 1} to W52 (${durationWeeks} weeks)`);
+  }
+
   console.log(
-    `\n  📊 Created ${interHolidayPeriods.length} inter-holiday periods:`
+    `\n  📊 Created ${interHolidayPeriods.length} inter-holiday periods (including year boundaries):`
   );
   interHolidayPeriods.forEach((p) => {
     console.log(
@@ -555,6 +591,15 @@ function getPeriodSystem() {
   return cachedPeriodSystem;
 }
 
+// ✅ FIX: Clear cache when this module is hot-reloaded
+// This prevents stale data after code changes while avoiding infinite loops
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    console.log('🔄 HMR: Clearing period system cache');
+    cachedPeriodSystem = null;
+  });
+}
+
 /**
  * Get regular doctor period info for a specific week
  * @param {number} weekNumber - ISO week number (1-52)
@@ -612,6 +657,46 @@ export function isHolidayWeek(weekNumber, year) {
 }
 
 /**
+ * Check if a specific day is a vacation/holiday day (day-level granularity)
+ * This is more precise than isHolidayWeek() which checks entire weeks
+ *
+ * @param {number} weekNumber - ISO week number (1-52)
+ * @param {string} dayName - Day name in English (e.g., "Monday", "Tuesday")
+ * @param {number} year - Year (2024, 2025, 2026, etc.)
+ * @returns {boolean} True if this specific day is a vacation/holiday day
+ *
+ * @example
+ * // Check if Monday of week 7 in 2026 is a vacation day
+ * isHolidayDay(7, "Monday", 2026); // returns false (working day)
+ * isHolidayDay(7, "Saturday", 2026); // returns true (vacation starts)
+ */
+export function isHolidayDay(weekNumber, dayName, year) {
+  // Query publicHolidays structure for this specific day
+  const weekKey = `Week${weekNumber}`;
+  const yearData = publicHolidays[year];
+
+  if (!yearData) {
+    return false; // Year not found in vacation data
+  }
+
+  const weekData = yearData[weekKey];
+  if (!weekData) {
+    return false; // Week not found in vacation data
+  }
+
+  const dayData = weekData[dayName];
+  if (!dayData || !dayData.event) {
+    return false; // Day not found or no event
+  }
+
+  // Check if the event is a vacation period (not a single-day public holiday)
+  const eventName = dayData.event.name || "";
+  const isVacationPeriod = eventName.toLowerCase().includes("vacances");
+
+  return isVacationPeriod;
+}
+
+/**
  * Debug: Print period system summary
  */
 export function debugPrintPeriodSystem() {
@@ -665,6 +750,8 @@ if (typeof window !== "undefined") {
   window.getRegularDoctorPeriod = getRegularDoctorPeriod;
   window.getDLStateForWeek = getDLStateForWeek;
   window.getPeriodIndexForWeek = getPeriodIndexForWeek;
+  window.isHolidayDay = isHolidayDay;
+  window.isHolidayWeek = isHolidayWeek;
   window.debugPrintPeriodSystem = debugPrintPeriodSystem;
   console.log("🔧 Period helper functions available in window");
 }

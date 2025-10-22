@@ -19,7 +19,8 @@ import {
   getPeriodIndexForWeek,
   initializePeriodSystem,
   scheduleConfig,
-  isHolidayWeek
+  isHolidayWeek,
+  isHolidayDay
 } from "./periodCalculator.js";
 
 // Custom Planning Logic - Algorithme de Planification Médical Progressif et Fiable
@@ -126,57 +127,88 @@ function generateWeekByWeekSchedules(
     // Get period info for this week
     const periodInfo = getRegularDoctorPeriod(week, year);
     const dlState = getDLStateForWeek(week, year);
-    const periodIndex = periodInfo ? periodInfo.periodNumber - 1 : 0;
-    const isVacationWeek = isHolidayWeek(week, year);
+    let periodIndex = periodInfo ? periodInfo.periodNumber - 1 : 0;
 
-    // Handle vacation weeks specially (display backbone schedules)
-    if (!periodInfo && isVacationWeek) {
-      console.log(`  🏖️ Vacation week detected - using backbone schedules`);
+    // ✅ NEW: Check vacation status for ALL days (including weekends)
+    // Working days (Mon-Fri) determine if we apply conflict resolution
+    // All days (Mon-Sun) determine which days get backbone-only schedules
+    const workingDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+    const allDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-      // Generate backbone schedules for all doctors
+    const workingDayVacationStatus = workingDays.map(day => ({
+      day,
+      isVacation: isHolidayDay(week, day, year)
+    }));
+
+    const allDayVacationStatus = allDays.map(day => ({
+      day,
+      isVacation: isHolidayDay(week, day, year)
+    }));
+
+    const allWorkingDaysAreVacation = workingDayVacationStatus.every(d => d.isVacation);
+    const someWorkingDaysAreVacation = workingDayVacationStatus.some(d => d.isVacation);
+    const anyDayIsVacation = allDayVacationStatus.some(d => d.isVacation);
+
+    if (anyDayIsVacation) {
+      console.log(`  📅 Vacation days detected for ${weekKey}:`);
+      allDayVacationStatus.forEach(({ day, isVacation }) => {
+        if (isVacation) {
+          console.log(`    ${day}: 🏖️ VACATION`);
+        }
+      });
+      if (!allWorkingDaysAreVacation) {
+        console.log(`  📅 Working days in this week:`);
+        workingDayVacationStatus.forEach(({ day, isVacation }) => {
+          if (!isVacation) {
+            console.log(`    ${day}: 💼 WORKING`);
+          }
+        });
+      }
+    }
+
+    // Handle FULL vacation weeks specially (all working days are vacation)
+    if (allWorkingDaysAreVacation) {
+      console.log(`  🏖️ Full vacation week detected - using BACKBONE-ONLY schedules`);
+
+      // Generate backbone-only schedules for all doctors
       const weekSchedule = {};
+      const profilesData = dynamicDoctorProfiles || doctorProfiles;
 
-      // All doctors use their base/backbone schedule during vacation
-      Object.keys(rotationAssignments).forEach((doctorCode) => {
-        if (doctorCode === "DL") {
-          // DL continues its 2-week HDJ/MPO rotation even during vacation
-          try {
-            const dlRotations = generateDoctorRotations(
-              "DL",
-              dynamicDoctorProfiles,
-              dynamicWantedActivities,
-              periodIndex,
-              dynamicDocActivities,
-              week,
-              year
-            );
+      // Get all doctors from both rotationAssignments and baseSchedule
+      const allDoctors = new Set([
+        ...Object.keys(rotationAssignments),
+        ...Object.keys(baseSchedule)
+      ]);
 
-            if (dlState && dlRotations[dlState.state]) {
-              weekSchedule["DL"] = deepClone(dlRotations[dlState.state]);
-              console.log(`  🏥 DL: ${dlState.state} (vacation week, week ${dlState.weekInCycle}/${scheduleConfig.DL.cycleWeeks})`);
-            } else if (baseSchedule[doctorCode]) {
-              weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
-            }
-          } catch (error) {
-            console.error(`  ❌ Error with DL during vacation:`, error);
-            if (baseSchedule[doctorCode]) {
-              weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
-            }
+      // All doctors use their backbone schedule ONLY during full vacation
+      allDoctors.forEach((doctorCode) => {
+        const profile = profilesData[doctorCode];
+        if (!profile || (!profile.backbone && !profile.backbones)) {
+          console.warn(`  ⚠️ No backbone found for ${doctorCode}`);
+          return;
+        }
+
+        let activeBackbone = profile.backbone;
+
+        // Special handling for DL with multiple backbones (2-week rhythm)
+        if (doctorCode === "DL" && profile.backbones && dlState) {
+          if (profile.backbones[dlState.state]) {
+            activeBackbone = profile.backbones[dlState.state];
+            console.log(`  🏥 DL: ${dlState.state} backbone (vacation week, week ${dlState.weekInCycle}/${scheduleConfig.DL.cycleWeeks})`);
           }
         } else {
-          // Other doctors use their backbone schedule
-          if (baseSchedule[doctorCode]) {
-            weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
-            console.log(`  🏖️ ${doctorCode}: backbone schedule (vacation)`);
-          }
+          console.log(`  🏖️ ${doctorCode}: backbone-only (vacation)`);
         }
+
+        // Use ONLY the backbone, no rotation activities
+        weekSchedule[doctorCode] = deepClone(activeBackbone);
       });
 
       // Store vacation week schedule (no conflict resolution needed)
       weeklySchedules[weekKey] = {
         week,
         year,
-        periodInfo: { periodId: 'VACATION', periodNumber: 0, parentPeriod: 'Vacation Week' },
+        periodInfo: { periodId: 'VACATION', periodNumber: 0, parentPeriod: 'Full Vacation Week' },
         dlState,
         schedule: weekSchedule
       };
@@ -184,12 +216,15 @@ function generateWeekByWeekSchedules(
       return; // Skip normal processing for vacation weeks
     }
 
+    // ✅ Don't skip weeks without period info - they might be partial vacation weeks
+    // Just log a warning but continue processing
     if (!periodInfo) {
-      console.warn(`⚠️ No period info for ${weekKey}, skipping...`);
-      return;
+      console.warn(`⚠️ No period info for ${weekKey}, treating as standard week...`);
+      // Set a default periodIndex to avoid errors
+      periodIndex = 0;
     }
 
-    console.log(`  Period: ${periodInfo.periodId}, DL state: ${dlState?.state}`);
+    console.log(`  Period: ${periodInfo?.periodId || 'N/A'}, DL state: ${dlState?.state}`);
 
     const weekSchedule = {};
 
@@ -205,15 +240,19 @@ function generateWeekByWeekSchedules(
     const cycleIndex = periodIndex % selectedCycle.periods.length;
     const periodRotations = selectedCycle.periods[cycleIndex];
 
-    console.log(`  📊 Period details:`, {
-      periodNumber: periodInfo.periodNumber,
-      periodIndex,
-      cycleIndex,
-      parentPeriod: periodInfo.parentPeriod,
-      halfNumber: periodInfo.halfNumber,
-      weekInPeriod: periodInfo.weekInPeriod,
-      totalWeeksInPeriod: periodInfo.totalWeeksInPeriod
-    });
+    if (periodInfo) {
+      console.log(`  📊 Period details:`, {
+        periodNumber: periodInfo.periodNumber,
+        periodIndex,
+        cycleIndex,
+        parentPeriod: periodInfo.parentPeriod,
+        halfNumber: periodInfo.halfNumber,
+        weekInPeriod: periodInfo.weekInPeriod,
+        totalWeeksInPeriod: periodInfo.totalWeeksInPeriod
+      });
+    } else {
+      console.log(`  📊 No period info - using default periodIndex: ${periodIndex}`);
+    }
 
     console.log(`  🎯 Period rotations (cycle ${cycleIndex}):`, periodRotations);
     console.log(`  🔄 Flexible doctor assignments:`, {
@@ -227,6 +266,11 @@ function generateWeekByWeekSchedules(
 
     // 3. Generate schedules for flexible doctors with WEEK-AWARE rotation generation
     flexibleDoctors.forEach((doctorCode) => {
+      // Skip DL - it has special handling later
+      if (doctorCode === "DL") {
+        return;
+      }
+
       const assignedActivity = periodRotations[doctorCode] ||
                                Object.entries(periodRotations).find(([_, doc]) => doc === doctorCode)?.[0];
 
@@ -339,11 +383,26 @@ function generateWeekByWeekSchedules(
       }
     });
 
+    // 6. ✅ NEW: Replace vacation days with backbone-only schedules
+    // This applies to:
+    // - Mixed weeks (some working days are vacation, some are not)
+    // - Weeks where only weekends are vacation
+    if (anyDayIsVacation && !allWorkingDaysAreVacation) {
+      console.log(`  🏖️ Post-processing: replacing vacation days with backbone...`);
+      resolvedSchedule = replaceVacationDaysWithBackbone(
+        resolvedSchedule,
+        allDayVacationStatus,  // ✅ Use all days, including weekends
+        dynamicDoctorProfiles,
+        week,
+        year
+      );
+    }
+
     // Store the RESOLVED schedule with metadata
     weeklySchedules[weekKey] = {
       week,
       year,
-      periodInfo,
+      periodInfo: periodInfo || { periodId: 'UNKNOWN', periodNumber: 0, parentPeriod: 'No Period Info' },
       dlState,
       schedule: resolvedSchedule  // ✅ Use resolved schedule instead of base schedule
     };
@@ -356,6 +415,67 @@ function generateWeekByWeekSchedules(
 // Helper function for deep cloning
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
+}
+
+/**
+ * Replace vacation days in a week schedule with backbone-only schedules
+ * This ensures that during vacation days, only the backbone activities are shown
+ *
+ * @param {Object} weekSchedule - Week schedule with all doctors
+ * @param {Array} workingDayVacationStatus - Array of {day, isVacation} objects
+ * @param {Object} dynamicDoctorProfiles - Doctor profiles containing backbone definitions
+ * @param {number} week - Week number
+ * @param {number} year - Year
+ * @returns {Object} Modified week schedule with backbone-only on vacation days
+ */
+function replaceVacationDaysWithBackbone(
+  weekSchedule,
+  workingDayVacationStatus,
+  dynamicDoctorProfiles,
+  week,
+  year
+) {
+  const modifiedSchedule = deepClone(weekSchedule);
+  const profilesData = dynamicDoctorProfiles || doctorProfiles;
+
+  // Find which days are vacation days
+  const vacationDays = workingDayVacationStatus
+    .filter(d => d.isVacation)
+    .map(d => d.day);
+
+  if (vacationDays.length === 0) {
+    return modifiedSchedule; // No vacation days, return as-is
+  }
+
+  console.log(`  🏖️ Replacing vacation days with backbone: ${vacationDays.join(', ')}`);
+
+  // For each doctor, replace their vacation day schedules with backbone only
+  Object.keys(modifiedSchedule).forEach(doctorCode => {
+    const profile = profilesData[doctorCode];
+    if (!profile || !profile.backbone) {
+      return; // Skip if no backbone defined
+    }
+
+    let activeBackbone = profile.backbone;
+
+    // Special handling for DL with multiple backbones (2-week rhythm)
+    if (doctorCode === "DL" && profile.backbones) {
+      const dlState = getDLStateForWeek(week, year);
+      if (dlState && profile.backbones[dlState.state]) {
+        activeBackbone = profile.backbones[dlState.state];
+      }
+    }
+
+    // Replace each vacation day with backbone schedule
+    vacationDays.forEach(day => {
+      if (activeBackbone[day]) {
+        modifiedSchedule[doctorCode][day] = deepClone(activeBackbone[day]);
+        console.log(`    ${doctorCode}.${day}: replaced with backbone`);
+      }
+    });
+  });
+
+  return modifiedSchedule;
 }
 
 /**

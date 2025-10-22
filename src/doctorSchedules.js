@@ -1,6 +1,6 @@
 // the hierarchy is activity > rotation > doctor
 
-import { getDLStateForWeek } from './periodCalculator.js';
+import { getDLStateForWeek } from "./periodCalculator.js";
 
 export const docActivities = {
   // duration for 1 plage of activity
@@ -173,7 +173,9 @@ export function computeWeeklyHDJTemplate(weekNumber, year) {
   const dlState = getDLStateForWeek(weekNumber, year);
 
   if (!dlState) {
-    console.warn(`No DL state found for week ${year}-W${weekNumber}, using full HDJ template`);
+    console.warn(
+      `No DL state found for week ${year}-W${weekNumber}, using full HDJ template`
+    );
     return baseHDJTemplate;
   }
 
@@ -190,13 +192,13 @@ export function computeWeeklyHDJTemplate(weekNumber, year) {
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
     const timeSlots = ["9am-1pm", "2pm-6pm"];
 
-    days.forEach(day => {
-      timeSlots.forEach(slot => {
+    days.forEach((day) => {
+      timeSlots.forEach((slot) => {
         const baseActivities = adjustedTemplate[day][slot] || [];
         const dlActivities = dlHDJBackbone[day]?.[slot] || [];
 
         // Remove DL's HDJ activities from the template
-        adjustedTemplate[day][slot] = baseActivities.filter(activity => {
+        adjustedTemplate[day][slot] = baseActivities.filter((activity) => {
           // Only remove HDJ activities that DL is covering
           if (activity === "HDJ" && dlActivities.includes("HDJ")) {
             return false; // DL is covering this slot, remove it
@@ -206,7 +208,10 @@ export function computeWeeklyHDJTemplate(weekNumber, year) {
       });
     });
 
-    console.log(`📊 Week ${year}-W${weekNumber}: DL on ${dlState.state}, adjusted HDJ template`, adjustedTemplate);
+    console.log(
+      `📊 Week ${year}-W${weekNumber}: DL on ${dlState.state}, adjusted HDJ template`,
+      adjustedTemplate
+    );
     return adjustedTemplate;
   }
 
@@ -271,11 +276,18 @@ function collectAllBackboneAssignments(
     let activeBackbone = doctor.backbone;
 
     // Special handling for DL: use week-based backbone selection (2-week rhythm)
-    if (doctorCode === "DL" && doctor.backbones && weekNumber !== null && year !== null) {
+    if (
+      doctorCode === "DL" &&
+      doctor.backbones &&
+      weekNumber !== null &&
+      year !== null
+    ) {
       const dlState = getDLStateForWeek(weekNumber, year);
       if (dlState) {
         activeBackbone = doctor.backbones[dlState.state];
-        console.log(`🔧 collectAllBackboneAssignments: DL backbone for ${year}-W${weekNumber}: ${dlState.state}`);
+        console.log(
+          `🔧 collectAllBackboneAssignments: DL backbone for ${year}-W${weekNumber}: ${dlState.state}`
+        );
       }
     } else if (doctor.backbones && periodIndex !== null) {
       // Select backbone based on period index and rotation setting (for non-DL doctors)
@@ -645,11 +657,11 @@ export const doctorProfiles = {
 
   BM: {
     backbone: {
-      Monday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
+      Monday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["EMIT"] },
       Tuesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       Thursday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["EMIT"] },
-      Friday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["EMIT"] },
+      Friday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       // Monday: { "9am-1pm": ["EMIT"], "2pm-6pm": ["EMIT"] },
       // Tuesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
       // Wednesday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
@@ -697,6 +709,12 @@ function mergeTemplateWithBackbone(
 
   // Start with a deep copy of the backbone
   const mergedSchedule = deepClone(backbone);
+
+  // Handle null/undefined backbone
+  if (!mergedSchedule) {
+    console.warn(`Backbone is null/undefined for template ${templateName}, returning template only`);
+    return deepClone(template);
+  }
 
   // Check if this is a special rotation (HTC or HDJ) that should bypass capacity constraints
   const isSpecialRotation =
@@ -843,11 +861,18 @@ export function generateDoctorRotations(
   let activeBackbone = doctor.backbone;
 
   // Special handling for DL: use week-based backbone selection
-  if (doctorCode === "DL" && doctor.backbones && weekNumber !== null && year !== null) {
+  if (
+    doctorCode === "DL" &&
+    doctor.backbones &&
+    weekNumber !== null &&
+    year !== null
+  ) {
     const dlState = getDLStateForWeek(weekNumber, year);
     if (dlState) {
       activeBackbone = doctor.backbones[dlState.state];
-      console.log(`📊 DL backbone for ${year}-W${weekNumber}: ${dlState.state}`);
+      console.log(
+        `📊 DL backbone for ${year}-W${weekNumber}: ${dlState.state}`
+      );
     }
   } else if (doctor.backbones && periodIndex !== null) {
     // Select backbone based on period index and rotation setting
