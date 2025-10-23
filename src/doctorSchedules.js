@@ -1,6 +1,8 @@
 // the hierarchy is activity > rotation > doctor
 
 import { getDLStateForWeek } from "./periodCalculator.js";
+import { getModifiedDoctorProfile } from "./tpRotationEngine.js";
+import { tpRotationConfig } from "./tpRotationConfig.js";
 
 export const docActivities = {
   // duration for 1 plage of activity
@@ -1283,3 +1285,88 @@ export const doc = {
     Friday: { "9am-1pm": ["TP"], "2pm-6pm": ["TP"] },
   },
 };
+
+// ============================================================================
+// TP ROTATION INTEGRATION HELPERS
+// ============================================================================
+
+/**
+ * Apply TP rotation to all doctor profiles for a specific week
+ * This modifies the backbones of doctors in the rotation pool based on the
+ * current rotation state for the given week.
+ *
+ * IMPORTANT: This should be called BEFORE any schedule generation or conflict
+ * resolution to ensure that the modified backbones are used throughout the
+ * entire planning process.
+ *
+ * @param {Object} profiles - Doctor profiles object (typically doctorProfiles)
+ * @param {number} weekNumber - ISO week number
+ * @param {number} year - Year
+ * @returns {Object} Modified doctor profiles with TP rotations applied
+ */
+export function applyTPRotationToProfiles(profiles, weekNumber, year) {
+  const modifiedProfiles = {};
+
+  // Process each doctor
+  Object.entries(profiles).forEach(([doctorCode, profile]) => {
+    // Apply TP rotation if this doctor is in the rotation pool
+    modifiedProfiles[doctorCode] = getModifiedDoctorProfile(
+      doctorCode,
+      profile,
+      weekNumber,
+      year
+    );
+  });
+
+  return modifiedProfiles;
+}
+
+/**
+ * Get a doctor's backbone with TP rotation applied for a specific week
+ *
+ * @param {string} doctorCode - Doctor code
+ * @param {number} weekNumber - ISO week number
+ * @param {number} year - Year
+ * @returns {Object} Modified backbone or original if no rotation applies
+ */
+export function getDoctorBackboneWithTPRotation(
+  doctorCode,
+  weekNumber,
+  year
+) {
+  const profile = doctorProfiles[doctorCode];
+  if (!profile) {
+    console.warn(`⚠️ Doctor ${doctorCode} not found in doctorProfiles`);
+    return null;
+  }
+
+  const modifiedProfile = getModifiedDoctorProfile(
+    doctorCode,
+    profile,
+    weekNumber,
+    year
+  );
+
+  // Return the appropriate backbone
+  if (modifiedProfile.backbone) {
+    return modifiedProfile.backbone;
+  } else if (modifiedProfile.backbones) {
+    // For doctors with multiple backbones (like DL), return the backbones object
+    return modifiedProfile.backbones;
+  }
+
+  return null;
+}
+
+/**
+ * Check if TP rotation is enabled and active
+ * @returns {boolean} True if TP rotation system is enabled
+ */
+export function isTPRotationEnabled() {
+  try {
+    return tpRotationConfig.enabled;
+  } catch (error) {
+    console.error("Error checking TP rotation status:", error);
+    return false;
+  }
+}

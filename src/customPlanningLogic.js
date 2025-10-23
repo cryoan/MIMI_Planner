@@ -2,6 +2,8 @@ import {
   doctorProfiles,
   generateDoctorRotations,
   docActivities,
+  applyTPRotationToProfiles,
+  isTPRotationEnabled,
 } from "./doctorSchedules.js";
 import { expectedActivities as staticExpectedActivities } from "./schedule.jsx";
 import {
@@ -22,6 +24,7 @@ import {
   isHolidayWeek,
   isHolidayDay
 } from "./periodCalculator.js";
+import { calculateTPRotationForWeek } from "./tpRotationEngine.js";
 
 // Custom Planning Logic - Algorithme de Planification Médical Progressif et Fiable
 // Implémentation en 3 phases selon les spécifications utilisateur
@@ -129,6 +132,33 @@ function generateWeekByWeekSchedules(
     const dlState = getDLStateForWeek(week, year);
     let periodIndex = periodInfo ? periodInfo.periodNumber - 1 : 0;
 
+    // ============================================================================
+    // TP ROTATION APPLICATION (BEFORE ALL SCHEDULE GENERATION)
+    // ============================================================================
+    // Apply TP rotation to doctor profiles BEFORE any schedule generation
+    // This ensures that all subsequent operations (rotation generation, conflict
+    // resolution) use the modified backbones with rotated TP days.
+
+    let weekDoctorProfiles = profilesData;
+
+    if (isTPRotationEnabled()) {
+      // Calculate TP rotation for this week
+      const tpRotation = calculateTPRotationForWeek(week, year);
+
+      if (tpRotation.enabled && !tpRotation.isVacationWeek && tpRotation.doctorToSwap) {
+        console.log(`  🔄 TP Rotation: ${tpRotation.doctorToSwap} swaps ${tpRotation.swapConfig.originalTPDay} → ${tpRotation.swapConfig.swapToDay}`);
+
+        // Apply TP rotation to all doctor profiles for this week
+        weekDoctorProfiles = applyTPRotationToProfiles(profilesData, week, year);
+
+        console.log(`  ✅ TP Rotation applied for ${weekKey}`);
+      } else if (tpRotation.isVacationWeek) {
+        console.log(`  🏖️ TP Rotation: Skipped (vacation week)`);
+      } else {
+        console.log(`  ℹ️ TP Rotation: No swap this week (cycle week ${tpRotation.weekInCycle || 0}/${tpRotation.cycleWeeks || 0})`);
+      }
+    }
+
     // ✅ NEW: Check vacation status for ALL days (including weekends)
     // Working days (Mon-Fri) determine if we apply conflict resolution
     // All days (Mon-Sun) determine which days get backbone-only schedules
@@ -172,7 +202,6 @@ function generateWeekByWeekSchedules(
 
       // Generate backbone-only schedules for all doctors
       const weekSchedule = {};
-      const profilesData = dynamicDoctorProfiles || doctorProfiles;
 
       // Get all doctors from both rotationAssignments and baseSchedule
       const allDoctors = new Set([
@@ -181,8 +210,9 @@ function generateWeekByWeekSchedules(
       ]);
 
       // All doctors use their backbone schedule ONLY during full vacation
+      // ✅ Use weekDoctorProfiles which may have TP rotations applied
       allDoctors.forEach((doctorCode) => {
-        const profile = profilesData[doctorCode];
+        const profile = weekDoctorProfiles[doctorCode];
         if (!profile || (!profile.backbone && !profile.backbones)) {
           console.warn(`  ⚠️ No backbone found for ${doctorCode}`);
           return;
@@ -228,11 +258,17 @@ function generateWeekByWeekSchedules(
 
     const weekSchedule = {};
 
-    // 1. Keep rigid doctors unchanged
+    // 1. Keep rigid doctors unchanged (but use TP-rotated backbones if applicable)
     rigidDoctors.forEach((doctorCode) => {
-      if (baseSchedule[doctorCode]) {
+      // ✅ Use weekDoctorProfiles to get TP-rotation-aware backbone
+      const doctorProfile = weekDoctorProfiles[doctorCode];
+      if (doctorProfile && doctorProfile.backbone) {
+        weekSchedule[doctorCode] = deepClone(doctorProfile.backbone);
+        console.log(`  🔒 ${doctorCode}: rigid schedule (with TP rotation if applicable)`);
+      } else if (baseSchedule[doctorCode]) {
+        // Fallback to baseSchedule if no profile found
         weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
-        console.log(`  🔒 ${doctorCode}: rigid schedule maintained`);
+        console.log(`  🔒 ${doctorCode}: rigid schedule maintained (no profile)`);
       }
     });
 
@@ -276,15 +312,22 @@ function generateWeekByWeekSchedules(
 
       if (!assignedActivity && doctorCode !== "DL") {
         console.warn(`  ⚠️ No activity assignment for ${doctorCode} in period ${periodIndex}`);
-        weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
+        // ✅ Use TP-rotated backbone if available
+        const doctorProfile = weekDoctorProfiles[doctorCode];
+        if (doctorProfile && doctorProfile.backbone) {
+          weekSchedule[doctorCode] = deepClone(doctorProfile.backbone);
+        } else {
+          weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
+        }
         return;
       }
 
       try {
         // ✅ WEEK-AWARE GENERATION: Pass week and year to generateDoctorRotations
+        // ✅ USE weekDoctorProfiles which may have TP rotations applied
         const generatedRotations = generateDoctorRotations(
           doctorCode,
-          dynamicDoctorProfiles,
+          weekDoctorProfiles,  // Use TP-rotation-aware profiles
           dynamicWantedActivities,
           periodIndex,
           dynamicDocActivities,
@@ -296,12 +339,24 @@ function generateWeekByWeekSchedules(
           weekSchedule[doctorCode] = deepClone(generatedRotations[assignedActivity]);
           console.log(`  ✅ ${doctorCode}: assigned to ${assignedActivity} (week-aware)`);
         } else {
-          weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
+          // ✅ Use TP-rotated backbone if available
+          const doctorProfile = weekDoctorProfiles[doctorCode];
+          if (doctorProfile && doctorProfile.backbone) {
+            weekSchedule[doctorCode] = deepClone(doctorProfile.backbone);
+          } else {
+            weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
+          }
           console.warn(`  ⚠️ Activity ${assignedActivity} not found for ${doctorCode}`);
         }
       } catch (error) {
         console.error(`  ❌ Error generating rotation for ${doctorCode}:`, error);
-        weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
+        // ✅ Use TP-rotated backbone if available
+        const doctorProfile = weekDoctorProfiles[doctorCode];
+        if (doctorProfile && doctorProfile.backbone) {
+          weekSchedule[doctorCode] = deepClone(doctorProfile.backbone);
+        } else {
+          weekSchedule[doctorCode] = deepClone(baseSchedule[doctorCode]);
+        }
       }
     });
 
@@ -309,9 +364,10 @@ function generateWeekByWeekSchedules(
     if (rotationAssignments["DL"]) {
       try {
         // ✅ DL uses week-aware backbone selection (implemented in generateDoctorRotations)
+        // ✅ USE weekDoctorProfiles which may have TP rotations applied
         const dlRotations = generateDoctorRotations(
           "DL",
-          dynamicDoctorProfiles,
+          weekDoctorProfiles,  // Use TP-rotation-aware profiles
           dynamicWantedActivities,
           periodIndex,
           dynamicDocActivities,
