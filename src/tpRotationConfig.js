@@ -42,8 +42,9 @@ export const tpRotationConfig = {
    * {
    *   doctorCode: {
    *     originalTPDay: "Wednesday",      // Day that has TP in the backbone
-   *     swapToDay: "Thursday" | "Friday", // Day to move TP to when it's their turn
-   *     description: "..."                // Optional description
+   *     swapToDay: "Thursday" | "Friday" | ["Monday", "Thursday"], // Day(s) to move TP to
+   *     description: "...",               // Optional description
+   *     dynamicSwap: boolean              // If true, swapToDay is an array and day is chosen dynamically
    *   }
    * }
    */
@@ -51,41 +52,58 @@ export const tpRotationConfig = {
     YC: {
       originalTPDay: "Wednesday",
       swapToDay: "Friday",
+      dynamicSwap: false,
       description: "YC has Monday + Wednesday TP. Wednesday moves to Friday when it's their turn."
     },
     BM: {
       originalTPDay: "Wednesday",
       swapToDay: "Thursday",
+      dynamicSwap: false,
       description: "BM has Tuesday + Wednesday + Friday TP. Wednesday moves to Thursday when it's their turn."
     },
     FL: {
       originalTPDay: "Wednesday",
-      swapToDay: "Thursday",
-      description: "FL has only Wednesday TP. Moves to Thursday when it's their turn."
-    },
-    MG: {
-      originalTPDay: "Wednesday",
-      swapToDay: "Thursday",
-      description: "MG has only Wednesday TP. Moves to Thursday when it's their turn."
+      swapToDay: ["Monday", "Thursday"],
+      dynamicSwap: true,
+      description: "FL has only Wednesday TP. Moves to Monday or Thursday (non-Cs day) when it's their turn."
     },
     MDLC: {
       originalTPDay: "Wednesday",
-      swapToDay: "Thursday",
-      description: "MDLC has only Wednesday TP. Moves to Thursday when it's their turn."
+      swapToDay: ["Monday", "Thursday"],
+      dynamicSwap: true,
+      description: "MDLC has only Wednesday TP. Moves to Monday or Thursday (non-Cs day) when it's their turn."
+    },
+    // Special case doctors for third Wednesday
+    MG: {
+      originalTPDay: "Wednesday",
+      swapToDay: "Friday",
+      dynamicSwap: false,
+      thirdWednesdayOnly: true,
+      description: "MG has only Wednesday TP. Moves to Friday on third Wednesday of each month only."
+    },
+    CL: {
+      originalTPDay: "Monday",
+      swapToDay: "Wednesday",
+      dynamicSwap: false,
+      thirdWednesdayOnly: true,
+      description: "CL has Monday TP. Moves to Wednesday on third Wednesday of each month only."
     }
   },
 
   /**
    * Rotation cycle length in weeks
    *
-   * With 5 doctors in the pool, the rotation cycles through all doctors every
-   * 5 weeks. Each doctor swaps once per cycle (once every 5 weeks).
+   * With 4 doctors in the regular rotation pool (YC, BM, MDLC, FL), the rotation
+   * cycles through all doctors every 4 weeks. Each doctor swaps once per cycle.
    *
    * The rotation advances EVERY working week (vacation weeks are skipped).
-   * Week 1: YC swaps, Week 2: BM swaps, Week 3: FL swaps, Week 4: MG swaps,
-   * Week 5: MDLC swaps, Week 6: YC swaps again (cycle repeats)
+   * Week 1: YC swaps, Week 2: BM swaps, Week 3: MDLC swaps, Week 4: FL swaps,
+   * Week 5: YC swaps again (cycle repeats)
+   *
+   * NOTE: MG and CL are NOT in the regular rotation. They only swap on third
+   * Wednesdays of each month.
    */
-  rotationCycleWeeks: 5,
+  rotationCycleWeeks: 4,
 
   /**
    * Starting week for the rotation cycle
@@ -101,14 +119,16 @@ export const tpRotationConfig = {
   },
 
   /**
-   * Doctor rotation order
+   * Doctor rotation order (for non-third Wednesdays)
    *
-   * This array defines the sequence in which doctors take turns swapping their TP.
-   * The order determines who goes first, second, etc.
+   * This array defines the sequence in which doctors take turns swapping their TP
+   * on regular (non-third) Wednesdays. The order determines who goes first, second, etc.
+   *
+   * MG and CL are NOT in this rotation - they only swap on third Wednesdays.
    *
    * To change the order, simply rearrange the doctor codes in this array.
    */
-  rotationOrder: ["YC", "BM", "FL", "MG", "MDLC"],
+  rotationOrder: ["YC", "BM", "MDLC", "FL"],
 
   // ============================================================================
   // ADVANCED CONFIGURATION

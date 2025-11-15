@@ -12,6 +12,51 @@ import {
   validateTPRotationConfig
 } from "./tpRotationConfig.js";
 import { isHolidayWeek } from "./periodCalculator.js";
+import { getWeek, getYear, parseISO, startOfWeek, getDate } from "date-fns";
+import { doctorProfiles } from "./doctorSchedules.js";
+
+/**
+ * Check if a given week contains the third Wednesday of its month
+ *
+ * @param {number} weekNumber - ISO week number (1-52)
+ * @param {number} year - Year
+ * @returns {boolean} True if this week contains the third Wednesday of the month
+ */
+export function isThirdWednesdayWeek(weekNumber, year) {
+  try {
+    // Get the start of this ISO week (Monday)
+    const weekStart = startOfWeek(parseISO(`${year}-W${String(weekNumber).padStart(2, '0')}-1`), { weekStartsOn: 1 });
+
+    // Get all days of this week
+    const daysOfWeek = [];
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(weekStart);
+      day.setDate(weekStart.getDate() + i);
+      daysOfWeek.push(day);
+    }
+
+    // Find Wednesday (day 3, where Monday is 1)
+    const wednesday = daysOfWeek[2]; // Index 2 = Wednesday (Monday is 0, Tuesday is 1)
+
+    // Check if this Wednesday is the third Wednesday of its month
+    const dayOfMonth = getDate(wednesday);
+    const month = wednesday.getMonth();
+
+    // Count Wednesdays in this month up to and including this date
+    let wednesdayCount = 0;
+    for (let day = 1; day <= dayOfMonth; day++) {
+      const testDate = new Date(wednesday.getFullYear(), month, day);
+      if (testDate.getDay() === 3) { // 3 = Wednesday
+        wednesdayCount++;
+      }
+    }
+
+    return wednesdayCount === 3;
+  } catch (error) {
+    console.error(`Error checking third Wednesday for week ${year}-W${weekNumber}:`, error);
+    return false;
+  }
+}
 
 /**
  * Calculate the total number of weeks from a starting point
@@ -86,6 +131,63 @@ function countNonVacationWeeks(currentWeek, currentYear, startPoint) {
 }
 
 /**
+ * Choose the best swap day for a doctor with dynamic swap options
+ * Intelligently selects between Monday and Thursday based on doctor's Cs schedule
+ *
+ * @param {string} doctorCode - Doctor code (e.g., "MDLC", "FL")
+ * @param {number} weekNumber - ISO week number
+ * @param {number} year - Year
+ * @param {Array<string>} swapOptions - Available swap days (e.g., ["Monday", "Thursday"])
+ * @returns {string} Best day to swap to
+ */
+export function chooseBestSwapDay(doctorCode, weekNumber, year, swapOptions) {
+  if (!Array.isArray(swapOptions) || swapOptions.length === 0) {
+    console.error(`Invalid swap options for ${doctorCode}`);
+    return "Thursday"; // Default fallback
+  }
+
+  // If only one option, return it
+  if (swapOptions.length === 1) {
+    return swapOptions[0];
+  }
+
+  // Get doctor's backbone to check Cs schedule
+  const doctor = doctorProfiles[doctorCode];
+  if (!doctor || !doctor.backbone) {
+    console.warn(`No backbone found for ${doctorCode}, using first swap option`);
+    return swapOptions[0];
+  }
+
+  const backbone = doctor.backbone;
+
+  // Check which days have Cs activities
+  const csSchedule = {};
+  swapOptions.forEach(day => {
+    const morningSlot = backbone[day]?.["9am-1pm"] || [];
+    const afternoonSlot = backbone[day]?.["2pm-6pm"] || [];
+
+    // Check if either slot has Cs or TeleCs
+    const hasCsActivity = [...morningSlot, ...afternoonSlot].some(activity =>
+      activity === "Cs" || activity === "TeleCs" || activity === "Cs_Prison"
+    );
+
+    csSchedule[day] = hasCsActivity;
+  });
+
+  // Prefer days without Cs activities
+  for (const day of swapOptions) {
+    if (!csSchedule[day]) {
+      console.log(`📅 ${doctorCode}: Chose ${day} (no Cs conflict)`);
+      return day;
+    }
+  }
+
+  // If all options have Cs, return the first option as fallback
+  console.warn(`⚠️ ${doctorCode}: All swap options have Cs, using ${swapOptions[0]} as fallback`);
+  return swapOptions[0];
+}
+
+/**
  * Calculate which doctor should swap their TP for a given week
  *
  * @param {number} weekNumber - ISO week number
@@ -124,7 +226,33 @@ export function calculateTPRotationForWeek(weekNumber, year) {
 
   const weekKey = `${year}-W${String(weekNumber).padStart(2, '0')}`;
 
-  // Check if this is a vacation week
+  // PRIORITY 1: Check if this is a third Wednesday (overrides everything else)
+  const isThirdWed = isThirdWednesdayWeek(weekNumber, year);
+  if (isThirdWed) {
+    if (logLevel >= 1) {
+      console.log(`${colors.info} TP Rotation: Third Wednesday detected (${weekKey})`);
+      console.log(`  ${colors.swap} MG: Wednesday → Friday`);
+      console.log(`  ${colors.swap} CL: Monday → Wednesday`);
+    }
+
+    // Return special configuration for third Wednesday
+    // Note: Both MG and CL swap on third Wednesdays
+    return {
+      enabled: true,
+      isThirdWednesday: true,
+      isVacationWeek: false,
+      weekKey,
+      weekNumber,
+      year,
+      doctorsToSwap: ["MG", "CL"], // Both doctors swap
+      swapConfigs: {
+        MG: getDoctorTPSwapConfig("MG"),
+        CL: getDoctorTPSwapConfig("CL")
+      }
+    };
+  }
+
+  // PRIORITY 2: Check if this is a vacation week
   const isVacation = isHolidayWeek(weekNumber, year);
   if (isVacation && tpRotationConfig.skipVacationWeeks) {
     if (logLevel >= 2) {
@@ -132,6 +260,7 @@ export function calculateTPRotationForWeek(weekNumber, year) {
     }
     return {
       enabled: true,
+      isThirdWednesday: false,
       isVacationWeek: true,
       weekKey,
       doctorToSwap: null,
@@ -139,7 +268,8 @@ export function calculateTPRotationForWeek(weekNumber, year) {
     };
   }
 
-  // Get rotation configuration
+  // PRIORITY 3: Regular rotation (non-third Wednesdays, non-vacation)
+  // Get rotation configuration (excludes MG and CL)
   const rotationOrder = getRotationOrder();
   const poolSize = getRotationPoolSize();
   const cycleWeeks = tpRotationConfig.rotationCycleWeeks;
@@ -170,7 +300,17 @@ export function calculateTPRotationForWeek(weekNumber, year) {
   const doctorToSwap = rotationOrder[doctorIndex];
 
   // Get swap configuration for this doctor
-  const swapConfig = getDoctorTPSwapConfig(doctorToSwap);
+  let swapConfig = getDoctorTPSwapConfig(doctorToSwap);
+
+  // Handle dynamic swap day selection (for MDLC and FL)
+  if (swapConfig && swapConfig.dynamicSwap && Array.isArray(swapConfig.swapToDay)) {
+    const bestDay = chooseBestSwapDay(doctorToSwap, weekNumber, year, swapConfig.swapToDay);
+    swapConfig = {
+      ...swapConfig,
+      swapToDay: bestDay, // Replace array with chosen day
+      originalSwapOptions: swapConfig.swapToDay // Keep original options for reference
+    };
+  }
 
   if (logLevel >= 2) {
     console.log(`${colors.debug} TP Rotation for ${weekKey}:`);
@@ -181,6 +321,7 @@ export function calculateTPRotationForWeek(weekNumber, year) {
 
   return {
     enabled: true,
+    isThirdWednesday: false,
     isVacationWeek: false,
     weekKey,
     weekNumber,
@@ -281,6 +422,7 @@ export function getModifiedBackboneForWeek(doctorCode, originalBackbone, weekNum
 /**
  * Get modified backbones for all doctors with special handling
  * Handles doctors with multiple backbones (like DL with MPO/HDJ)
+ * Also handles third Wednesday special case with MG and CL
  *
  * @param {string} doctorCode - Doctor code
  * @param {Object} doctorProfile - Complete doctor profile from doctorProfiles
@@ -297,9 +439,59 @@ export function getModifiedDoctorProfile(doctorCode, doctorProfile, weekNumber, 
   // Calculate rotation for this week
   const rotation = calculateTPRotationForWeek(weekNumber, year);
 
-  // Check if rotation is enabled and valid
-  if (!rotation.enabled || rotation.isVacationWeek || !rotation.doctorToSwap) {
+  // Check if rotation is enabled
+  if (!rotation.enabled || rotation.isVacationWeek) {
     return doctorProfile; // No rotation this week, return original
+  }
+
+  // Handle third Wednesday special case (MG and CL both swap)
+  if (rotation.isThirdWednesday) {
+    const doctorsToSwap = rotation.doctorsToSwap || [];
+    if (!doctorsToSwap.includes(doctorCode)) {
+      return doctorProfile; // This doctor doesn't swap on third Wednesdays
+    }
+
+    // This doctor should swap on third Wednesday
+    const swapConfig = rotation.swapConfigs[doctorCode];
+    if (!swapConfig) {
+      console.warn(`No swap config found for ${doctorCode} on third Wednesday`);
+      return doctorProfile;
+    }
+
+    // Clone and apply swap
+    const modifiedProfile = JSON.parse(JSON.stringify(doctorProfile));
+
+    // Handle single backbone
+    if (modifiedProfile.backbone && !modifiedProfile.backbones) {
+      modifiedProfile.backbone = applyTPSwapToBackbone(
+        modifiedProfile.backbone,
+        swapConfig.originalTPDay,
+        swapConfig.swapToDay
+      );
+    }
+
+    // Handle multiple backbones
+    if (modifiedProfile.backbones) {
+      Object.keys(modifiedProfile.backbones).forEach(backboneName => {
+        modifiedProfile.backbones[backboneName] = applyTPSwapToBackbone(
+          modifiedProfile.backbones[backboneName],
+          swapConfig.originalTPDay,
+          swapConfig.swapToDay
+        );
+      });
+    }
+
+    if (tpRotationConfig.logLevel >= 1) {
+      const colors = tpRotationConfig.logColors;
+      console.log(`${colors.success} Applied third Wednesday TP swap to ${doctorCode}: ${swapConfig.originalTPDay} → ${swapConfig.swapToDay} (${rotation.weekKey})`);
+    }
+
+    return modifiedProfile;
+  }
+
+  // Handle regular rotation (non-third Wednesday)
+  if (!rotation.doctorToSwap) {
+    return doctorProfile; // No doctor to swap this week
   }
 
   // Check if this doctor is the one who should swap this week
@@ -342,6 +534,7 @@ export function getModifiedDoctorProfile(doctorCode, doctorProfile, weekNumber, 
 /**
  * Get rotation summary for a range of weeks
  * Useful for previewing rotation schedule
+ * Updated to handle third Wednesday special case
  *
  * @param {number} startWeek - Starting week number
  * @param {number} startYear - Starting year
@@ -356,14 +549,40 @@ export function getRotationSummary(startWeek, startYear, numWeeks = 10) {
 
   for (let i = 0; i < numWeeks; i++) {
     const rotation = calculateTPRotationForWeek(currentWeek, currentYear);
-    summary.push({
-      week: currentWeek,
-      year: currentYear,
-      weekKey: rotation.weekKey,
-      doctorToSwap: rotation.doctorToSwap,
-      swapConfig: rotation.swapConfig,
-      isVacationWeek: rotation.isVacationWeek
-    });
+
+    // Handle third Wednesday special case
+    if (rotation.isThirdWednesday) {
+      const swapDetails = rotation.doctorsToSwap.map(doctor => {
+        const config = rotation.swapConfigs[doctor];
+        return `${doctor}: ${config.originalTPDay} → ${config.swapToDay}`;
+      }).join(", ");
+
+      summary.push({
+        week: currentWeek,
+        year: currentYear,
+        weekKey: rotation.weekKey,
+        isThirdWednesday: true,
+        doctorsToSwap: rotation.doctorsToSwap,
+        swapDetails,
+        isVacationWeek: false
+      });
+    } else {
+      // Regular rotation or vacation week
+      const swapDetails = rotation.doctorToSwap && rotation.swapConfig
+        ? `${rotation.doctorToSwap}: ${rotation.swapConfig.originalTPDay} → ${rotation.swapConfig.swapToDay}`
+        : "No swap";
+
+      summary.push({
+        week: currentWeek,
+        year: currentYear,
+        weekKey: rotation.weekKey,
+        isThirdWednesday: false,
+        doctorToSwap: rotation.doctorToSwap,
+        swapConfig: rotation.swapConfig,
+        swapDetails,
+        isVacationWeek: rotation.isVacationWeek
+      });
+    }
 
     // Advance to next week
     currentWeek++;
@@ -374,6 +593,37 @@ export function getRotationSummary(startWeek, startYear, numWeeks = 10) {
   }
 
   return summary;
+}
+
+/**
+ * Pretty print rotation summary to console
+ * Useful for debugging and validation
+ *
+ * @param {number} startWeek - Starting week number
+ * @param {number} startYear - Starting year
+ * @param {number} numWeeks - Number of weeks to preview
+ */
+export function printRotationSummary(startWeek, startYear, numWeeks = 20) {
+  console.log("\n" + "=".repeat(80));
+  console.log("📅 WEDNESDAY TP ROTATION SCHEDULE");
+  console.log("=".repeat(80));
+  console.log(`Preview: ${numWeeks} weeks starting from ${startYear}-W${String(startWeek).padStart(2, '0')}\n`);
+
+  const summary = getRotationSummary(startWeek, startYear, numWeeks);
+
+  summary.forEach((entry, index) => {
+    const weekLabel = `${entry.weekKey}`.padEnd(12);
+
+    if (entry.isThirdWednesday) {
+      console.log(`${weekLabel} 🌟 THIRD WEDNESDAY: ${entry.swapDetails}`);
+    } else if (entry.isVacationWeek) {
+      console.log(`${weekLabel} 🏖️  VACATION WEEK: No rotation`);
+    } else {
+      console.log(`${weekLabel} 🔄  ${entry.swapDetails}`);
+    }
+  });
+
+  console.log("\n" + "=".repeat(80) + "\n");
 }
 
 /**

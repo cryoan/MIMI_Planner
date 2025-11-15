@@ -889,6 +889,35 @@ export function generateDoctorRotations(
     activeBackbone = doctor.backbones[firstBackboneName];
   }
 
+  // ============================================================================
+  // APPLY TP ROTATION SWAPS
+  // ============================================================================
+  // If we have week/year information, apply Wednesday TP rotation swaps
+  // This handles both third Wednesday special case (MG + CL) and regular rotation (YC, BM, MDLC, FL)
+  if (weekNumber !== null && year !== null) {
+    const profileToModify = doctor.backbones
+      ? { ...doctor, backbone: activeBackbone, backbones: { ...doctor.backbones } }
+      : { ...doctor, backbone: activeBackbone };
+
+    const modifiedProfile = getModifiedDoctorProfile(
+      doctorCode,
+      profileToModify,
+      weekNumber,
+      year
+    );
+
+    // Update the active backbone with TP swaps applied
+    if (modifiedProfile.backbone) {
+      activeBackbone = modifiedProfile.backbone;
+    } else if (modifiedProfile.backbones && doctorCode === "DL") {
+      // For DL, get the modified backbone for the current state
+      const dlState = getDLStateForWeek(weekNumber, year);
+      if (dlState && modifiedProfile.backbones[dlState.state]) {
+        activeBackbone = modifiedProfile.backbones[dlState.state];
+      }
+    }
+  }
+
   const generatedRotations = {};
 
   // Generate base rotations from remaining tasks (dynamic computation)

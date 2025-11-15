@@ -527,20 +527,13 @@ export const simplifiedCombo = (doc, cycleKey) => {
 // New simplified doctors schedule generator
 export const simplifiedDoctorsSchedule = (doc) => {
   const schedule = {
-    2024: { Month1: {} },
-    2025: { Month1: {} },
+    2026: { Month1: {} },
   };
 
-  // Generate 2024 weeks (44-52)
-  for (let week = 44; week <= 52; week++) {
-    const cycleKey = getRotationForWeek(week, 2024);
-    schedule[2024].Month1[`Week${week}`] = simplifiedCombo(doc, cycleKey);
-  }
-
-  // Generate 2025 weeks (1-52)
+  // Generate 2026 weeks (1-52)
   for (let week = 1; week <= 52; week++) {
-    const cycleKey = getRotationForWeek(week, 2025);
-    schedule[2025].Month1[`Week${week}`] = simplifiedCombo(doc, cycleKey);
+    const cycleKey = getRotationForWeek(week, 2026);
+    schedule[2026].Month1[`Week${week}`] = simplifiedCombo(doc, cycleKey);
   }
 
   return schedule;
