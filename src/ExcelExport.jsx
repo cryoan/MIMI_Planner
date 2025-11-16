@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import ExcelJS from 'exceljs';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useDocSchedule } from './schedule';
-import { executeCustomPlanningAlgorithm } from './customPlanningLogic.js';
+import { ScheduleContext } from './ScheduleContext';
 import { publicHolidays } from './publicHolidays.js';
 
 export const activityColors = {
@@ -31,34 +31,39 @@ export const activityColors = {
 
 // Convert custom planning algorithm data to calendar format for Excel export
 const convertCustomToCalendarFormat = (customScheduleData) => {
-  const calendarFormat = {
-    2024: { Month1: {} },
-    2025: { Month1: {} }
-  };
+  const calendarFormat = {};
 
-  if (customScheduleData.success && customScheduleData.periodicSchedule) {
+  if (customScheduleData.success && customScheduleData.weeklySchedules) {
     console.log('ExcelExport: Converting custom schedule data to calendar format...');
 
-    // Map all 6 periods consecutively starting from Week44
-    const periods = Object.keys(customScheduleData.periodicSchedule);
-    console.log('ExcelExport: Available periods:', periods);
-
-    periods.slice(0, 6).forEach((periodName, index) => {
-      const weekNumber = 44 + index; // Start from Week44 and assign consecutively
-      const year = weekNumber > 52 ? 2025 : 2024;
-      const adjustedWeekNumber = weekNumber > 52 ? weekNumber - 52 : weekNumber;
-      const weekKey = `Week${adjustedWeekNumber}`;
-
-      console.log(`ExcelExport: Mapping ${periodName} → ${year} ${weekKey}`);
-
-      if (customScheduleData.periodicSchedule[periodName].schedule) {
-        if (year === 2024) {
-          calendarFormat[2024].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
-        } else {
-          calendarFormat[2025].Month1[weekKey] = customScheduleData.periodicSchedule[periodName].schedule;
-        }
+    // Extract all unique years from weeklySchedules
+    const years = new Set();
+    Object.values(customScheduleData.weeklySchedules).forEach(weekData => {
+      if (weekData.year) {
+        years.add(weekData.year);
       }
     });
+
+    console.log(`ExcelExport: Found ${years.size} unique year(s):`, Array.from(years).sort());
+
+    // Initialize calendar structure for each year found
+    years.forEach(year => {
+      calendarFormat[year] = { Month1: {} };
+    });
+
+    // Map weekly schedules to calendar format
+    Object.entries(customScheduleData.weeklySchedules).forEach(([weekKey, weekData]) => {
+      const { year, week, schedule } = weekData;
+      const weekKeyFormatted = `Week${week}`;
+
+      console.log(`ExcelExport: Mapping ${weekKey} → ${year} ${weekKeyFormatted}`);
+
+      if (calendarFormat[year] && schedule) {
+        calendarFormat[year].Month1[weekKeyFormatted] = schedule;
+      }
+    });
+
+    console.log(`✅ ExcelExport: Calendar format created for years:`, Object.keys(calendarFormat));
   }
 
   return calendarFormat;
@@ -66,13 +71,13 @@ const convertCustomToCalendarFormat = (customScheduleData) => {
 
 const ExcelExport = () => {
   const { doc, loading } = useDocSchedule();
+  const { customScheduleData } = useContext(ScheduleContext);
 
   const exportToExcel = async () => {
-    if (!doc) return;
+    if (!doc || !customScheduleData) return;
 
-    console.log('ExcelExport: Executing custom planning algorithm for Excel export...');
-    const customScheduleDataResult = executeCustomPlanningAlgorithm();
-    const schedule = convertCustomToCalendarFormat(customScheduleDataResult);
+    console.log('ExcelExport: Using schedule data from ScheduleContext for Excel export...');
+    const schedule = convertCustomToCalendarFormat(customScheduleData);
     const workbook = new ExcelJS.Workbook();
 
     // Process each year
@@ -307,13 +312,18 @@ const ExcelExport = () => {
   };
 
   const getDateOfISOWeek = (week, year) => {
-    const simple = new Date(year, 0, 4 + (week - 1) * 7);
-    const dayOfWeek = simple.getDay();
-    const ISOWeekStart = new Date(
-      simple.setDate(
-        simple.getDate() - simple.getDay() + (dayOfWeek <= 4 ? 1 : 8)
-      )
-    );
+    // Find January 4th of the given year (always in week 1)
+    const jan4 = new Date(year, 0, 4);
+
+    // Find the Monday of week 1 (the week containing January 4th)
+    const jan4Day = jan4.getDay();
+    const mondayOfWeek1 = new Date(jan4);
+    mondayOfWeek1.setDate(jan4.getDate() - (jan4Day === 0 ? 6 : jan4Day - 1));
+
+    // Calculate the Monday of the requested week
+    const ISOWeekStart = new Date(mondayOfWeek1);
+    ISOWeekStart.setDate(mondayOfWeek1.getDate() + (week - 1) * 7);
+
     return Array.from(
       new Array(7),
       (_, i) =>
