@@ -1,0 +1,46 @@
+{
+  "periodConfigurations": [
+    {
+      "id": "base-config",
+      "name": "Configuration Standard",
+      "description": "Configuration par défaut avec tous les médecins actifs",
+      "dateRange": {
+        "startWeek": 1,
+        "startYear": 2026,
+        "endWeek": 52,
+        "endYear": 2026
+      },
+      "isDefault": true,
+      "changes": {}
+    },
+    {
+      "id": "mg-tp-apr-aug-2026",
+      "name": "MG en TP (Avril-Août)",
+      "description": "MG indisponible d'avril à août - utilisation du cycle NoMG",
+      "dateRange": {
+        "startWeek": 14,
+        "startYear": 2026,
+        "endWeek": 35,
+        "endYear": 2026
+      },
+      "changes": {
+        "doctorProfiles.MG.backbone.Monday.9am-1pm": ["replace", ["TP"]],
+        "doctorProfiles.MG.backbone.Monday.2pm-6pm": ["replace", ["TP"]],
+        "doctorProfiles.MG.backbone.Tuesday.9am-1pm": ["replace", ["TP"]],
+        "doctorProfiles.MG.backbone.Tuesday.2pm-6pm": ["replace", ["TP"]],
+        "doctorProfiles.MG.backbone.Wednesday.9am-1pm": ["replace", ["TP"]],
+        "doctorProfiles.MG.backbone.Wednesday.2pm-6pm": ["replace", ["TP"]],
+        "doctorProfiles.MG.backbone.Thursday.9am-1pm": ["replace", ["TP"]],
+        "doctorProfiles.MG.backbone.Thursday.2pm-6pm": ["replace", ["TP"]],
+        "doctorProfiles.MG.backbone.Friday.9am-1pm": ["replace", ["TP"]],
+        "doctorProfiles.MG.backbone.Friday.2pm-6pm": ["replace", ["TP"]],
+        "currentRotationCycle": "NoMG"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-11-16",
+    "description": "Configuration des périodes temporelles pour le planning MIMI. Chaque période peut avoir des paramètres différents pour les médecins, les rotations, et autres réglages."
+  }
+}

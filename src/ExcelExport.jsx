@@ -71,7 +71,7 @@ const convertCustomToCalendarFormat = (customScheduleData) => {
 
 const ExcelExport = () => {
   const { doc, loading } = useDocSchedule();
-  const { customScheduleData } = useContext(ScheduleContext);
+  const { customScheduleData, getPeriodForWeek } = useContext(ScheduleContext);
 
   const exportToExcel = async () => {
     if (!doc || !customScheduleData) return;
@@ -92,15 +92,45 @@ const ExcelExport = () => {
         worksheet.addRow([`${year} - ${month}`]);
         worksheet.mergeCells('A1:J1');
 
+        // Track current period to detect changes
+        let currentPeriodId = null;
+
         // Process each week
         Object.entries(monthData).forEach(([week, weekData], index) => {
           const weekNumber = parseInt(week.replace('Week', ''));
           const dates = getDateOfISOWeek(weekNumber, parseInt(year));
 
+          // Get period information for this week
+          const periodInfo = getPeriodForWeek ? getPeriodForWeek(weekNumber, parseInt(year)) : null;
+
+          // Add period header if this is the start of a new period
+          if (periodInfo && periodInfo.id !== currentPeriodId) {
+            const periodHeaderRow = worksheet.addRow([`📅 ${periodInfo.name}`]);
+            periodHeaderRow.font = { bold: true, size: 14, color: { argb: 'FF1976d2' } };
+            periodHeaderRow.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFe3f2fd' }
+            };
+            worksheet.mergeCells(`A${periodHeaderRow.number}:K${periodHeaderRow.number}`);
+
+            // Add period description row
+            if (periodInfo.description) {
+              const periodDescRow = worksheet.addRow([periodInfo.description]);
+              periodDescRow.font = { italic: true, color: { argb: 'FF555555' } };
+              worksheet.mergeCells(`A${periodDescRow.number}:K${periodDescRow.number}`);
+            }
+
+            // Add blank row for spacing
+            worksheet.addRow([]);
+
+            currentPeriodId = periodInfo.id;
+          }
+
           // Add a row indicating the week number, and make it bold
           const weekRow = worksheet.addRow([`Week ${weekNumber}`]);
           weekRow.font = { bold: true };
-          worksheet.mergeCells(`A${weekRow.number}:J${weekRow.number}`);
+          worksheet.mergeCells(`A${weekRow.number}:K${weekRow.number}`);
 
           // Generate the days row with dates, and merge day names over AM and PM columns
           const daysRow = [

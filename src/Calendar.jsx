@@ -686,6 +686,10 @@ const Calendar = ({ year = 2024, month = 'Month1', selectedRotationCycle, setSel
   const recalculationTrigger = scheduleContext?.recalculationTrigger || 0;
   const expectedActivities = scheduleContext?.expectedActivities || {};
   const docActivities = scheduleContext?.docActivities || {};
+  const getPeriodBoundariesForYear = scheduleContext?.getPeriodBoundariesForYear;
+
+  // Get period boundaries for this year
+  const periodBoundaries = getPeriodBoundariesForYear ? getPeriodBoundariesForYear(year) : [];
 
   // Fallback to local state if props are not provided (for backward compatibility)
   const [localSelectedRotationCycle, setLocalSelectedRotationCycle] = useState(Object.keys(rotation_cycles)[0]);
@@ -878,12 +882,46 @@ const Calendar = ({ year = 2024, month = 'Month1', selectedRotationCycle, setSel
         const weekNumber = parseInt(week.replace('Week', ''));
         const dates = getDateOfISOWeek(weekNumber, year);
 
+        // Check if this week starts a new period
+        const periodBoundary = periodBoundaries.find(p => p.week === weekNumber);
+
         return (
-          <div key={week} id={`week-${weekNumber}`}>
-            <h3>
-              {week}: du {formatDateInFrench(dates[0])} au{' '}
-              {formatDateInFrench(dates[6])}
-            </h3>
+          <React.Fragment key={week}>
+            {/* Render period header if this week starts a new period */}
+            {periodBoundary && (
+              <div className="period-header" style={{
+                backgroundColor: '#e3f2fd',
+                padding: '15px 20px',
+                marginTop: '30px',
+                marginBottom: '15px',
+                borderLeft: '5px solid #1976d2',
+                borderRadius: '4px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}>
+                <h2 style={{
+                  margin: '0 0 5px 0',
+                  color: '#1976d2',
+                  fontSize: '1.4em',
+                  fontWeight: '600'
+                }}>
+                  📅 {periodBoundary.periodName}
+                </h2>
+                <p style={{
+                  margin: 0,
+                  color: '#555',
+                  fontSize: '0.95em',
+                  fontStyle: 'italic'
+                }}>
+                  {periodBoundary.periodDescription}
+                </p>
+              </div>
+            )}
+
+            <div id={`week-${weekNumber}`}>
+              <h3>
+                {week}: du {formatDateInFrench(dates[0])} au{' '}
+                {formatDateInFrench(dates[6])}
+              </h3>
             <table className="calendar">
               <thead>
                 <tr>
@@ -1109,6 +1147,7 @@ const Calendar = ({ year = 2024, month = 'Month1', selectedRotationCycle, setSel
               </tbody>
             </table>
           </div>
+          </React.Fragment>
         );
       })}
     </div>

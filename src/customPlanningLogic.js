@@ -25,6 +25,7 @@ import {
   isHolidayDay
 } from "./periodCalculator.js";
 import { calculateTPRotationForWeek } from "./tpRotationEngine.js";
+import { getPeriodConfigForWeek, applyPeriodConfig } from "./periodConfigEngine.js";
 
 // Custom Planning Logic - Algorithme de Planification Médical Progressif et Fiable
 // Implémentation en 3 phases selon les spécifications utilisateur
@@ -127,7 +128,40 @@ function generateWeekByWeekSchedules(
     const weekKey = `${year}-W${String(week).padStart(2, '0')}`;
     console.log(`\n📅 Generating schedule for ${weekKey}...`);
 
-    // Get period info for this week
+    // ============================================================================
+    // PERIOD CONFIGURATION APPLICATION (NEW)
+    // ============================================================================
+    // Get and apply period-specific configuration changes for this week
+    const periodConfig = getPeriodConfigForWeek(week, year);
+
+    // Build base config for this week
+    let weekConfig = {
+      doctorProfiles: profilesData,
+      docActivities: dynamicDocActivities || docActivities,
+      wantedActivities: dynamicWantedActivities,
+      rotationTemplates: null, // Not modified by period configs yet
+      currentRotationCycle: cycleType
+    };
+
+    // Apply period-specific changes if they exist
+    if (periodConfig && periodConfig.changes && Object.keys(periodConfig.changes).length > 0) {
+      console.log(`  📅 Period: "${periodConfig.name}" - ${periodConfig.description}`);
+      weekConfig = applyPeriodConfig(weekConfig, periodConfig);
+    } else if (periodConfig) {
+      console.log(`  📅 Period: "${periodConfig.name}"`);
+    }
+
+    // Extract modified config for use in this week
+    const weekDynamicDoctorProfiles = weekConfig.doctorProfiles;
+    const weekDynamicDocActivities = weekConfig.docActivities;
+    const weekCycleType = weekConfig.currentRotationCycle || cycleType;
+
+    // Set dynamic docActivities for conflict resolution (may have been modified by period config)
+    if (weekDynamicDocActivities) {
+      setDynamicDocActivities(weekDynamicDocActivities);
+    }
+
+    // Get period info for this week (existing logic)
     const periodInfo = getRegularDoctorPeriod(week, year);
     const dlState = getDLStateForWeek(week, year);
     let periodIndex = periodInfo ? periodInfo.periodNumber - 1 : 0;
@@ -139,7 +173,8 @@ function generateWeekByWeekSchedules(
     // This ensures that all subsequent operations (rotation generation, conflict
     // resolution) use the modified backbones with rotated TP days.
 
-    let weekDoctorProfiles = profilesData;
+    // Use period-modified profiles as the base for TP rotation
+    let weekDoctorProfiles = weekDynamicDoctorProfiles;
 
     if (isTPRotationEnabled()) {
       // Calculate TP rotation for this week
@@ -148,8 +183,8 @@ function generateWeekByWeekSchedules(
       if (tpRotation.enabled && !tpRotation.isVacationWeek && tpRotation.doctorToSwap) {
         console.log(`  🔄 TP Rotation: ${tpRotation.doctorToSwap} swaps ${tpRotation.swapConfig.originalTPDay} → ${tpRotation.swapConfig.swapToDay}`);
 
-        // Apply TP rotation to all doctor profiles for this week
-        weekDoctorProfiles = applyTPRotationToProfiles(profilesData, week, year);
+        // Apply TP rotation to all doctor profiles for this week (using period-modified profiles)
+        weekDoctorProfiles = applyTPRotationToProfiles(weekDynamicDoctorProfiles, week, year);
 
         console.log(`  ✅ TP Rotation applied for ${weekKey}`);
       } else if (tpRotation.isVacationWeek) {
@@ -272,9 +307,10 @@ function generateWeekByWeekSchedules(
       }
     });
 
-    // 2. Get rotation assignments for this period from the cycle
-    const cycleIndex = periodIndex % selectedCycle.periods.length;
-    const periodRotations = selectedCycle.periods[cycleIndex];
+    // 2. Get rotation assignments for this period from the cycle (may be modified by period config)
+    const weekSelectedCycle = rotation_cycles[weekCycleType] || selectedCycle;
+    const cycleIndex = periodIndex % weekSelectedCycle.periods.length;
+    const periodRotations = weekSelectedCycle.periods[cycleIndex];
 
     if (periodInfo) {
       console.log(`  📊 Period details:`, {

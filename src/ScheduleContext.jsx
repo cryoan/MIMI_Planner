@@ -11,6 +11,12 @@ import {
 import { expectedActivities as initialExpectedActivities } from './schedule.jsx';
 import scenarioConfigsData from './scenarioConfigs.json';
 import { applyScenarioChanges } from './scenarioEngine';
+import {
+  getPeriodConfigForWeek,
+  getPeriodBoundaries,
+  loadPeriodConfigs,
+  validatePeriodConfigs
+} from './periodConfigEngine';
 
 export const ScheduleContext = createContext();
 
@@ -24,6 +30,10 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
 
   // Use ref for caching to avoid setState during render
   const scenarioResultsCache = useRef({});
+
+  // Period configuration state
+  const [periodConfigs, setPeriodConfigs] = useState(() => loadPeriodConfigs());
+  const [periodValidation, setPeriodValidation] = useState(() => validatePeriodConfigs());
 
   // Editable data state
   const [doctorProfiles, setDoctorProfiles] = useState(() => initialDoctorProfiles);
@@ -230,6 +240,37 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
     scenarioResultsCache.current = {};
     console.log('🗑️ Scenario cache cleared');
   }, []);
+
+  // ========== PERIOD CONFIGURATION FUNCTIONS ==========
+
+  /**
+   * Get period configuration for a specific week and year
+   */
+  const getPeriodForWeek = useCallback((week, year) => {
+    return getPeriodConfigForWeek(week, year);
+  }, []);
+
+  /**
+   * Get all period boundaries for a year (for visual display)
+   */
+  const getPeriodBoundariesForYear = useCallback((year) => {
+    return getPeriodBoundaries(year);
+  }, []);
+
+  /**
+   * Log period validation errors/warnings on mount
+   */
+  useEffect(() => {
+    if (periodValidation.errors.length > 0) {
+      console.error('❌ Period configuration errors:', periodValidation.errors);
+    }
+    if (periodValidation.warnings.length > 0) {
+      console.warn('⚠️ Period configuration warnings:', periodValidation.warnings);
+    }
+    if (periodValidation.valid) {
+      console.log('✅ Period configurations validated successfully');
+    }
+  }, [periodValidation]);
 
   /**
    * Calculate metrics for a specific scenario without applying it
@@ -558,7 +599,13 @@ export const ScheduleProvider = ({ children, selectedRotationCycle }) => {
       clearScenarioCache,
       currentRotationCycle,
       setCurrentRotationCycle,
-      conflictResolutionOrder
+      conflictResolutionOrder,
+
+      // Period configuration management
+      periodConfigs,
+      periodValidation,
+      getPeriodForWeek,
+      getPeriodBoundariesForYear
     }}>
       {children}
     </ScheduleContext.Provider>
