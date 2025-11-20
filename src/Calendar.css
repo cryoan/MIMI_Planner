@@ -461,3 +461,30 @@ select.astreinte-dropdown:focus {
     align-items: center;
   }
 }
+
+/* Period Workload Chart Styles */
+.period-workload-chart-container {
+  background-color: #f5f7fa;
+  padding: 20px;
+  margin: 0 0 20px 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #1976d2;
+}
+
+.period-workload-chart-wrapper {
+  height: 350px;
+  position: relative;
+}
+
+/* Responsive adjustments for period workload chart */
+@media (max-width: 768px) {
+  .period-workload-chart-container {
+    padding: 15px;
+    margin: 0 0 15px 0;
+  }
+
+  .period-workload-chart-wrapper {
+    height: 300px;
+  }
+}

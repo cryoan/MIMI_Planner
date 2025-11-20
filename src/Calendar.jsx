@@ -522,6 +522,9 @@ import { testCustomPlanningLogic, quickValidation } from './testCustomLogic.js';
 import { realTimeDb } from './firebase';
 import { publicHolidays } from './publicHolidays.js'; // Import the holidays JSON file
 import { ScheduleContext } from './ScheduleContext';
+import PeriodWorkloadChart from './PeriodWorkloadChart';
+import { calculateWorkloadForWeekRange } from './Workload';
+import { getPeriodConfigForWeek } from './periodConfigEngine';
 
 console.log('Public Holidays Structure:', publicHolidays);
 
@@ -916,6 +919,39 @@ const Calendar = ({ year = 2024, month = 'Month1', selectedRotationCycle, setSel
                 </p>
               </div>
             )}
+
+            {/* Render workload chart for this period */}
+            {periodBoundary && customScheduleData && customScheduleData.weeklySchedules && (() => {
+              // Get full period configuration for this week
+              const periodConfig = getPeriodConfigForWeek(weekNumber, year);
+
+              if (!periodConfig || !periodConfig.dateRange) {
+                console.warn(`⚠️ No period config found for week ${weekNumber}, year ${year}`);
+                return null;
+              }
+
+              // Get week range from period configuration
+              const { startWeek, endWeek } = periodConfig.dateRange;
+              console.log(`📊 Calculating workload for period "${periodBoundary.periodName}" (weeks ${startWeek}-${endWeek}, year ${year})`);
+
+              // Calculate workload for all weeks in this configuration period
+              const doctorActivities = calculateWorkloadForWeekRange(
+                customScheduleData.weeklySchedules,
+                startWeek,
+                endWeek,
+                year
+              );
+
+              const activityCount = Object.keys(doctorActivities).length;
+              console.log(`📈 Period "${periodBoundary.periodName}": Found ${activityCount} doctors with activities`);
+
+              return activityCount > 0 ? (
+                <PeriodWorkloadChart
+                  doctorActivities={doctorActivities}
+                  periodName={periodBoundary.periodName}
+                />
+              ) : null;
+            })()}
 
             <div id={`week-${weekNumber}`}>
               <h3>

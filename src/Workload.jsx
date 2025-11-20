@@ -444,6 +444,94 @@ const aggregateActivitiesFromPeriodicData = (customScheduleData) => {
   return doctorActivities;
 };
 
+// Calculate workload for a single period (exported for PeriodWorkloadChart)
+export const calculatePeriodWorkload = (periodSchedule) => {
+  const doctorActivities = {};
+
+  const processActivities = (activitiesList, doctor) => {
+    activitiesList.forEach((activity) => {
+      const activityData = activities[activity] || {};
+      const duration = activityData.duration ?? 1;
+
+      if (!doctorActivities[doctor]) {
+        doctorActivities[doctor] = {};
+      }
+      if (!doctorActivities[doctor][activity]) {
+        doctorActivities[doctor][activity] = 0;
+      }
+      doctorActivities[doctor][activity] += duration;
+    });
+  };
+
+  // Process single period schedule
+  if (periodSchedule && periodSchedule.schedule) {
+    const schedule = periodSchedule.schedule;
+    Object.keys(schedule).forEach((doctor) => {
+      const doctorSchedule = schedule[doctor];
+      Object.keys(doctorSchedule).forEach((day) => {
+        const daySchedule = doctorSchedule[day];
+        Object.keys(daySchedule).forEach((slot) => {
+          const activitiesList = daySchedule[slot];
+          if (Array.isArray(activitiesList)) {
+            processActivities(activitiesList, doctor);
+          }
+        });
+      });
+    });
+  }
+
+  return doctorActivities;
+};
+
+// Calculate workload for a specific week range (exported for configuration periods)
+export const calculateWorkloadForWeekRange = (weeklySchedules, startWeek, endWeek, year) => {
+  const doctorActivities = {};
+
+  const processActivities = (activitiesList, doctor) => {
+    activitiesList.forEach((activity) => {
+      const activityData = activities[activity] || {};
+      const duration = activityData.duration ?? 1;
+
+      if (!doctorActivities[doctor]) {
+        doctorActivities[doctor] = {};
+      }
+      if (!doctorActivities[doctor][activity]) {
+        doctorActivities[doctor][activity] = 0;
+      }
+      doctorActivities[doctor][activity] += duration;
+    });
+  };
+
+  // Process all weeks in the range
+  if (weeklySchedules) {
+    for (let week = startWeek; week <= endWeek; week++) {
+      const weekKey = `${year}-W${String(week).padStart(2, '0')}`;
+      const weekData = weeklySchedules[weekKey];
+
+      if (weekData && weekData.schedule) {
+        const schedule = weekData.schedule;
+        Object.keys(schedule).forEach((doctor) => {
+          const doctorSchedule = schedule[doctor];
+          Object.keys(doctorSchedule).forEach((day) => {
+            const daySchedule = doctorSchedule[day];
+            Object.keys(daySchedule).forEach((slot) => {
+              const activitiesList = daySchedule[slot];
+              if (Array.isArray(activitiesList)) {
+                processActivities(activitiesList, doctor);
+              }
+            });
+          });
+        });
+      }
+    }
+  }
+
+  return doctorActivities;
+};
+
+// Export activity order and colors for use in PeriodWorkloadChart
+export { activityOrder };
+
 // Legacy function for backward compatibility
 const aggregateActivitiesFromCustomData = (customSchedule) => {
   const doctorActivities = {};
