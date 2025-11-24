@@ -23,9 +23,9 @@ export const scheduleConfig = {
   DL: {
     rhythmType: "fixed",
     cycleWeeks: 2, // 2-week alternating rhythm
-    startWeek: 2, // Starting week in 2026
+    startWeek: 1, // Starting week in 2026 (backward inference from Week 2)
     startYear: 2026,
-    startState: "HDJ", // Starts with HDJ
+    startState: "MPO", // Week 1 = MPO (so Week 2 = HDJ as intended)
     states: ["HDJ", "MPO"], // Alternating states
   },
   regularDoctors: {
@@ -46,6 +46,33 @@ export const scheduleConfig = {
  * Focuses on multi-week vacation periods (not single-day holidays)
  * Returns array of {startWeek, endWeek, name} objects
  */
+/**
+ * Count how many workdays (Mon-Fri) in a week are vacation days
+ * @param {number} weekNumber - ISO week number
+ * @param {number} year - Year
+ * @param {string} vacationName - Name of the vacation to check for
+ * @returns {number} Count of vacation workdays (0-5)
+ */
+function countVacationWorkdays(weekNumber, year, vacationName) {
+  const workdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  let vacationCount = 0;
+
+  workdays.forEach(day => {
+    // Check if this specific day has the vacation event
+    const weekKey = `Week${weekNumber}`;
+    const yearData = publicHolidays[year];
+
+    if (yearData && yearData[weekKey] && yearData[weekKey][day]) {
+      const eventName = yearData[weekKey][day]?.event?.name;
+      if (eventName === vacationName) {
+        vacationCount++;
+      }
+    }
+  });
+
+  return vacationCount;
+}
+
 function extractHolidayPeriods() {
   const holidayPeriods = [];
   const vacationNames = new Set(); // Track unique vacation period names
@@ -98,12 +125,11 @@ function extractHolidayPeriods() {
 
       weeks.forEach((weekKey) => {
         const weekNumber = parseInt(weekKey.replace("Week", ""));
-        const weekData = yearData[weekKey];
 
         // Check if this week contains the vacation
-        const hasVacation = Object.keys(weekData).some((day) => {
-          return weekData[day]?.event?.name === vacationName;
-        });
+        // Use workday-based detection: only mark as vacation week if 3+ workdays are vacation
+        const vacationWorkdays = countVacationWorkdays(weekNumber, parseInt(year), vacationName);
+        const hasVacation = vacationWorkdays >= 3; // Majority of workdays (3+ out of 5)
 
         if (hasVacation) {
           if (!currentPeriod) {
@@ -466,6 +492,12 @@ function generateWeekToDLStateMap() {
   let currentYear = dlConfig.startYear;
   let cycleCounter = 0;
 
+  // Find which index the startState is in the states array
+  const startStateIndex = dlConfig.states.indexOf(dlConfig.startState);
+  if (startStateIndex === -1) {
+    console.error(`startState "${dlConfig.startState}" not found in states array`);
+  }
+
   // Get max year from publicHolidays to determine coverage
   const maxYear = Math.max(
     ...Object.keys(publicHolidays).map((y) => parseInt(y))
@@ -474,18 +506,30 @@ function generateWeekToDLStateMap() {
     52 - dlConfig.startWeek + 1 + 52 * (maxYear - dlConfig.startYear);
 
   for (let i = 0; i < totalWeeks; i++) {
-    // Determine state based on cycle
-    const weeksInCurrentCycle = cycleCounter % dlConfig.cycleWeeks;
-    const cycleIndex =
-      Math.floor(cycleCounter / dlConfig.cycleWeeks) % dlConfig.states.length;
-    const currentState = dlConfig.states[cycleIndex];
-
     const weekKey = `${currentYear}-W${currentWeek}`;
-    stateMap[weekKey] = {
-      state: currentState,
-      cycleNumber: Math.floor(cycleCounter / dlConfig.cycleWeeks) + 1,
-      weekInCycle: weeksInCurrentCycle + 1,
-    };
+
+    // SPECIAL CASE: First week is a partial cycle (1 week) using startState
+    // This represents the last week of the previous cycle (backward inference)
+    if (i === 0) {
+      stateMap[weekKey] = {
+        state: dlConfig.startState,
+        cycleNumber: 0, // Week 0 (partial cycle before official start)
+        weekInCycle: 1,
+      };
+    } else {
+      // NORMAL CASE: All subsequent weeks follow the regular 2-week cycle pattern
+      // Adjust cycleCounter to account for the first partial week
+      const adjustedCounter = cycleCounter - 1;
+      const weeksInCurrentCycle = adjustedCounter % dlConfig.cycleWeeks;
+      const cycleIndex = Math.floor(adjustedCounter / dlConfig.cycleWeeks) % dlConfig.states.length;
+      const currentState = dlConfig.states[cycleIndex];
+
+      stateMap[weekKey] = {
+        state: currentState,
+        cycleNumber: Math.floor(adjustedCounter / dlConfig.cycleWeeks) + 1,
+        weekInCycle: weeksInCurrentCycle + 1,
+      };
+    }
 
     // Increment
     cycleCounter++;
@@ -673,27 +717,42 @@ export function isHolidayWeek(weekNumber, year) {
 export function isHolidayDay(weekNumber, dayName, year) {
   // Query publicHolidays structure for this specific day
   const weekKey = `Week${weekNumber}`;
-  const yearData = publicHolidays[year];
 
-  if (!yearData) {
-    return false; // Year not found in vacation data
+  // Helper function to check if a specific year/week/day is a vacation
+  const checkVacation = (checkYear) => {
+    const yearData = publicHolidays[checkYear];
+    if (!yearData) return false;
+
+    const weekData = yearData[weekKey];
+    if (!weekData) return false;
+
+    const dayData = weekData[dayName];
+    if (!dayData || !dayData.event) return false;
+
+    const eventName = dayData.event.name || "";
+    return eventName.toLowerCase().includes("vacances");
+  };
+
+  // PRIMARY: Check the requested year
+  if (checkVacation(year)) {
+    return true;
   }
 
-  const weekData = yearData[weekKey];
-  if (!weekData) {
-    return false; // Week not found in vacation data
+  // FALLBACK: Check adjacent year for cross-year weeks
+  // Week 1 may have vacation data in previous year (Dec 29-31)
+  // Week 52-53 may have vacation data in next year (Jan 1-3)
+  let adjacentYear = null;
+  if (weekNumber === 1) {
+    adjacentYear = year - 1;  // Check previous year for Week 1
+  } else if (weekNumber >= 52) {
+    adjacentYear = year + 1;  // Check next year for Week 52-53
   }
 
-  const dayData = weekData[dayName];
-  if (!dayData || !dayData.event) {
-    return false; // Day not found or no event
+  if (adjacentYear !== null && checkVacation(adjacentYear)) {
+    return true;
   }
 
-  // Check if the event is a vacation period (not a single-day public holiday)
-  const eventName = dayData.event.name || "";
-  const isVacationPeriod = eventName.toLowerCase().includes("vacances");
-
-  return isVacationPeriod;
+  return false;
 }
 
 /**
